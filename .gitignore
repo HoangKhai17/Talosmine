@@ -1,0 +1,26 @@
+# Secrets / API keys — KHÔNG BAO GIỜ commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets/
+.claude/settings.local.json
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+
+# Build / output
+dist/
+build/
+out/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
