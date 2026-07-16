@@ -1,7 +1,7 @@
 ---
 description: Test engineer. Writes and runs automated tests (unit, integration, e2e) for implemented features.
 mode: subagent
-model: openai/gpt-5.6-sol
+model: openai/gpt-5.5
 temperature: 0.1
 permission:
   read: allow
