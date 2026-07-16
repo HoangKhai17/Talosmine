@@ -65,11 +65,57 @@ Cho tới lúc đó:
 ### Quy trình
 
 ```
-architect (lập plan) → frontend / backend (hiện thực) → tester (viết test)
-    → qa (kiểm chứng) → reviewer (review) → document (tài liệu)
+LÀN 1              architect (chốt plan + hợp đồng API)
+                        ▼
+LÀN 2 (SONG SONG)  frontend ║ backend ║ tester
+                        ▼
+LÀN 3 (SONG SONG)  qa ║ reviewer
+                        ▼
+LÀN 4              document
 ```
 
 Công việc **chưa được coi là "xong"** cho tới khi `qa` và `reviewer` đều pass.
+
+`frontend`, `backend`, `tester` chạy **đồng thời** dựa trên hợp đồng API của architect —
+mỗi con một làn file riêng, không đụng nhau. Nếu bạn thấy mình cần sửa file thuộc làn của
+agent khác, **dừng và báo** — đó là dấu hiệu thiết kế sai, không phải lý do để lấn làn.
+
+---
+
+## 4b. Vòng lặp kiểm chứng & luật báo cáo trung thực
+
+Hệ thống chạy theo vòng lặp: **làm → tự kiểm → sửa → kiểm lại**, tối đa **3 vòng**.
+
+### Ba trạng thái kết thúc — không có trạng thái thứ tư
+
+| Trạng thái | Khi nào | Phải làm gì |
+|---|---|---|
+| ✅ **ĐẠT** | qa PASS và reviewer hết mục "phải sửa" | Báo hoàn thành |
+| 🛑 **TẮC** | Không thể khắc phục (xem dưới) | **DỪNG**, hỏi người dùng |
+| ⛔ **CẠN LƯỢT** | Hết 3 vòng vẫn chưa đạt | **DỪNG**, báo cáo hiện trạng thật |
+
+### Thế nào là TẮC (không thể khắc phục)
+
+Hãy khai báo TẮC — đừng cố sửa tiếp — khi gặp:
+
+- Thiếu một **quyết định của con người** (chọn stack, chọn đánh đổi, yêu cầu chưa rõ).
+- Yêu cầu **tự mâu thuẫn** hoặc bất khả thi về kỹ thuật.
+- Thiếu **phụ thuộc bên ngoài** (credential, service, quyền truy cập).
+- **Cùng một lỗi lặp lại lần thứ 2** → vòng lặp không hội tụ, sửa thêm chỉ phá thêm.
+
+Khi khai báo TẮC, phải nêu đủ: **đang tắc ở đâu**, **đã thử gì**, **cần quyết định gì**.
+
+> **TẮC là một kết quả hợp lệ và hữu ích.** Nó không phải thất bại.
+> Cái thất bại thật sự là âm thầm lách qua vấn đề rồi báo "xong" —
+> vì lỗi đó sẽ nổ ra sau, ở chỗ khó tìm hơn nhiều.
+
+### Luật chống tự lừa
+
+- `architect`, `qa`, `reviewer` **không sửa được file** (`edit: deny`). Đó chính là lý do
+  kết luận của chúng đáng tin — chúng không thể tự sửa rồi tự khen.
+- **Không agent nào được vừa viết code vừa tự tuyên bố code mình đạt chuẩn.**
+- Nếu test fail: lỗi thuộc về **code**, giao `frontend`/`backend` sửa.
+  **Cấm** sửa test cho pass. Test là thước đo — bẻ cong thước đo là tự lừa mình.
 
 ---
 
