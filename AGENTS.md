@@ -137,5 +137,6 @@ Các quy tắc đã có hiệu lực ngay, bất kể stack nào:
 
 ## 6. Ngôn ngữ
 
-- **Code, comment, commit message, tài liệu:** tiếng Anh.
+- **Code, comment, commit message:** tiếng Anh.
+- **Tài liệu trong `/docs`:** tiếng Việt; thuật ngữ kỹ thuật có thể giữ tiếng Anh khi cần thiết.
 - **Trao đổi với người dùng:** tiếng Việt.
