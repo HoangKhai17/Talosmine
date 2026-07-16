@@ -25,7 +25,7 @@ Tài liệu này mô tả cách vận hành mô hình **1 orchestrator + nhiều
 ---
 
 ## 2. Danh sách agent & quyền hạn
-
+ 
 | Agent | id gọi tay | Vai trò | Được sửa file? | Được chạy lệnh (bash)? |
 |---|---|---|---|---|
 | Orchestrator | *(chọn bằng Tab)* | Điều phối, chia việc, tổng hợp | Hỏi trước (ask) | Hỏi trước (ask) |
