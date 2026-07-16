@@ -1,7 +1,7 @@
 ---
 description: Technical writer. Writes and updates documentation — READMEs, API docs, usage guides, changelogs, and code comments.
 mode: subagent
-model: anthropic/claude-haiku-4-20250514
+model: openai/gpt-5.6-sol
 temperature: 0.3
 permission:
   read: allow

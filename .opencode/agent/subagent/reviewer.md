@@ -1,7 +1,7 @@
 ---
 description: Code reviewer. Reviews diffs for correctness bugs, security issues, and maintainability. Read-only — gives feedback, does not change code.
 mode: subagent
-model: anthropic/claude-sonnet-4-20250514
+model: openai/gpt-5.6-sol
 temperature: 0.1
 permission:
   read: allow

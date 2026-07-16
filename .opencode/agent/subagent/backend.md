@@ -1,7 +1,7 @@
 ---
 description: Backend engineer. Implements server logic, APIs, data models, persistence, and integrations.
 mode: subagent
-model: anthropic/claude-haiku-4-20250514
+model: openai/gpt-5.6-sol
 temperature: 0.2
 permission:
   read: allow

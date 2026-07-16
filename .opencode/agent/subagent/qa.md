@@ -1,7 +1,7 @@
 ---
 description: QA engineer. Verifies acceptance criteria, runs build/lint/typecheck/test, and reports defects. Does not edit code.
 mode: subagent
-model: anthropic/claude-haiku-4-20250514
+model: openai/gpt-5.6-sol
 temperature: 0.1
 permission:
   read: allow

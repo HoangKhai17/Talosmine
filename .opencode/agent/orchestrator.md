@@ -1,7 +1,7 @@
 ---
 description: Main orchestrator. Breaks work into tasks and delegates to the right subagent (architect, frontend, backend, tester, qa, reviewer, document). Coordinates the whole build.
 mode: primary
-model: anthropic/claude-sonnet-4-20250514
+model: anthropic/claude-opus-4-8
 temperature: 0.2
 permission:
   read: allow
