@@ -1,7 +1,7 @@
 ---
 description: Người viết tài liệu kỹ thuật. Viết và cập nhật tài liệu — README, tài liệu API, hướng dẫn sử dụng, changelog, và comment trong code.
 mode: subagent
-model: openai/gpt-5.6-sol
+model: anthropic/claude-opus-4-8
 temperature: 0.3
 permission:
   read: allow

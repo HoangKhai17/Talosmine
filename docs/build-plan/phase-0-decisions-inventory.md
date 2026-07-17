@@ -127,16 +127,84 @@ Thay đổi decision đã approve phải tạo record superseding, đánh giá c
 
 ## 15. Ordered steps
 
-1. Lập danh sách toàn bộ app/backend/domain/owner; đề cử sample app bằng tiêu chí đại diện.
-2. Inventory user/admin routes, API/actions, workers/jobs, direct URLs và enforcement hiện tại của từng app; chưa kết luận capability tồn tại nếu chưa có evidence.
-3. Tạo decision register từ toàn bộ open decisions trong docs nguồn.
-4. Tổ chức workshop theo nhóm product, security/privacy, operations và app integration.
-5. Viết scenario/boundary examples trước khi xin approval; không điền giá trị giả.
-6. Hoàn thiện Auth0 topology, admin matrix, retention và RPO/RTO ownership.
-7. Threat model và map mỗi threat/control sang phase/test.
-8. Architect kiểm consistency, dependency và freeze decision contract.
-9. QA kiểm evidence/completeness; reviewer kiểm ambiguity, security và khả năng kiểm thử.
-10. Sửa tối đa ba vòng; cập nhật status chỉ khi exit gate đạt.
+P0 không tạo implementation nên mọi **Sản phẩm** là tài liệu trong `docs/build-plan/` và mọi **Verify** là review/completeness/approval evidence, không phải lệnh build. Các bước tuân thứ tự logic inventory → decisions → threat/traceability → contract freeze → QA/reviewer.
+
+**P0.1 — Lập danh sách app/backend/domain và đề cử sample app**
+- Hành động: liệt kê toàn bộ app/backend/domain cùng owner kỹ thuật/product; đề cử sample app theo tiêu chí đại diện (direct URL, backend protected action, worker/async path) tại mục 4.
+- Sản phẩm: bảng application inventory + đề cử sample app trong `docs/build-plan/phase-0-decisions-inventory.md` (mục 4) và/hoặc inventory record đính kèm dưới `docs/build-plan/`.
+- Phụ thuộc: đọc/đối chiếu `docs/index.md`, `docs/modular.md`, `docs/database-schema.md`, `docs/stack-tech.md`, `AGENTS.md`. `‹cần chốt: danh sách app chính thức và ai là owner từng app›`.
+- Verify: mỗi app có owner xác nhận; đề cử sample app nêu rõ path nào được đại diện, path nào không — reviewer/app owner đọc và xác nhận đủ đại diện.
+- Lane: `architect` điều phối; `frontend`/`backend` cung cấp inventory theo lane; `document` chuẩn hóa.
+
+**P0.2 — Inventory route/action/worker/direct URL từng app**
+- Hành động: với mỗi app, thu thập user/admin routes, API/actions, workers/jobs, direct/deep URLs và enforcement point hiện có theo template mục 4; không kết luận capability tồn tại nếu chưa có evidence.
+- Sản phẩm: per-app inventory record (identity, user entry, protected routes/actions, workers, direct-access/bypass, feature/metric để trống nếu chưa duyệt, data/domain auth, service identity, observability, rollout/rollback) dưới `docs/build-plan/`.
+- Phụ thuộc: P0.1.
+- Verify: owner từng app review completeness; mỗi protected path có ghi authentication/entitlement/domain-auth/quota áp dụng hoặc `N/A` kèm lý do.
+- Lane: `frontend` (route/image/CSP), `backend` (API/action/worker/data boundary); `document` chuẩn hóa.
+
+**P0.3 — Tạo decision register từ mọi open decision**
+- Hành động: chuyển từng open decision trong docs nguồn (mục 3) thành record đủ trường: `decisionId`, title, context, options/trade-offs, decision, owner, approver, approval date, affected phase, testable acceptance, security/privacy impact, migration/rollback impact, links, status `proposed|approved|superseded`.
+- Sản phẩm: decision register dưới `docs/build-plan/` với mọi record khởi tạo ở `proposed`.
+- Phụ thuộc: P0.1, P0.2.
+- Verify: mỗi decision group ở mục 3 có tối thiểu một record; không ô nào điền “default hợp lý”; register liệt kê đầy đủ, chưa cần approved.
+- Lane: `architect` điều phối; `document` chuẩn hóa.
+
+**P0.4 — Workshop chốt quyết định theo nhóm**
+- Hành động: tổ chức workshop theo product, security/privacy, operations và app integration để đưa từng `proposed` decision tới `approved` với owner/approver cụ thể.
+- Sản phẩm: cập nhật decision register (owner/approver/approval date/decision) + biên bản/evidence link dưới `docs/build-plan/`.
+- Phụ thuộc: P0.3. `‹cần chốt: người/role có thẩm quyền đóng vai owner và approver cho từng decision group›`.
+- Verify: mỗi decision chặn P1/P2 chuyển sang `approved` có approver hợp lệ; decision còn `proposed` vẫn được đánh dấu blocker của phase tương ứng.
+- Lane: `architect` điều phối (không tự approve thay human); `document` ghi kết quả.
+
+**P0.5 — Viết scenario/boundary examples testable**
+- Hành động: cho mỗi decision đã chốt, viết testable examples (state transitions, boundary tables cho subscription/window/timezone/DST/TTL/late success, positive/invalid action→metric) trước khi xin sign-off; không điền giá trị giả.
+- Sản phẩm: scenario/boundary appendix dưới `docs/build-plan/`, liên kết ngược `decisionId`.
+- Phụ thuộc: P0.4.
+- Verify: mỗi decision có tối thiểu một expected outcome quan sát được (`commit|cancel|anomaly`, allow/deny, transition); reviewer xác nhận không có giá trị bịa.
+- Lane: `tester` thiết kế scenario (không bịa fixture value); `architect` review.
+
+**P0.6 — Hoàn thiện Auth0 topology, admin matrix, retention, RPO/RTO**
+- Hành động: chốt non-secret Auth0 topology/config inventory, admin permission matrix + bootstrap ceremony, retention/privacy matrix và RPO/RTO ownership.
+- Sản phẩm: topology inventory (không secret), admin matrix, retention matrix, RPO/RTO record dưới `docs/build-plan/`.
+- Phụ thuộc: P0.4. `‹cần chốt: Auth0 tenant/topology, admin bootstrap authority, retention policy, mục tiêu RPO/RTO›`.
+- Verify: security/operations approver ký; inventory không chứa secret; mỗi mục có measurable acceptance (SLA, retention interval, restore drill pass/fail).
+- Lane: `architect` điều phối; `frontend`/`backend` cấp input boundary; `document` chuẩn hóa.
+
+**P0.7 — Threat model và map threat/control sang phase/test**
+- Hành động: dựng threat inventory cho direct access, callback/redirect, BFF/admin, M2M, worker và image proxy/CSP; map mỗi threat/control sang phase và acceptance case.
+- Sản phẩm: threat inventory + threat→control→phase/test mapping dưới `docs/build-plan/`.
+- Phụ thuộc: P0.2, P0.5, P0.6.
+- Verify: mỗi trust boundary ở mục 12 có ít nhất một negative case; reviewer xác nhận không có protected path bỏ trống.
+- Lane: `architect` + `reviewer` (review); `tester` chuyển thành negative test design.
+
+**P0.8 — Traceability matrix decision → contract/test → blocked phase**
+- Hành động: lập ma trận truy vết nối mỗi decision và protected path tới contract/test dự kiến và phase bị block; đánh dấu unresolved item với owner/approver/phase phải dừng.
+- Sản phẩm: traceability matrix + unresolved list dưới `docs/build-plan/`.
+- Phụ thuộc: P0.3–P0.7.
+- Verify: không có protected path hoặc blocker vô chủ; mỗi unresolved item map tới đúng phase `blocked`.
+- Lane: `architect` điều phối; `document` chuẩn hóa.
+
+**P0.9 — Architect kiểm consistency và freeze decision contract**
+- Hành động: architect kiểm thuật ngữ/key nhất quán giữa inventory và docs nguồn, dependency và các điều kiện freeze tại mục 13; ký freeze decision contract (không freeze endpoint).
+- Sản phẩm: freeze record cho decision contract dưới `docs/build-plan/`.
+- Phụ thuộc: P0.8; billing vẫn deferred P9.
+- Verify: đủ 5 điều kiện mục 13; freeze record dẫn chiếu decision register + traceability; architect không tự write/approve thay human.
+- Lane: `architect` (review/freeze, không write implementation).
+
+**P0.10 — QA và reviewer kiểm độc lập**
+- Hành động: QA kiểm evidence/completeness/approval và unresolved blocker; reviewer kiểm ambiguity, security/privacy và khả năng kiểm thử; chạy song song.
+- Sản phẩm: QA PASS/FAIL record và reviewer “mục phải sửa”/khuyến nghị trong bảng mục 20.
+- Phụ thuộc: P0.9.
+- Verify: QA/reviewer là người độc lập, không phải tác giả tài liệu; kết luận có evidence link.
+- Lane: `qa` ║ `reviewer` (read-only, không sửa docs).
+
+**P0.11 — Vòng sửa và cập nhật status**
+- Hành động: chủ tài liệu sửa mục QA/reviewer nêu, tối đa ba vòng; chỉ cập nhật phase status khi exit gate (mục 18) đạt.
+- Sản phẩm: cập nhật decision/inventory docs và mục 1 (status) dưới `docs/build-plan/`.
+- Phụ thuộc: P0.10.
+- Verify: QA `PASS` và reviewer hết “mục phải sửa”; nếu lặp lỗi lần hai ghi **TẮC**, hết ba vòng ghi **CẠN LƯỢT** (metadata, không thay status canonical).
+- Lane: `document` (sửa docs sau approval); `architect`/`orchestrator` điều phối vòng.
 
 ## 16. Parallel lanes và ownership
 

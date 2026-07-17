@@ -1,7 +1,7 @@
 ---
 description: Kỹ sư test. Viết và chạy test tự động (unit, integration, e2e) cho các tính năng đã hiện thực.
 mode: subagent
-model: openai/gpt-5.5
+model: anthropic/claude-opus-4-8
 temperature: 0.1
 permission:
   read: allow

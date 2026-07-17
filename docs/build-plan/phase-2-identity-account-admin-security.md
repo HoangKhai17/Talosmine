@@ -182,16 +182,140 @@ Sau freeze, thay đổi breaking phải quay lại architect, version/ghi rõ im
 
 ## 15. Ordered steps
 
-1. Xác nhận prerequisites. Recovery được coi là bắt buộc trừ khi scope decision và toàn bộ source/contract/build-plan updates đã được review; dừng nếu thiếu SDK/config/bootstrap/revoke/recovery decision bắt buộc.
-2. Architect lập threat model, permission matrix, login/logout/recovery browser sequences và OpenAPI; review rồi contract freeze.
-3. Backend tạo migration Account/Identity/Admin/Audit với P2 phased audit constraint, `audit_events_append_only_trg`, runtime grants cấm `UPDATE`/`DELETE`/`TRUNCATE`, constraints/indexes và migration tests trước repository/use case; không tạo service identity/application và không cấp owner/migration role cho runtime.
-4. Backend hiện thực public ports, shared Unit of Work provisioning và transactional audit; sau đó controllers theo contract.
-5. Backend tích hợp Auth0 SDK đã duyệt, exact redirect validator, session hash/CSRF/revoke, recovery redirect/config và Google config gate không secret.
-6. Frontend xây BFF auth feature và user flows chỉ dựa trên frozen contract.
-7. Frontend xây protected admin shell và account/session/RBAC foundation; không dựa vào menu để cấp quyền.
-8. Tester viết/chạy contract, integration, concurrency, security và accessibility/responsive tests trên lane riêng; không sửa test để che lỗi code.
-9. Tích hợp ba làn, chạy migration dry-run và lưu evidence SQL trực tiếp cho trigger/grants/P3-upgrade compatibility, rồi chạy test/lint/typecheck/build bằng lệnh thật sau khi repo bootstrap; nếu lệnh chưa tồn tại thì báo đúng sự thật.
-10. QA và reviewer kiểm độc lập; owner sửa mục bắt buộc tối đa theo vòng lặp dự án. Chỉ qua exit gate khi cả hai sign-off.
+Runbook dưới đây là **kế hoạch thực thi**, không khẳng định artifact đã tồn tại hoặc lệnh đã chạy. Mạch logic: decisions → contract freeze → parallel impl (backend/frontend/tester) → integration → QA/reviewer. Mỗi bước ghi năm thành phần: **Hành động** / **Sản phẩm** / **Phụ thuộc** / **Verify** / **Lane**. Các quyết định/tooling chưa được phê duyệt ghi `‹cần chốt: ...›` và là blocker của bước liên quan.
+
+**A. Decisions và contract freeze (tuần tự, chặn mọi bước sau)**
+
+1. Xác nhận exit gate Phase 1 và toàn bộ human decision ở mục 3. Recovery mặc định bắt buộc; chỉ được coi N/A khi scope decision đã cập nhật/review đủ bốn nguồn ở mục 3.
+   - **Hành động:** đối chiếu từng mục 3 (Auth0 tenant/issuer/audience/SDK, callback/return URL từng môi trường, session lifetime/rotation/cookie/CSRF policy, provisioning policy, profile-sync policy, bootstrap admin, permission catalog tối thiểu, Google connection, recovery flow/return/anti-enumeration, retention/PII); đánh dấu mục nào còn thiếu.
+   - **Sản phẩm:** bản xác nhận decision (do orchestrator/architect giữ), không phải file trong 2 file thuộc lane này.
+   - **Phụ thuộc:** Phase 1 exit gate; `‹cần chốt: Auth0 SDK package được phê duyệt›`; `‹cần chốt: session/cookie/CSRF/rotation policy›`; `‹cần chốt: bootstrap admin one-time process›`; `‹cần chốt: permission catalog tối thiểu›`; `‹cần chốt: recovery flow + exact return URL›`.
+   - **Verify:** mọi mục 3 có giá trị chốt hoặc được ghi `‹cần chốt›`; nếu thiếu decision bắt buộc thì DỪNG tại đây (TẮC), không điền giá trị giả.
+   - **Lane:** orchestrator/architect.
+
+2. Architect lập threat model, permission matrix, login/logout/recovery browser sequences, state machine account/session và OpenAPI; review rồi contract freeze theo mục 13.
+   - **Hành động:** viết `contracts/openapi/control-plane.v1.yaml` cho `/v1/me/account`, `/v1/me/account/sessions`, admin account/session/role endpoints và machine error codes ở mục 9/18; tài liệu hóa browser-flow `/auth/login|callback|logout` (status, cookie attributes, CSRF exchange, exact return URL normalization) và recovery entry.
+   - **Sản phẩm:** `contracts/openapi/control-plane.v1.yaml` (frozen), browser-flow contract, permission matrix, audit action/target schema, `operationId + sequence` rules.
+   - **Phụ thuộc:** bước 1.
+   - **Verify:** OpenAPI 3.1 lint pass (`‹cần chốt: openapi lint command sau bootstrap›`); mọi route/method/status/error code có định nghĩa; ba làn xác nhận đủ để implement; breaking change sau freeze phải quay lại architect.
+   - **Lane:** architect (OpenAPI owner do orchestrator chỉ định để tránh ghi đồng thời).
+
+**B. Backend — migrations theo thứ tự phụ thuộc (lane backend, chỉ sau freeze)**
+
+3. Tạo migration nền: schema `control_plane`, migration role và runtime role, grants tối thiểu.
+   - **Hành động:** viết forward migration tạo schema `control_plane`; tạo migration/owner role và runtime role tách biệt; cấp runtime role chỉ `SELECT`/`INSERT` theo ownership, cấm `UPDATE`/`DELETE`/`TRUNCATE` trên `audit_events`.
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration 0001 nền schema/roles/grants).
+   - **Phụ thuộc:** bước 2.
+   - **Verify:** chạy Drizzle Kit forward migration trên database rỗng (`‹cần chốt: tên script migrate sau bootstrap›`, tool: Drizzle Kit); `\dn` cho thấy schema `control_plane`; runtime role không phải owner/migration role.
+   - **Lane:** backend.
+
+4. Tạo migration `accounts`.
+   - **Hành động:** tạo `control_plane.accounts` với `id uuid` application-generated, profile typed (`display_name`, `email`, `email_verified`, `locale`, `timezone`), status `pending|active|disabled`; named checks `accounts_status_check`, `accounts_disabled_state_check`, `accounts_email_verified_check`, `accounts_locale_check`, `accounts_timezone_check`; index `accounts_status_idx`; không unique `email`/`display_name`.
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration `accounts`).
+   - **Phụ thuộc:** bước 3.
+   - **Verify:** migration smoke trên DB rỗng; insert hợp lệ pass, `disabled` không `disabled_at` bị check từ chối, `email_verified = true` khi `email IS NULL` bị từ chối; không tồn tại unique index trên `email`/`display_name`.
+   - **Lane:** backend.
+
+5. Tạo migration `external_identities`.
+   - **Hành động:** tạo `external_identities` với FK `account_id REFERENCES accounts(id) ON DELETE RESTRICT`, provider baseline `auth0`, unique `external_identities_issuer_subject_key (issuer, subject)`, checks provider/issuer/subject non-empty, index `external_identities_account_idx`; không có index/unique liên kết theo email.
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration `external_identities`).
+   - **Phụ thuộc:** bước 4.
+   - **Verify:** migration smoke; hai row cùng `(issuer, subject)` bị unique từ chối; xóa `accounts` còn identity bị `RESTRICT`; không có unique nào trên email.
+   - **Lane:** backend.
+
+6. Tạo migration `web_sessions`.
+   - **Hành động:** tạo `web_sessions` với `session_token_hash bytea` unique (`web_sessions_token_hash_key`), `csrf_token_hash bytea` **bắt buộc nhưng không unique**, `auth0_sid` nullable với partial index `web_sessions_auth0_sid_idx ... WHERE auth0_sid IS NOT NULL` (không unique), DB-clock timestamps, `web_sessions_expiry_check`, `web_sessions_revocation_check`, active index `web_sessions_account_active_idx (account_id, expires_at) WHERE revoked_at IS NULL`; không lưu token/cookie/CSRF thô.
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration `web_sessions`).
+   - **Phụ thuộc:** bước 4.
+   - **Verify:** migration smoke; chỉ `session_token_hash` unique; `csrf_token_hash` cho phép trùng; `auth0_sid` partial index tồn tại và không unique; `expires_at <= created_at` bị từ chối.
+   - **Lane:** backend.
+
+7. Tạo migration Admin RBAC: `admin_roles` → `admin_role_permissions` → `admin_role_assignments`.
+   - **Hành động:** tạo `admin_roles` (unique `key`, status `active|inactive`), `admin_role_permissions` (unique `(admin_role_id, permission)`, named check danh sách permission đã duyệt), `admin_role_assignments` (validity/revoke triple checks, `admin_role_assignments_lookup_idx`); permission list khóa bằng named check theo mục 3.
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration admin RBAC).
+   - **Phụ thuộc:** bước 4; `‹cần chốt: permission catalog tối thiểu›` cho named check.
+   - **Verify:** migration smoke; permission ngoài danh sách bị named check từ chối; assignment trùng khoảng hiệu lực do service ngăn (test ở bước tester).
+   - **Lane:** backend.
+
+8. Tạo migration `audit_events` staging P2 + append-only trigger + runtime grants.
+   - **Hành động:** tạo `audit_events` theo canonical shape nhưng với **P2 actor check** chỉ chấp nhận `account|system` (cột `actor_service_identity_id` nullable, **chưa FK**, runtime yêu cầu `IS NULL`); unique `audit_events_operation_sequence_key (operation_id, sequence)`; details shape/size checks; tạo trigger `audit_events_append_only_trg BEFORE UPDATE OR DELETE` từ chối mutation; xác nhận runtime grants cấm `UPDATE`/`DELETE`/`TRUNCATE`.
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration audit staging + trigger).
+   - **Phụ thuộc:** bước 7 (audit foundation đi sau admin roles); tôn trọng phased P2->P3: P2 chưa tạo `service_identities`/FK.
+   - **Verify:** evidence SQL trực tiếp — dùng migration-test role thực `UPDATE`/`DELETE` trên `audit_events` bị `audit_events_append_only_trg` từ chối; dùng runtime role thực `TRUNCATE audit_events` bị grants từ chối; insert `actor_type = 'service'` hoặc `actor_service_identity_id` non-null bị check/runtime từ chối; `account`/`system` shape hợp lệ pass.
+   - **Lane:** backend.
+
+9. Viết migration/compatibility tests P2 trước repository/use case.
+   - **Hành động:** viết test khẳng định constraint existence/name, `csrf_token_hash` không unique, `auth0_sid` partial index không unique, audit chưa có service FK và từ chối service actor/value; mô phỏng nâng cấp P3 (thêm FK + đổi actor check) và khẳng định trigger/grants vẫn còn hiệu lực.
+   - **Sản phẩm:** migration tests trong `tests/**` (owner tester phối hợp; backend cung cấp fixture SQL).
+   - **Phụ thuộc:** bước 8.
+   - **Verify:** chạy test suite (`‹cần chốt: test runner + script sau bootstrap›`); nếu lệnh chưa tồn tại thì báo đúng sự thật, không bịa script.
+   - **Lane:** tester (fixture do backend cấp).
+
+**C. Backend — ports, use cases, controllers (lane backend)**
+
+10. Hiện thực public ports, shared Unit of Work provisioning và transactional audit.
+    - **Hành động:** trong `apps/control-plane/src/modules/account` và `apps/control-plane/src/modules/identity`, viết Account provisioning port và Identity resolve-by-`(issuer, subject)`; mở một PostgreSQL transaction tạo `accounts` (`pending`) rồi insert `external_identities`; thua unique race thì rollback toàn transaction (kể cả account) và retry đọc winner; append audit qua `AuditAppendPort` cùng UoW với `operationId + sequence`.
+    - **Sản phẩm:** module identity/account (ports, repositories, use cases).
+    - **Phụ thuộc:** bước 8, 9.
+    - **Verify:** unit/integration test provisioning race (bước 15) pass; không tạo account orphan; audit lỗi rollback mutation.
+    - **Lane:** backend.
+
+11. Tích hợp Auth0 SDK, exact redirect validator, session hash/CSRF/revoke, recovery redirect và Google config gate.
+    - **Hành động:** wiring Auth0 SDK trong module identity/BFF boundary: verify code flow (PKCE, `state`, `nonce`, issuer, audience, signature, expiry) trước provisioning/session; canonicalize + exact-match allowlist cho return/callback/logout; sinh session token/CSRF token, chỉ lưu hash; revoke server-side; recovery redirect tới approved Auth0 flow với anti-enumeration; Google connection gate không secret.
+    - **Sản phẩm:** identity/session integration code trong `apps/control-plane/src/modules/identity` và BFF boundary.
+    - **Phụ thuộc:** bước 10; `‹cần chốt: Auth0 SDK package›`; `‹cần chốt: recovery flow/entry/return URL›`; `‹cần chốt: cookie/CSRF/rotation policy›`.
+    - **Verify:** OIDC/redirect/CSRF/recovery tests (bước 15) pass; không secret/token trong log/DB/URL; nếu SDK chưa được phê duyệt thì DỪNG (TẮC).
+    - **Lane:** backend.
+
+12. Viết controllers theo frozen contract cho account, session và admin, với RBAC guard server-side.
+    - **Hành động:** `GET/PATCH /v1/me/account` (field allowlist, không cho user sửa `status`/`email_verified`); `GET /v1/me/account/sessions`, `DELETE /v1/me/account/sessions/{sessionId}` (kiểm ownership); admin account search/detail/disable/enable (reason bắt buộc, audit transaction); admin session list/revoke (không trả hash/token); admin role read + mutation tối thiểu; guard authorize deny-by-default server-side trong `apps/control-plane/src/modules/admin`.
+    - **Sản phẩm:** controllers + RBAC guard trong module account/admin.
+    - **Phụ thuộc:** bước 10, 11; contract bước 2.
+    - **Verify:** contract test khớp OpenAPI; mọi permission thiếu trả `403` kể cả gọi API trực tiếp; disable phối hợp revoke session trong UoW.
+    - **Lane:** backend.
+
+**D. Frontend (lane frontend, song song sau freeze)**
+
+13. Xây BFF auth feature và user flows chỉ dựa trên frozen contract.
+    - **Hành động:** trong `apps/web/src/bff/auth/features` dựng route BFF `/auth/login`, `/auth/callback`, `/auth/logout` và recovery entry; login khởi động flow qua BFF (không tạo authorization URL ở browser, không lưu token client); callback page hiển thị trạng thái tối thiểu; logout là mutation có CSRF, revoke session, xóa cookie; trong `apps/web/app/(user)` và `apps/web/app/auth` dựng account page và session list page.
+    - **Sản phẩm:** `apps/web/src/bff/auth/features`, `apps/web/app/auth`, `apps/web/app/(user)`.
+    - **Phụ thuộc:** bước 2 (frozen contract). Không truy cập DB hoặc đổi backend contract ngầm.
+    - **Verify:** e2e/UI tests (bước 15); không token/claim trong DOM/URL/log; keyboard/focus/label đạt; layout mobile/tablet/desktop không tràn ngang.
+    - **Lane:** frontend.
+
+14. Xây protected admin shell và account/session/RBAC foundation UI.
+    - **Hành động:** trong `apps/web/app/admin` dựng shell kiểm session + permission ở server/BFF trước khi tải dữ liệu; account search/detail, disable/enable (reason), session revoke (hiển thị scope, không hiện token/hash); bootstrap admin UI chỉ hiện nếu one-time process đã duyệt; menu ẩn/client guard chỉ là UX.
+    - **Sản phẩm:** `apps/web/app/admin`.
+    - **Phụ thuộc:** bước 2; `‹cần chốt: bootstrap admin one-time process›`.
+    - **Verify:** UI tests (bước 15); action thiếu permission bị server từ chối dù gọi URL/API trực tiếp; bảng có caption/header/keyboard/focus, responsive card/scroll ở màn hình hẹp.
+    - **Lane:** frontend.
+
+**E. Tester (lane tester, song song sau freeze)**
+
+15. Viết/chạy contract, integration, concurrency, security và accessibility/responsive tests trên `tests/**`.
+    - **Hành động:** viết OIDC/redirect/CSRF/session/provisioning-race/identity/Google-gate/recovery/RBAC-audit tests và schema/append-only/P3-upgrade tests theo mục 14; không sửa test để che lỗi code.
+    - **Sản phẩm:** `tests/**`.
+    - **Phụ thuộc:** bước 2 (contract); fixture backend bước 9; không sửa sản phẩm.
+    - **Verify:** chạy test suite (`‹cần chốt: test runner + script sau bootstrap›`); test fail thì trả về backend/frontend sửa code, cấm nới assertion; nếu lệnh chưa tồn tại thì báo đúng sự thật.
+    - **Lane:** tester.
+
+**F. Integration**
+
+16. Tích hợp ba làn, chạy migration dry-run và lưu evidence SQL, rồi chạy build/test/lint/typecheck bằng lệnh thật.
+    - **Hành động:** hợp nhất ba làn trên path rời nhau; chạy migration dry-run trên DB rỗng; lưu evidence SQL trực tiếp cho `audit_events_append_only_trg`, runtime grants và mô phỏng P3 FK/check upgrade; chạy build/test/lint/typecheck.
+    - **Sản phẩm:** evidence run (log/output thật), không tạo config giả để lệnh tồn tại.
+    - **Phụ thuộc:** bước 12, 14, 15.
+    - **Verify:** dán output thật; `‹cần chốt: build/test/lint/typecheck commands sau bootstrap›` — nếu lệnh chưa tồn tại thì báo đúng sự thật theo AGENTS.md, không bịa script.
+    - **Lane:** orchestrator/integration.
+
+**G. QA và reviewer**
+
+17. QA và reviewer kiểm độc lập; owner sửa mục bắt buộc theo giới hạn ba vòng. Chỉ qua exit gate khi cả hai sign-off.
+    - **Hành động:** QA xác minh output thật + evidence SQL; reviewer kiểm ownership/transaction/redirect/RBAC/phased audit theo mục 20.
+    - **Sản phẩm:** QA/reviewer sign-off có gắn commit/environment/evidence.
+    - **Phụ thuộc:** bước 16.
+    - **Verify:** QA **PASS** và reviewer hết mục “phải sửa” → ĐẠT; cùng lỗi lặp lần hai → TẮC; hết ba vòng chưa đạt → CẠN LƯỢT. QA/reviewer không sửa file.
+    - **Lane:** qa, reviewer.
 
 ## 16. Parallel lanes và ownership
 

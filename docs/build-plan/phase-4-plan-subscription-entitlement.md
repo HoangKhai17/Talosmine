@@ -207,19 +207,143 @@ Không sửa test để hợp thức hóa hành vi trái contract. Test dùng da
 
 ## 15. Ordered steps
 
-1. Xác nhận Phase 3 sign-off và ghi đầy đủ quyết định mục 3; blocker nào chưa chốt thì không lập fixture/default cho blocker đó.
-2. Architect thiết kế state machine, permission matrix, port input/output và threat model ở chế độ read-only; đối chiếu `docs/modular.md` và `docs/database-schema.md`, review và xác nhận revision đủ điều kiện freeze.
-3. Backend, với vai trò contract writer duy nhất do orchestrator giao, ghi OpenAPI, error/reason registry, idempotency fingerprint inputs và ví dụ vào `contracts/openapi/control-plane.v1.yaml`; architect review read-only trước khi freeze revision.
-4. Viết migration Plan/Subscription/Entitlement và staged exact-feature scope theo dependency; tạo canonical scope columns nhưng entitlement-only checks/indexes, thêm custom SQL triggers và migration tests trước repository; không tạo quota table/API/data.
-5. Hiện thực Plan domain/application/persistence; khóa invariant draft/publish/retire ở service và DB.
-6. Hiện thực Subscription timeline, canonical predicate, overlap transaction, trusted source, idempotency và audit UoW.
-7. Hiện thực Service Scope Authorization exact feature và Entitlement decision theo đúng thứ tự security.
-8. Hiện thực override lifecycle/precedence và cache directive theo policy đã duyệt.
-9. Hiện thực user/admin/service controllers từ frozen contract; không cho controller truy cập repository trực tiếp.
-10. Song song sau freeze: frontend xây User/Admin Web, backend hoàn thiện các module, tester viết test độc lập theo contract.
-11. Chạy migration/contract/unit/integration/concurrency/security/web tests bằng lệnh thật sau bootstrap; lưu output thật, sửa code owner nếu fail.
-12. QA kiểm chứng acceptance/checklist và reviewer kiểm tra correctness/security/ownership. Lặp tối đa ba vòng theo `AGENTS.md`.
-13. Chỉ khi cả QA và reviewer đạt mới cập nhật tài liệu vận hành/API dựa trên implementation thật và đề nghị phase exit.
+Runbook thực thi tuần tự theo mạch **decisions → contract freeze → migration tuần tự → parallel impl → integration → QA/reviewer**. Mỗi bước ghi năm thành phần: **Hành động**, **Sản phẩm**, **Phụ thuộc**, **Verify**, **Lane** (khớp mục 16). Repo greenfield chưa có script build/test/lint/migrate; mọi câu lệnh cụ thể trong Verify đánh dấu `‹cần chốt: script thật sau bootstrap›` cho phần wrapper npm/CI, nhưng tên bảng, constraint, trigger, index, lock order và tên test suite là cụ thể và bắt buộc. Không đánh dấu bước nào là “đã chạy”.
+
+### Nhóm A — Decisions
+
+1. **Bước 1 — Chốt tiền đề và quyết định nghiệp vụ**
+   - **Hành động:** Xác nhận Phase 3 đã QA/reviewer sign-off; ghi đầy đủ các quyết định mục 3 (default plan/subscription, activation policy, subscription lifecycle + terminal branch `canceled` vs `expired`, upgrade/downgrade timing, trusted source/operation allowlist, retention/retry window `subscription_idempotency_records`, revoke SLA, entitlement cache/outage/last-known-good, admin permissions/SoD, retention/privacy). Blocker nào chưa chốt thì dừng riêng luồng đó, không lập fixture/default.
+   - **Sản phẩm:** Bảng quyết định đã điền trong mục 3 của file này (checkbox tick + giá trị chốt).
+   - **Phụ thuộc:** Phase 3 sign-off; `‹cần chốt: toàn bộ quyết định nghiệp vụ mục 3›`.
+   - **Verify:** Rà mục 3 — không còn checkbox trống áp dụng cho luồng sắp build; mỗi luồng có quyết định tương ứng hoặc blocker được ghi rõ.
+   - **Lane:** Orchestrator điều phối; các lane khác chưa mở.
+
+### Nhóm B — Contract freeze
+
+2. **Bước 2 — Architect thiết kế read-only**
+   - **Hành động:** Thiết kế subscription state machine, entitlement decision order, permission matrix, port input/output (`PlanVersionLookupPort`, `ActiveSubscriptionPort`, `ServiceScopeAuthorizationPort`, `EntitlementDecisionPort`, `EntitlementEligibilityPort`, `SubscriptionMutationPort`, `AuditAppendPort`) và threat model; đối chiếu `docs/modular.md` và phần Phase 4 của `docs/database-schema.md` (đã source-update staged contract).
+   - **Sản phẩm:** Ghi chú thiết kế/threat model (read-only, không ghi vào contract file).
+   - **Phụ thuộc:** Bước 1; source update Phase 4 của `docs/database-schema.md`.
+   - **Verify:** Design đối chiếu 1-1 với `docs/modular.md` mục 6–8 và mục 8.2 staged contract; architect xác nhận không lệch tên port/state.
+   - **Lane:** Architect (read-only).
+
+3. **Bước 3 — Backend ghi và freeze OpenAPI contract**
+   - **Hành động:** Backend (contract writer duy nhất) ghi path/method/operation ID, request/response schema, full `issuer + subject` shape cho service decision, entitlement reason/cache directive, subscription interval semantics, `Idempotency-Key`/fingerprint inputs/replay-conflict, `X-Correlation-Id`, admin permission matrix, error envelope và examples không chứa quota/plan giả. Architect review read-only rồi xác nhận freeze revision.
+   - **Sản phẩm:** `contracts/openapi/control-plane.v1.yaml` (revision freeze, ghi commit cụ thể).
+   - **Phụ thuộc:** Bước 2.
+   - **Verify:** Validate OpenAPI 3.1 bằng `‹cần chốt: openapi lint/validate script thật sau bootstrap›`; kỳ vọng 0 lỗi schema và không có operation quota/billing trong document.
+   - **Lane:** Backend (contract writer) + Architect (review/freeze).
+
+### Nhóm C — Migration tuần tự (root `apps/control-plane/drizzle/migrations/`, forward-only)
+
+4. **Bước 4 — Migration Plan snapshot**
+   - **Hành động:** Tạo `plans` → `plan_versions` → `plan_feature_grants` bằng Drizzle Kit forward migration, gồm unique `plan_versions_plan_version_key (plan_id, version)`, `plan_versions_id_status_key`, named checks `plan_versions_status_check`/`plan_versions_published_state_check`/`plan_versions_version_check` và `plan_feature_grants_version_feature_key`. Giữ FK `ON DELETE RESTRICT`.
+   - **Sản phẩm:** Migration `*_p4_plan.sql` dưới `apps/control-plane/drizzle/migrations/`.
+   - **Phụ thuộc:** Bước 3; baseline Phase 3 (`service_identities`, `audit_events`, actor FK).
+   - **Verify:** Áp migration bằng `‹cần chốt: drizzle-kit migrate script thật sau bootstrap›`; kiểm bằng psql `SELECT conname FROM pg_constraint WHERE conrelid = 'control_plane.plan_versions'::regclass` chứa `plan_versions_status_check` và `plan_versions_published_state_check`; `SELECT count(*) FROM information_schema.tables WHERE table_schema='control_plane' AND table_name IN ('plans','plan_versions','plan_feature_grants')` trả 3.
+   - **Lane:** Backend (owner migration root).
+
+5. **Bước 5 — Trigger immutable published snapshot**
+   - **Hành động:** Viết custom SQL tạo `plan_versions_immutable_snapshot_trg` và `plan_feature_grants_immutable_trg`; trigger khóa/đọc parent version và chặn INSERT/UPDATE/DELETE grant cùng UPDATE/DELETE cột snapshot khi version `published`/`retired`. Chưa tạo trigger quota policy (bảng chưa tồn tại ở Phase 4).
+   - **Sản phẩm:** Migration `*_p4_plan_immutable_triggers.sql`.
+   - **Phụ thuộc:** Bước 4.
+   - **Verify:** psql `SELECT tgname FROM pg_trigger WHERE tgrelid IN ('control_plane.plan_versions'::regclass,'control_plane.plan_feature_grants'::regclass)` chứa cả hai tên trigger; thử UPDATE một grant của version `published` kỳ vọng lỗi application-defined (raise), không thành công.
+   - **Lane:** Backend.
+
+6. **Bước 6 — Migration Subscription + idempotency**
+   - **Hành động:** Tạo `subscriptions` (cột `account_id`, `plan_version_id`, `status`, `starts_at`, `ends_at`, `cancel_at`, `source`, `source_reference`, `supersedes_subscription_id`) và `subscription_idempotency_records`. Thêm `subscriptions_status_check`, `subscriptions_period_check`, `subscriptions_cancel_at_range_check`, `subscriptions_status_time_shape_check`, unique `subscriptions_id_account_key`, và unique `subscription_idempotency_records_source_operation_key (trusted_source, operation, idempotency_key)`. Không có cột organization/team.
+   - **Sản phẩm:** Migration `*_p4_subscription.sql`.
+   - **Phụ thuộc:** Bước 4.
+   - **Verify:** psql kiểm `pg_constraint` cho `subscriptions_status_time_shape_check` và `subscription_idempotency_records_source_operation_key`; xác nhận không có cột `organization_id`/`team_id` qua `information_schema.columns`.
+   - **Lane:** Backend.
+
+7. **Bước 7 — Migration entitlement override**
+   - **Hành động:** Tạo `entitlement_overrides` với `effect allow|deny`, validity `[valid_from, valid_until)`, creator/revoker FK, `entitlement_overrides_validity_check`, `entitlement_overrides_revocation_check` và `entitlement_overrides_lookup_idx (... ) WHERE revoked_at IS NULL`. Không tạo `quota_limit_overrides` ở Phase 4.
+   - **Sản phẩm:** Migration `*_p4_entitlement_overrides.sql`.
+   - **Phụ thuộc:** Bước 6.
+   - **Verify:** psql xác nhận bảng `entitlement_overrides` tồn tại và `SELECT to_regclass('control_plane.quota_limit_overrides')` trả NULL (chưa được tạo ở Phase 4).
+   - **Lane:** Backend.
+
+8. **Bước 8 — Migration service_identity_scopes staging (entitlement-only)**
+   - **Hành động:** Tạo `service_identity_scopes` với **đủ canonical columns** (`id`, `service_identity_id`, `application_id`, `capability`, `feature_id`, `usage_metric_id`, `status`, `revoked_at`, `revocation_reason`, `created_at`, `updated_at`) và composite FK service/feature/application. Named `service_identity_scopes_capability_check` ở P4 chỉ cho `entitlement:decide`; `service_identity_scopes_shape_check` yêu cầu đúng một `feature_id` non-null và `usage_metric_id IS NULL`. Chỉ tạo `service_identity_scopes_active_feature_key` + feature lookup index; **không** tạo `service_identity_scopes_active_metric_key` hay metric lookup.
+   - **Sản phẩm:** Migration `*_p4_service_identity_scopes_staging.sql`.
+   - **Phụ thuộc:** Bước 4 (features/usage_metrics từ Catalog Phase trước); baseline `service_identities` Phase 3.
+   - **Verify:** psql: `pg_constraint` cho `service_identity_scopes_capability_check` chỉ chứa `entitlement:decide`; thử INSERT row có `usage_metric_id` non-null hoặc capability `quota:reserve` kỳ vọng bị check reject; `pg_indexes` có `service_identity_scopes_active_feature_key` và **không** có `service_identity_scopes_active_metric_key`.
+   - **Lane:** Backend.
+
+9. **Bước 9 — Migration/trigger tests trên PostgreSQL thật**
+   - **Hành động:** Viết migration test đối chiếu staged contract Phase 4 của `docs/database-schema.md`: canonical columns, tên staging checks/indexes, từ chối `quota:*`/metric row, immutable snapshot, overlap race, terminal finite `ends_at`, replay bound, runtime role không DDL/disable-trigger.
+   - **Sản phẩm:** `tests/control-plane/migration/p4-schema.spec.ts`, `tests/control-plane/migration/plan-immutable-trigger.spec.ts`.
+   - **Phụ thuộc:** Bước 4–8.
+   - **Verify:** Chạy suite bằng `‹cần chốt: test runner thật sau bootstrap›` trên PostgreSQL thật; kỳ vọng toàn bộ assertion pass, đặc biệt case reject `quota:*` scope và block mutation snapshot published.
+   - **Lane:** Backend (migration owner) + Tester (assertion độc lập).
+
+### Nhóm D — Parallel implementation (sau freeze)
+
+10. **Bước 10 — Plan module**
+    - **Hành động:** Hiện thực Plan domain/application/persistence: draft builder, validation, `PublishPlanVersionCommand` gán `published_at` bằng DB clock, `RetirePlanVersionCommand`; khóa invariant `draft -> published -> retired` ở service, dựa trigger ở DB.
+    - **Sản phẩm:** `apps/control-plane/src/modules/plan/`.
+    - **Phụ thuộc:** Bước 5, 9.
+    - **Verify:** `tests/control-plane/plan/publish-lifecycle.spec.ts` — concurrent publish chỉ một transition canonical; sửa grant của published bị từ chối ở cả service lẫn DB.
+    - **Lane:** Backend.
+
+11. **Bước 11 — Subscription timeline + idempotency**
+    - **Hành động:** Hiện thực canonical predicate `starts_at <= t AND t < COALESCE(LEAST(cancel_at, ends_at), 'infinity')` với status `pending|active|cancel_at_period_end`; overlap check trên `[starts_at, effective_end)` cho **mọi** status (kể cả terminal); mutation `SELECT ... FOR UPDATE` account để serialize; terminal transition ghi `ends_at` hữu hạn cùng transaction. Áp lock order **subscription idempotency record → account → subscription**; replay theo fingerprint.
+    - **Sản phẩm:** `apps/control-plane/src/modules/subscription/`.
+    - **Phụ thuộc:** Bước 6, 9.
+    - **Verify:** `tests/control-plane/subscription/overlap.spec.ts` (hai concurrent create cùng account không tạo overlap; start đúng prior `effective_end` được chấp nhận); `tests/control-plane/subscription/idempotency-replay.spec.ts` (cùng key/fingerprint replay, khác fingerprint → `IDEMPOTENCY_CONFLICT`); `tests/control-plane/subscription/temporal-boundary.spec.ts`.
+    - **Lane:** Backend.
+
+12. **Bước 12 — Service scope authorization + Entitlement decision**
+    - **Hành động:** Hiện thực `ServiceScopeAuthorizationPort` cho exact `entitlement:decide` feature, chạy **trước** `ExternalIdentityResolutionPort`; sau đó `AccountStatusPort` → `CatalogLookupPort` → `ActiveSubscriptionPort` → `PlanVersionLookupPort`. Account `pending|disabled` deny; deny override thắng allow/grant.
+    - **Sản phẩm:** `apps/control-plane/src/modules/service-identity/` (authorization), `apps/control-plane/src/modules/entitlement/` (decision).
+    - **Phụ thuộc:** Bước 8, 11.
+    - **Verify:** `tests/control-plane/entitlement/scope-before-resolution.spec.ts` — caller sai app/feature/scope nhận deny **trước** identity resolution, response không lộ tồn tại account; `tests/control-plane/entitlement/precedence.spec.ts` cho disabled/deny precedence.
+    - **Lane:** Backend.
+
+13. **Bước 13 — Override lifecycle + cache directive**
+    - **Hành động:** Hiện thực `CreateEntitlementOverrideCommand`/`RevokeEntitlementOverrideCommand` (không update lịch sử, chỉ revoke shape + audit), precedence deny-over-allow, và cache directive/last-known-good chỉ bật khi outage policy/TTL đã duyệt (`‹cần chốt: outage policy + revoke SLA + last-known-good theo rủi ro feature›`); chưa có policy thì fail-closed.
+    - **Sản phẩm:** `apps/control-plane/src/modules/entitlement/` (override + directive).
+    - **Phụ thuộc:** Bước 12.
+    - **Verify:** `tests/control-plane/entitlement/override-lifecycle.spec.ts` — expired/revoked override không ảnh hưởng decision; mutation thiếu reason/scope/permission bị từ chối và mutation thành công có audit cùng transaction.
+    - **Lane:** Backend.
+
+14. **Bước 14 — Controllers user/admin/service từ frozen contract**
+    - **Hành động:** Hiện thực controller cho `GET /v1/me/subscriptions`, `GET /v1/me/entitlements`, `POST /v1/service/entitlement-decisions` và admin plan/subscription/override/service-scope; controller chỉ điều phối public command/port, không truy cập repository trực tiếp; kiểm permission/reason phía server trước mutation.
+    - **Sản phẩm:** controller trong các module thuộc `apps/control-plane/src/modules/`.
+    - **Phụ thuộc:** Bước 10–13; contract freeze bước 3.
+    - **Verify:** `tests/control-plane/contract/openapi-conformance.spec.ts` — response khớp OpenAPI, error envelope đúng registry mục 9; không endpoint nào trả plan name làm authorization claim.
+    - **Lane:** Backend.
+
+15. **Bước 15 — Parallel Web + test suites**
+    - **Hành động:** Song song sau freeze: Frontend xây User Web (plan/subscription/entitlement của chính user) và Admin Web (plan builder, subscription timeline, override form, service scope editor) qua Next.js BFF; Tester viết contract/negative/concurrency/security/accessibility/responsive suites độc lập theo contract.
+    - **Sản phẩm:** `apps/web/`; `tests/web/`.
+    - **Phụ thuộc:** Bước 3 (contract freeze); Backend cung cấp API đúng revision (bước 10–14).
+    - **Verify:** `tests/web/rbac-bypass.spec.ts` (server RBAC không bypass được); `tests/web/accessibility.spec.ts` và `tests/web/responsive.spec.ts` ở viewport mobile/tablet/desktop; kỳ vọng không lỗi nghiêm trọng.
+    - **Lane:** Frontend + Tester.
+
+### Nhóm E — Integration + QA/reviewer
+
+16. **Bước 16 — Chạy toàn bộ test bằng lệnh thật**
+    - **Hành động:** Chạy migration/contract/unit/integration PostgreSQL/temporal/concurrency/idempotency/security/audit/web suites; lưu output thật; lỗi thuộc code owner (Frontend/Backend) sửa, không bẻ test.
+    - **Sản phẩm:** Log output test (đính kèm evidence checklist mục 17).
+    - **Phụ thuộc:** Bước 9–15.
+    - **Verify:** `‹cần chốt: lệnh test tổng thật sau bootstrap›` trên PostgreSQL thật; kỳ vọng toàn bộ required suite pass, dán output thật (không output tưởng tượng).
+    - **Lane:** Backend + Frontend + Tester (tự kiểm trước gate).
+
+17. **Bước 17 — QA + reviewer song song**
+    - **Hành động:** QA kiểm chứng acceptance/checklist (functional/contract, DB/concurrency, accessibility/responsive) từ output thật; reviewer kiểm correctness/security/ownership (lock order, scope-before-resolution, audit UoW, không billing/quota). Lặp tối đa ba vòng theo `AGENTS.md`.
+    - **Sản phẩm:** Kết quả gate mục 20.
+    - **Phụ thuộc:** Bước 16.
+    - **Verify:** QA gate PASS với evidence; reviewer hết mục “phải sửa”. Nếu cùng lỗi lặp lần hai hoặc thiếu quyết định → khai báo TẮC/CẠN LƯỢT theo mục 19.
+    - **Lane:** QA + Reviewer (edit deny).
+
+18. **Bước 18 — Cập nhật tài liệu sau sign-off**
+    - **Hành động:** Chỉ khi QA và reviewer đều đạt, cập nhật OpenAPI/runbook/rollback/API docs theo implementation thật và đề nghị phase exit; không ghi trạng thái “đã chạy” nếu chưa chạy.
+    - **Sản phẩm:** Tài liệu API/runbook đã đối chiếu source.
+    - **Phụ thuộc:** Bước 17 (cả hai gate đạt).
+    - **Verify:** Đối chiếu docs ↔ OpenAPI ↔ migration ↔ source; không tuyên bố có billing/quota reserve; mọi lệnh/path khớp repo thật.
+    - **Lane:** Document.
 
 ## 16. Parallel lanes và ownership
 

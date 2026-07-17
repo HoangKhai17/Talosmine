@@ -163,16 +163,119 @@ Metric `counting_point`/`failure_treatment` có thể chưa freeze về giá tr�
 
 ## 15. Ordered steps
 
-1. Xác minh Phase 2 sign-off; thu inventory app/feature/redirect, approved metric units, baseline service metadata và các quyết định URL/search/permission còn thiếu.
+Runbook dưới đây là **kế hoạch thực thi**, không khẳng định artifact đã tồn tại hoặc lệnh đã chạy. Mạch logic: decisions → contract freeze → parallel impl (backend/frontend/tester) → integration → QA/reviewer. Mỗi bước ghi năm thành phần: **Hành động** / **Sản phẩm** / **Phụ thuộc** / **Verify** / **Lane**. Quyết định/tooling chưa được phê duyệt ghi `‹cần chốt: ...›` và là blocker của bước liên quan. Tôn trọng phased migration P2->P3: `service_identities` chỉ tạo **sau `applications`**, audit service-actor FK/check hoàn thiện **sau `service_identities`**.
+
+**A. Decisions và contract freeze (tuần tự, chặn mọi bước sau)**
+
+1. Xác minh Phase 2 sign-off và thu thập human decisions ở mục 3.
+   - **Hành động:** đối chiếu Phase 2 exit gate (admin auth, deny-by-default RBAC, transactional audit, account/session security); thu inventory app/feature/redirect, approved metric `unit`, baseline `service_identities` metadata (issuer, M2M client ID, display name, owner, initial status), permission catalog và các quyết định URL/search còn thiếu.
+   - **Sản phẩm:** bản xác nhận decision (orchestrator/architect giữ), không thuộc 2 file lane này.
+   - **Phụ thuộc:** Phase 2 exit gate; `‹cần chốt: permission catalog catalog/feature/metric/redirect›`; `‹cần chốt: managed CDN/object-store host + CSP›`; `‹cần chốt: launch_url scheme/host policy›`; `‹cần chốt: exact login/logout redirect URI từng app›`; `‹cần chốt: search/filter requirement›`; `‹cần chốt: stable key rule›`; `‹cần chốt: approved metric unit›`; `‹cần chốt: image rendering strategy (browser direct vs Next proxy)›`; `‹cần chốt: baseline service_identities metadata›`.
+   - **Verify:** mọi mục 3 có giá trị chốt hoặc `‹cần chốt›`; thiếu decision bắt buộc thì DỪNG (TẮC); không seed app/metric/service giả khi inventory chưa duyệt.
+   - **Lane:** orchestrator/architect.
+
 2. Architect threat-model image/launch/redirect, định nghĩa lifecycle/ownership và freeze OpenAPI/internal port/browser behavior.
-3. Backend tạo migration `applications` và catalog children, rồi baseline `service_identities`, cuối cùng audit FK/check; viết migration-order/rollback/composite ownership tests trước repository/API.
-4. Backend hiện thực Catalog domain/application ports/repositories, URL policy và transactional audit; sau đó thêm user/admin controllers đúng contract.
-5. Frontend xây user list/card/detail/search/filter được duyệt và launch behavior; không thêm authorization giả.
-6. Frontend xây admin CRUD/status/redirect/feature/metric forms và safe image preview theo policy freeze.
-7. Tester triển khai contract/security/cross-app/concurrency/UI tests trên `tests/**` độc lập.
-8. Tích hợp, chạy migration dry-run và các command thật đã có; không bịa build/test script nếu repository chưa cung cấp.
-9. Kiểm tra CSP/image config theo từng môi trường, không dùng wildcard tạm để pass.
-10. QA và reviewer kiểm độc lập; owner tương ứng sửa mục bắt buộc, rồi kiểm lại theo giới hạn ba vòng.
+   - **Hành động:** mở rộng `contracts/openapi/control-plane.v1.yaml` cho user/admin catalog APIs; freeze resource schemas, route/method/status, pagination/search/filter, stable key rules, machine error codes (validation, duplicate key, invalid transition, forbidden, cross-app ownership, unsafe URL, redirect conflict, semantics incomplete); freeze lifecycle/transition matrix, URL canonicalization/allowlist, `CatalogLookupPort` shape, metric-create contract bắt buộc approved non-empty `unit`, và baseline service identity/audit FK migration ownership.
+   - **Sản phẩm:** `contracts/openapi/control-plane.v1.yaml` (frozen delta), lifecycle/ownership doc, `CatalogLookupPort` contract.
+   - **Phụ thuộc:** bước 1.
+   - **Verify:** OpenAPI 3.1 lint pass (`‹cần chốt: openapi lint command›`); metric-create yêu cầu approved `unit`; nullable `counting_point`/`failure_treatment` có cách biểu diễn “chưa quyết định”; breaking change sau freeze quay lại architect.
+   - **Lane:** architect (OpenAPI owner do orchestrator chỉ định).
+
+**B. Backend — migrations theo thứ tự phụ thuộc (lane backend, chỉ sau freeze)**
+
+3. Tạo migration `applications`.
+   - **Hành động:** tạo `control_plane.applications` với `id uuid` application-generated, unique immutable `key` (`applications_key_key`), `display_name` non-empty, nullable `description`, nullable `image_url` (non-empty nếu có), required `launch_url`, status `draft|active|inactive` (`applications_status_check`), DB-clock timestamps, index `applications_status_idx`. DB check chỉ bảo vệ shape/non-empty/status; HTTPS/host/SSRF là application layer.
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration `applications`).
+   - **Phụ thuộc:** bước 2; Phase 2 migrations đã áp dụng.
+   - **Verify:** migration smoke trên DB có schema P2 (tool: Drizzle Kit, `‹cần chốt: script migrate›`); trùng `key` bị unique từ chối; status ngoài tập bị check từ chối; `launch_url` rỗng bị từ chối.
+   - **Lane:** backend.
+
+4. Tạo migration catalog children: `application_redirect_uris` → `features` → `usage_metrics`.
+   - **Hành động:** tạo `application_redirect_uris` (FK application `RESTRICT`, purpose `login|logout`, unique `(application_id, purpose, uri)`, không wildcard); `features` (FK application, unique `(application_id, key)` và `(id, application_id)` cho composite FK target, status check); `usage_metrics` (FK application, composite FK `(feature_id, application_id) REFERENCES features(id, application_id)`, unique `(application_id, key)`/`(id, application_id)`/`(id, feature_id, application_id)`, **`unit` NOT NULL non-empty**, `counting_point`/`failure_treatment` nullable với named checks, status check).
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migrations redirect/feature/metric).
+   - **Phụ thuộc:** bước 3.
+   - **Verify:** migration smoke; không thể tạo children trước `applications`; redirect trùng `(application_id, purpose, uri)` bị từ chối; metric của feature khác app bị composite FK từ chối; insert metric thiếu/rỗng `unit` bị `NOT NULL`/check từ chối.
+   - **Lane:** backend.
+
+5. Tạo migration baseline `service_identities` (sau `applications`).
+   - **Hành động:** tạo `service_identities` với `id uuid`, required `application_id` (FK), `issuer`, `client_id`, `display_name`, status `active|revoked`, nullable `last_seen_at`/revoke fields, DB-clock timestamps, unique `(issuer, client_id)` và `(id, application_id)`, index `(application_id, status)`; **không** cột client secret/access/refresh token; **không** tạo `service_identity_scopes` (thuộc P4).
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration `service_identities`).
+   - **Phụ thuộc:** bước 3 (`applications` phải tồn tại trước).
+   - **Verify:** migration smoke; không thể chạy bước này trước `applications` (test order ở bước 8); trùng `(issuer, client_id)` bị từ chối; không tồn tại cột secret/token.
+   - **Lane:** backend.
+
+6. Tạo migration hoàn thiện audit service-actor FK + canonical actor check (phased P2->P3 upgrade).
+   - **Hành động:** sau khi `service_identities` tồn tại, kiểm tra dữ liệu staging tương thích, thêm `audit_events.actor_service_identity_id REFERENCES service_identities(id) ON DELETE RESTRICT`, rồi thay P2 actor check bằng canonical check cho đúng một actor `account|service|system`. Giữ nguyên `audit_events_append_only_trg` và runtime grants đã tạo ở P2.
+   - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration audit FK + actor check upgrade).
+   - **Phụ thuộc:** bước 5 (`service_identities` phải tồn tại).
+   - **Verify:** evidence SQL trực tiếp — sau upgrade, `actor_type = 'service'` với FK hợp lệ được chấp nhận, service identity không tồn tại bị FK từ chối, `account`/`system` vẫn hợp lệ; `audit_events_append_only_trg` vẫn chặn `UPDATE`/`DELETE`; runtime grants vẫn chặn `TRUNCATE`; không có cửa sổ thiếu actor constraint.
+   - **Lane:** backend.
+
+7. Viết migration-order/rollback/composite-ownership tests trước repository/API.
+   - **Hành động:** viết test khẳng định thứ tự bắt buộc (1) `applications` (2) redirect/feature/metric (3) `service_identities` (4) audit FK/check; không thể chạy bước 3/4 trước dependency; rollback thứ tự ngược khôi phục P2 account/system-only actor check trước khi bỏ service/catalog; composite ownership/uniqueness đúng.
+   - **Sản phẩm:** migration tests trong `tests/**` (tester phối hợp, backend cấp fixture SQL).
+   - **Phụ thuộc:** bước 6.
+   - **Verify:** chạy test suite (`‹cần chốt: test runner + script›`); lệnh chưa tồn tại thì báo đúng sự thật, không bịa script.
+   - **Lane:** tester (fixture do backend cấp).
+
+**C. Backend — domain, ports, controllers (lane backend)**
+
+8. Hiện thực Catalog domain, ports, repositories, URL policy và `CatalogLookupPort`; transactional audit.
+   - **Hành động:** trong `apps/control-plane/src/modules/application-catalog` viết command/query/ports/repositories; validate `launch_url`/`image_url`/redirect URI ở application layer (HTTPS, host allowlist, canonicalize exact-match, chặn SSRF/loopback/private/link-local/metadata theo rendering strategy); `CatalogLookupPort` resolve stable key + verify ownership + trả metadata tối thiểu (consumer không đọc table); baseline persistence `service_identities` tại `apps/control-plane/src/modules/service-identity`; mutation nhạy cảm append audit `operationId + sequence` cùng transaction.
+   - **Sản phẩm:** module `application-catalog` + `service-identity` baseline persistence.
+   - **Phụ thuộc:** bước 6, 7; `‹cần chốt: launch/image/CSP policy›`.
+   - **Verify:** URL policy tests (bước 12) pass; App A không resolve/mutate resource App B; audit lỗi rollback mutation; không lưu/nhận M2M secret.
+   - **Lane:** backend.
+
+9. Viết user/admin catalog controllers đúng frozen contract với RBAC deny-by-default.
+   - **Hành động:** user endpoints list active/visible + get detail bằng stable key + search/filter/pagination theo requirement; admin create/get/list/update/set-status (không hard delete), redirect list/add/remove, feature register/list/update, metric register/list/update/approve (bắt buộc approved `unit`, từ chối rỗng/placeholder); admin orchestration gọi public Catalog port từ `apps/control-plane/src/modules/admin`; **không** service identity management endpoint (thuộc P4).
+   - **Sản phẩm:** controllers user/admin + admin orchestration extension.
+   - **Phụ thuộc:** bước 8; contract bước 2.
+   - **Verify:** contract test khớp OpenAPI; permission thiếu trả `403` kể cả gọi trực tiếp; metric thiếu `unit` bị từ chối; launch dùng URL đã validate/lưu, không nhận tùy ý từ request.
+   - **Lane:** backend.
+
+**D. Frontend (lane frontend, song song sau freeze)**
+
+10. Xây user list/card/detail/search/filter được duyệt và launch behavior.
+    - **Hành động:** trong `apps/web/app/(user)` dựng list/card (chỉ app theo visibility contract, fallback ảnh/alt an toàn), detail (metadata catalog, không secret/redirect nội bộ), search/filter chỉ khi requirement hỗ trợ, launch dùng `launch_url` đã validate từ catalog (không ghép host/path từ input); ghi rõ thấy app không đồng nghĩa được cấp quyền; dùng auth/session Phase 2 qua `apps/web/src/bff/auth/features`.
+    - **Sản phẩm:** `apps/web/app/(user)`.
+    - **Phụ thuộc:** bước 2 (frozen contract); Phase 2 auth feature. Không đổi DB/API ngầm hoặc fetch URL server-side trái policy.
+    - **Verify:** UI tests (bước 12); keyboard/focus/error/announcement, image fallback/alt, card/grid không mất thứ tự đọc mobile/tablet/desktop; inactive/draft không launch.
+    - **Lane:** frontend.
+
+11. Xây admin CRUD/status/redirect/feature/metric forms và safe image preview.
+    - **Hành động:** trong `apps/web/app/admin` dựng form Application (key khóa sau mốc contract, không đổi bằng xóa/tạo lại), redirect editor (canonical URI, exact-match warning, reason/confirmation), feature/metric editor (luôn hiển thị owner, không chọn feature app khác, chặn tạo metric khi `unit` chưa duyệt); image preview chỉ dùng URL đã qua server validation, không gửi cookie/authorization header tới image host; protected routes dùng Phase 2 session + server-side permission.
+    - **Sản phẩm:** `apps/web/app/admin`.
+    - **Phụ thuộc:** bước 2; `‹cần chốt: image rendering strategy/CSP›`.
+    - **Verify:** UI tests (bước 12); action thiếu permission bị server từ chối dù gọi trực tiếp; không hiển thị/thu thập M2M secret; bảng accessible + responsive table/card, không ẩn action bắt buộc.
+    - **Lane:** frontend.
+
+**E. Tester (lane tester, song song sau freeze)**
+
+12. Triển khai contract/security/cross-app/concurrency/UI tests trên `tests/**`.
+    - **Hành động:** viết migration-order/rollback, API contract/permission matrix, stable key, cross-app ownership, metric-unit, service/audit (no secret, FK reject), redirect/launch/image URL negative suite, audit/concurrency, và UI/accessibility/responsive tests theo mục 14; không sửa product, không nới assertion khi implementation sai.
+    - **Sản phẩm:** `tests/**`.
+    - **Phụ thuộc:** bước 2 (contract); fixture backend bước 7.
+    - **Verify:** chạy test suite (`‹cần chốt: test runner + script›`); test fail thì trả backend/frontend sửa code; lệnh chưa tồn tại thì báo đúng sự thật.
+    - **Lane:** tester.
+
+**F. Integration**
+
+13. Tích hợp ba làn, chạy migration dry-run và command thật; kiểm CSP/image config từng môi trường.
+    - **Hành động:** hợp nhất ba làn trên path rời nhau; chạy migration dry-run theo đúng thứ tự application → catalog children → service identity → audit FK/check + rollback rehearsal thứ tự ngược; kiểm CSP/image allowlist theo từng môi trường, không dùng wildcard tạm để pass; chạy build/test/lint/typecheck.
+    - **Sản phẩm:** evidence run (log/output thật), không bịa build/test script.
+    - **Phụ thuộc:** bước 9, 11, 12.
+    - **Verify:** dán output thật; `‹cần chốt: build/test/lint/typecheck commands›` — lệnh chưa tồn tại thì báo đúng sự thật theo AGENTS.md.
+    - **Lane:** orchestrator/integration.
+
+**G. QA và reviewer**
+
+14. QA và reviewer kiểm độc lập; owner sửa mục bắt buộc theo giới hạn ba vòng.
+    - **Hành động:** QA chạy/lưu output thật cho migration-order/rollback/test/lint/typecheck/build + evidence audit service FK, approved unit, CSP/URL policy, cross-app, regression Phase 2; reviewer kiểm module/table ownership, staged service/audit schema, no secret/scope/API, stable keys, required unit, exact redirect, SSRF/image/launch controls, RBAC/audit transaction theo mục 20.
+    - **Sản phẩm:** QA/reviewer sign-off gắn commit/environment/evidence.
+    - **Phụ thuộc:** bước 13.
+    - **Verify:** QA **PASS** và reviewer hết mục “phải sửa” → ĐẠT; cùng lỗi lặp lần hai → TẮC; hết ba vòng chưa đạt → CẠN LƯỢT. QA/reviewer không sửa file.
+    - **Lane:** qa, reviewer.
 
 ## 16. Parallel lanes và ownership
 

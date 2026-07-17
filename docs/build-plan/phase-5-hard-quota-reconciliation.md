@@ -199,19 +199,187 @@ Backend ghi revision/commit. Breaking change sau freeze dừng frontend/backend/
 
 ## 15. Ordered steps
 
-1. Xác nhận Phase 4 sign-off và phê duyệt đầy đủ sample metric cùng mọi decision ở mục 3.
-2. Architect thiết kế window algorithm, transaction/state machine, exact scopes, adjustment/reconciliation policy và threat model ở chế độ read-only; review và xác nhận revision đủ điều kiện freeze.
-3. Backend, với vai trò contract writer duy nhất do orchestrator giao, ghi OpenAPI cùng hai port contracts, reason registry, idempotency canonicalization và examples vào `contracts/openapi/control-plane.v1.yaml`; architect review read-only trước khi freeze revision.
-4. Viết migration theo staged order: tạo policy và `quota_limit_overrides`, validate P4 rows, replace/expand named scope checks/indexes, rồi tạo ledger/idempotency; thêm trigger, grants, preservation assertions và forward-fix/rollback tests.
-5. Hiện thực policy/window calculator bằng DB-time inputs và test DST/boundaries trước reserve transaction.
-6. Hiện thực exact metric authorization/revoke locking; chứng minh scope check xảy ra trước identity resolution.
-7. Hiện thực reserve theo canonical transaction và atomic conditional update; sau đó commit, cancel và status theo cùng lock discipline.
-8. Hiện thực usage summary, admin ledger/override/adjustment qua public ports và transactional audit.
-9. Hiện thực `QuotaReconciliationPort`, duplicate-safe expire/reconcile và worker main chỉ gọi port.
-10. Sau contract freeze, frontend/backend/tester làm song song trong ownership path; integration chỉ dùng mocks.
-11. Chạy migration/unit/contract/PostgreSQL/concurrency/security/reconciliation/load/web tests bằng lệnh thật của repo sau bootstrap; lưu output thật.
-12. Khắc phục lỗi ở code owner, không bẻ test; QA và reviewer kiểm tra độc lập tối đa ba vòng.
-13. Cập nhật OpenAPI/runbook/docs từ source và output đã kiểm chứng; chỉ đề nghị exit khi cả hai gate ký đạt.
+Runbook thực thi tuần tự theo mạch **decisions → contract freeze → migration tuần tự → parallel impl → integration → QA/reviewer**. Mỗi bước ghi năm thành phần: **Hành động**, **Sản phẩm**, **Phụ thuộc**, **Verify**, **Lane** (khớp mục 16). Repo greenfield chưa có script build/test/lint/migrate; wrapper npm/CI đánh dấu `‹cần chốt: script thật sau bootstrap›`, nhưng tên bảng, constraint, trigger, index, lock order, tên test suite và thứ tự migration P5 là cụ thể và bắt buộc. Migration root là `apps/control-plane/drizzle/migrations/`. Không đánh dấu bước nào là “đã chạy”.
+
+### Nhóm A — Decisions
+
+1. **Bước 1 — Chốt tiền đề và metric mẫu**
+   - **Hành động:** Xác nhận Phase 4 sign-off và `service_identity_scopes` staging chỉ chứa entitlement rows hợp lệ; phê duyệt một metric mẫu (stable application/feature/metric key, unit, `amount`/logical operation, limit test), counting point + failure treatment, window type + timezone/DST/anchor, reservation TTL + late-success behavior, outage policy fail-closed, idempotency retention/fingerprint version, quota override/adjustment semantics + SoD, retention/privacy + load/SLO + worker batch/backoff. Thiếu metric/unit/amount/counting/failure, window/timezone/DST, TTL/late-success hoặc outage → không bật reserve cho metric đó.
+   - **Sản phẩm:** Bảng quyết định đã điền trong mục 3 của file này.
+   - **Phụ thuộc:** Phase 4 sign-off; `‹cần chốt: toàn bộ quyết định metric/window/TTL/outage mục 3›`.
+   - **Verify:** Rà mục 3 — không còn checkbox trống áp dụng cho metric mẫu sắp build; semantics metric đối chiếu `usage_metrics.counting_point`/`failure_treatment` đã approved (không còn null).
+   - **Lane:** Orchestrator điều phối.
+
+2. **Bước 2 — Kiểm chứng Supavisor + PostgreSQL runtime**
+   - **Hành động:** Kiểm chứng Supavisor **transaction pinning**, PostgreSQL version/isolation level, SQLSTATE retry policy (`40001`/`40P01`) và backup/PITR checkpoint trên môi trường mục tiêu trước khi chốt transaction implementation.
+   - **Sản phẩm:** Ghi chú kiểm chứng runtime (đính kèm evidence checklist mục 17).
+   - **Phụ thuộc:** Bước 1.
+   - **Verify:** Chạy transaction thử qua Supavisor `‹cần chốt: connection string/pooler endpoint thật sau bootstrap›`; kỳ vọng session giữ nguyên connection trong suốt transaction (pinning xác nhận), và `SHOW transaction_isolation` trả mức đã duyệt. Nếu pinning không đảm bảo → khai báo TẮC theo mục 19.
+   - **Lane:** Backend + Architect (read-only).
+
+### Nhóm B — Contract freeze
+
+3. **Bước 3 — Architect thiết kế read-only**
+   - **Hành động:** Thiết kế window algorithm (calendar/rolling + DST), reserve/commit/cancel transaction + state machine, exact metric scopes, adjustment/reconciliation policy, `QuotaReservationPort`/`QuotaReconciliationPort` contract và threat model; đối chiếu `docs/modular.md` mục 9–10 và phần P5 của `docs/database-schema.md` sau source update.
+   - **Sản phẩm:** Ghi chú thiết kế/threat model (read-only).
+   - **Phụ thuộc:** Bước 1–2.
+   - **Verify:** Design đối chiếu 1-1 với lock order canonical mục 9.4 của `docs/modular.md`; architect xác nhận không lệch tên port/state/capability.
+   - **Lane:** Architect (read-only).
+
+4. **Bước 4 — Backend ghi và freeze OpenAPI + port contract**
+   - **Hành động:** Backend ghi path/method/operation ID + audience, `issuer + subject` + reservation resource binding, decimal-string schema (pattern/range) cho mọi quantity/limit/counter/delta, idempotency namespace `service + operation + key` + fingerprint version + timeout recovery, reservation states/terminal transitions/partial-commit/expiry, window start/end/reset/timezone + remaining disclaimer, error/reason/`X-Correlation-Id`, `QuotaReservationPort`/`QuotaReconciliationPort` (gồm duplicate candidate no-op), admin permission/pagination bounds. Examples dùng metric mẫu đã duyệt. Architect review read-only rồi freeze.
+   - **Sản phẩm:** `contracts/openapi/control-plane.v1.yaml` (revision freeze, ghi commit).
+   - **Phụ thuộc:** Bước 3.
+   - **Verify:** Validate OpenAPI 3.1 bằng `‹cần chốt: openapi lint/validate script thật sau bootstrap›`; kỳ vọng 0 lỗi schema, mọi quantity là decimal string (không dùng JSON number), không có billing/Data Plane business operation.
+   - **Lane:** Backend (contract writer) + Architect (review/freeze).
+
+### Nhóm C — Migration tuần tự P5 (root `apps/control-plane/drizzle/migrations/`, forward-only)
+
+Thứ tự migration bắt buộc: `plan_quota_policies` → `quota_limit_overrides` → preflight validate scope rows P4 → replace `service_identity_scopes_capability_check`/`service_identity_scopes_shape_check` → retain `service_identity_scopes_active_feature_key` + add `service_identity_scopes_active_metric_key`/metric lookup → `usage_buckets` → `usage_reservations` → `usage_events` → `idempotency_records` → append-only trigger + grants → final validation. Chỉ sau final validation mới expose quota API.
+
+5. **Bước 5 — Migration `plan_quota_policies`**
+   - **Hành động:** Tạo `plan_quota_policies` canonical: composite FK `plan_quota_policies_metric_application_fk (usage_metric_id, application_id)`, `limit_quantity >= 0`, `plan_quota_policies_window_type_check`, `plan_quota_policies_window_shape_check` (calendar có unit+timezone và mọi rolling field null, hoặc rolling có interval và mọi calendar field null), positive `reservation_ttl_seconds`, unique `plan_quota_policies_version_metric_key` và `plan_quota_policies_id_application_metric_key`.
+   - **Sản phẩm:** Migration `*_p5_plan_quota_policies.sql`.
+   - **Phụ thuộc:** Bước 4; `window`/`timezone`/`DST` đã duyệt (`‹cần chốt: window semantics + IANA timezone + DST›`).
+   - **Verify:** psql `SELECT to_regclass('control_plane.plan_quota_policies')` non-NULL; `pg_constraint` chứa `plan_quota_policies_window_shape_check`; thử INSERT policy calendar kèm rolling field kỳ vọng bị check reject.
+   - **Lane:** Backend (owner migration root).
+
+6. **Bước 6 — Migration `quota_limit_overrides`**
+   - **Hành động:** Tạo `quota_limit_overrides` với FK account/policy, `limit_quantity >= 0` (API decimal-string → checked `bigint`), validity `[valid_from, valid_until)`, revoke triple, `quota_limit_overrides_lookup_idx (account_id, plan_quota_policy_id, valid_from, valid_until) WHERE revoked_at IS NULL`. Overlap cho cùng account/policy là invariant transaction (khóa account), không phải CHECK.
+   - **Sản phẩm:** Migration `*_p5_quota_limit_overrides.sql`.
+   - **Phụ thuộc:** Bước 5.
+   - **Verify:** psql xác nhận bảng + `quota_limit_overrides_lookup_idx` tồn tại; FK `plan_quota_policy_id` trỏ đúng `plan_quota_policies(id)`.
+   - **Lane:** Backend.
+
+7. **Bước 7 — Preflight validate scope rows P4**
+   - **Hành động:** Trước khi thay constraint/index, validate mọi row `service_identity_scopes` từ P4: đủ canonical columns, capability chỉ `entitlement:decide`, `feature_id` non-null + `usage_metric_id` null, binding service/feature/application hợp lệ, lifecycle/revoke shape đúng. Row lỗi phải **dừng migration** để forward-fix dữ liệu có review; không drop constraint trước validation.
+   - **Sản phẩm:** Preflight script `*_p5_preflight_scope_validation.sql` (gate, không mutate).
+   - **Phụ thuộc:** Bước 6.
+   - **Verify:** psql `SELECT count(*) FROM control_plane.service_identity_scopes WHERE capability <> 'entitlement:decide' OR usage_metric_id IS NOT NULL OR feature_id IS NULL` kỳ vọng trả 0. Khác 0 → dừng, forward-fix trước.
+   - **Lane:** Backend.
+
+8. **Bước 8 — Replace capability/shape checks (expand tại chỗ)**
+   - **Hành động:** Replace `service_identity_scopes_capability_check` bằng final set `entitlement:decide|quota:reserve|quota:commit|quota:cancel|quota:read`; replace `service_identity_scopes_shape_check` để `entitlement:decide` có đúng feature/non-metric, mọi `quota:*` có đúng metric/non-feature. Giữ nguyên row entitlement và lịch sử revoke; không rebuild bảng làm mất ID/history. Thực hiện trong deployment transaction hoặc controlled DDL với lock/traffic gate — không có cửa sổ runtime mà capability/shape không được constraint bảo vệ.
+   - **Sản phẩm:** Migration `*_p5_scope_checks_expand.sql`.
+   - **Phụ thuộc:** Bước 7 (preflight pass).
+   - **Verify:** psql: định nghĩa `service_identity_scopes_capability_check` chứa đủ 5 capability; thử INSERT scope `quota:reserve` với đúng metric/non-feature kỳ vọng thành công; thử `quota:reserve` với feature non-null kỳ vọng bị shape check reject; `SELECT count(*)` entitlement rows trước/sau không đổi.
+   - **Lane:** Backend.
+
+9. **Bước 9 — Retain feature index + add metric index**
+   - **Hành động:** Giữ/validate `service_identity_scopes_active_feature_key` + feature lookup index; tạo final `service_identity_scopes_active_metric_key (service_identity_id, application_id, capability, usage_metric_id) WHERE status = 'active' AND usage_metric_id IS NOT NULL` + metric lookup index. Composite FK tiếp tục buộc service/feature/metric thuộc đúng application.
+   - **Sản phẩm:** Migration `*_p5_scope_metric_indexes.sql`.
+   - **Phụ thuộc:** Bước 8.
+   - **Verify:** psql `pg_indexes` chứa cả `service_identity_scopes_active_feature_key` và `service_identity_scopes_active_metric_key`; entitlement lookup query cũ vẫn dùng feature index (regression pass).
+   - **Lane:** Backend.
+
+10. **Bước 10 — Migration quota ledger `usage_buckets`**
+    - **Hành động:** Tạo `usage_buckets` unique `usage_buckets_account_policy_window_key (account_id, plan_quota_policy_id, window_start, window_end)` + `usage_buckets_id_account_app_metric_key`; composite FK `usage_buckets_subscription_account_fk` và `usage_buckets_policy_binding_fk`; snapshot `limit_quantity`, `committed_quantity`, `reserved_quantity`; checks `usage_buckets_window_check`, `usage_buckets_nonnegative_check`, `usage_buckets_hard_limit_check (committed::numeric + reserved::numeric <= limit::numeric)`.
+    - **Sản phẩm:** Migration `*_p5_usage_buckets.sql`.
+    - **Phụ thuộc:** Bước 5, 9.
+    - **Verify:** psql `pg_constraint` chứa `usage_buckets_hard_limit_check`; thử UPDATE bucket để `committed + reserved > limit` kỳ vọng bị check reject.
+    - **Lane:** Backend.
+
+11. **Bước 11 — Migration `usage_reservations`**
+    - **Hành động:** Tạo `usage_reservations` với composite FK `usage_reservations_bucket_binding_fk (usage_bucket_id, account_id, application_id, usage_metric_id)` và `usage_reservations_service_application_fk`; unique `usage_reservations_service_operation_reference_key`; `quantity > 0`, bounded `committed_quantity`, state `reserved|committed|canceled|expired`, `usage_reservations_terminal_check`; index `usage_reservations_expiry_idx (expires_at, id) WHERE state = 'reserved'`.
+    - **Sản phẩm:** Migration `*_p5_usage_reservations.sql`.
+    - **Phụ thuộc:** Bước 10.
+    - **Verify:** psql xác nhận composite FK + `usage_reservations_terminal_check`; thử INSERT reservation state `committed` với terminal fields null kỳ vọng bị reject.
+    - **Lane:** Backend.
+
+12. **Bước 12 — Migration `usage_events` append-only**
+    - **Hành động:** Tạo `usage_events` với signed deltas, after-values, `usage_events_type_check` (`reserved|committed|canceled|expired|limit_adjusted|reconciled_adjustment`), `usage_events_reservation_shape_check`, `usage_events_after_check` (numeric cast, sum bounded), `usage_events_actor_check`, composite FK `usage_events_reservation_bucket_fk`.
+    - **Sản phẩm:** Migration `*_p5_usage_events.sql`.
+    - **Phụ thuộc:** Bước 11.
+    - **Verify:** psql `pg_constraint` chứa `usage_events_after_check` và `usage_events_reservation_shape_check`; thử INSERT `limit_adjusted` với reservation non-null kỳ vọng bị reject.
+    - **Lane:** Backend.
+
+13. **Bước 13 — Migration `idempotency_records` + append-only trigger + grants**
+    - **Hành động:** Tạo `idempotency_records` cho service ops `reserve|commit|cancel`, unique `(service_identity_id, operation, idempotency_key)`, fingerprint, processing/completed shape, bounded replay ≤ 64 KiB, retention expiry. Tạo `usage_events_append_only_trg` chặn UPDATE/DELETE/TRUNCATE; cấp runtime role **không** có TRUNCATE/DDL/disable-trigger. DB clock cho window/expiry/terminal time.
+    - **Sản phẩm:** Migration `*_p5_idempotency_and_triggers.sql`.
+    - **Phụ thuộc:** Bước 12.
+    - **Verify:** psql `SELECT tgname FROM pg_trigger WHERE tgrelid='control_plane.usage_events'::regclass` chứa `usage_events_append_only_trg`; thử UPDATE/DELETE trên `usage_events` bằng runtime role kỳ vọng bị chặn; `has_table_privilege(runtime_role,'control_plane.usage_events','TRUNCATE')` trả false.
+    - **Lane:** Backend.
+
+14. **Bước 14 — Migration tests + final validation gate**
+    - **Hành động:** Viết migration test đối chiếu staged-to-final schema P5 của `docs/database-schema.md`: clean upgrade từ staged P4, dirty/representative P4 rows chặn replacement, final named checks chấp nhận đúng feature/metric shapes, entitlement-history preservation, composite FK, no-cascade history, role grants, forward-fix/pre-traffic rollback gate. Chỉ sau final validation mới expose quota API.
+    - **Sản phẩm:** `tests/control-plane/migration/p5-staged-to-final.spec.ts`, `tests/control-plane/migration/append-only-trigger.spec.ts`.
+    - **Phụ thuộc:** Bước 5–13.
+    - **Verify:** Chạy suite bằng `‹cần chốt: test runner thật sau bootstrap›` trên PostgreSQL thật; kỳ vọng dirty P4 row chặn được replacement, entitlement history count không đổi, append-only trigger block mutation. Preflight/rehearsal fail → giữ nguyên P4 constraints, không mở quota API.
+    - **Lane:** Backend (migration owner) + Tester.
+
+### Nhóm D — Parallel implementation (sau freeze)
+
+15. **Bước 15 — Window/policy calculator**
+    - **Hành động:** Hiện thực policy/window calculator bằng DB-time inputs (`transaction_timestamp()`), xử lý calendar/rolling + DST gap/fold theo semantics đã duyệt; test boundary trước reserve transaction.
+    - **Sản phẩm:** `apps/control-plane/src/modules/quota/` (window calculator).
+    - **Phụ thuộc:** Bước 5, 14; `‹cần chốt: DST gap/fold behavior + anchor›`.
+    - **Verify:** `tests/control-plane/quota/window-dst.spec.ts` — boundary trước/tại/sau reset và DST transition tính đúng window; không dùng client clock.
+    - **Lane:** Backend.
+
+16. **Bước 16 — Exact metric authorization + revoke locking**
+    - **Hành động:** Hiện thực `ServiceScopeAuthorizationPort` cho exact `quota:reserve|commit|cancel|read` gắn đúng metric, chạy **trước** `ExternalIdentityResolutionPort`; revoke dùng lock discipline tương thích prefix lock order để request sau revoke bị deny.
+    - **Sản phẩm:** `apps/control-plane/src/modules/service-identity/` (metric authorization).
+    - **Phụ thuộc:** Bước 9, 15.
+    - **Verify:** `tests/control-plane/quota/scope-before-resolution.spec.ts` — sai issuer/audience/app/metric/capability deny trước identity resolution; `tests/control-plane/quota/revoke-race.spec.ts` — request bắt đầu sau revoke bị deny, không lộ reservation state.
+    - **Lane:** Backend.
+
+17. **Bước 17 — Reserve transaction (atomic hard limit)**
+    - **Hành động:** Hiện thực `ReserveUsageCommand` theo canonical transaction với atomic conditional update `limit - committed - active_reserved >= requested`, ghi `usage_reservations` + `usage_events(reserved)` + bucket counter trong cùng transaction. Lock order canonical **service identity/scope → idempotency → bucket → reservation**; không network call dưới row lock; fail-closed khi DB/entitlement không sẵn sàng.
+    - **Sản phẩm:** `apps/control-plane/src/modules/quota/` (reserve).
+    - **Phụ thuộc:** Bước 16.
+    - **Verify:** `tests/control-plane/quota/last-unit-concurrency.spec.ts` — tại remaining = 1, nhiều reserve đồng thời có tổng successful quantity tối đa 1, bucket/event/reservation nhất quán; `tests/control-plane/quota/lock-order.spec.ts` assert đúng thứ tự lock.
+    - **Lane:** Backend.
+
+18. **Bước 18 — Commit / cancel / status**
+    - **Hành động:** Hiện thực `CommitUsageCommand`, `CancelUsageCommand`, `GetReservationStatusQuery` theo cùng lock discipline; terminal chỉ `reserved -> committed|canceled|expired`; commit không vượt reserved; idempotency theo namespace `commit`/`cancel`; re-authorize exact metric scope trước mỗi operation kể cả reservation đã tồn tại.
+    - **Sản phẩm:** `apps/control-plane/src/modules/quota/` (commit/cancel/status).
+    - **Phụ thuộc:** Bước 17.
+    - **Verify:** `tests/control-plane/quota/terminal-states.spec.ts` (opposite transition conflict; commit/cancel lặp không đổi bucket); `tests/control-plane/quota/timeout-status.spec.ts` (timeout phục hồi bằng status/retry cùng key, không tạo reservation mới).
+    - **Lane:** Backend.
+
+19. **Bước 19 — Usage summary + admin ledger/override/adjustment**
+    - **Hành động:** Hiện thực `GetUsageSummaryQuery` (display-only remaining), admin ledger query, quota limit override qua Entitlement-owned port (Quota không đọc bảng override trực tiếp), `AdjustUsageCommand` tạo `limit_adjusted`/`reconciled_adjustment` event + audit trong cùng transaction, không rewrite history.
+    - **Sản phẩm:** `apps/control-plane/src/modules/quota/` + `apps/control-plane/src/modules/entitlement/` (effective limit boundary).
+    - **Phụ thuộc:** Bước 18.
+    - **Verify:** `tests/control-plane/quota/adjustment-audit.spec.ts` — adjustment thêm event mới + audit, không UPDATE/DELETE event cũ; audit failure rollback adjustment.
+    - **Lane:** Backend.
+
+20. **Bước 20 — QuotaReconciliationPort + worker entrypoint**
+    - **Hành động:** Hiện thực system-only `QuotaReconciliationPort` (list due candidates + expire/reconcile dưới transaction lock + state recheck, không lộ table) và worker main entrypoint `apps/control-plane/src/main-worker.*` chỉ gọi port, batch/backoff/observability theo policy; không import repository/table, không public ra Internet.
+    - **Sản phẩm:** `apps/control-plane/src/modules/reconciliation/`; `apps/control-plane/src/main-worker.*`.
+    - **Phụ thuộc:** Bước 18; `‹cần chốt: worker batch/backoff/retry limits + late-success policy›`.
+    - **Verify:** `tests/control-plane/quota/reconciliation-duplicate.spec.ts` — hai invocation cùng nhận một due candidate chỉ tạo một terminal transition, một bucket change, một usage event (loser no-op); worker không truy cập table trực tiếp (review + test).
+    - **Lane:** Backend.
+
+21. **Bước 21 — Parallel Web + test suites**
+    - **Hành động:** Song song sau freeze: Frontend xây User Web (usage summary/remaining display-only, reset time theo timezone server, decimal string format không parse qua JS `number`) và Admin Web (usage explorer, reservation detail, read-only event ledger, override/adjustment form) qua BFF; Tester viết concurrency/idempotency/security/migration/load/accessibility/responsive + mock Data Plane suites.
+    - **Sản phẩm:** `apps/web/`; `tests/web/`; `tests/integration/` (Data Plane mock theo contract).
+    - **Phụ thuộc:** Bước 4 (freeze); Backend API bước 17–20.
+    - **Verify:** `tests/web/decimal-precision.spec.ts` (không mất chính xác), `tests/web/rbac-bypass.spec.ts`, `tests/web/accessibility.spec.ts`, `tests/web/responsive.spec.ts`; `tests/integration/dataplane-mock.spec.ts` chứng minh reserve phải thành công trước mock action và timeout không tạo key mới.
+    - **Lane:** Frontend + Tester.
+
+### Nhóm E — Integration + QA/reviewer
+
+22. **Bước 22 — Chạy toàn bộ test bằng lệnh thật (gồm Supavisor + load)**
+    - **Hành động:** Chạy migration/unit/contract/PostgreSQL/concurrency/reconciliation/security/load/web/mock suites; kiểm chứng Supavisor transaction pinning trong test thật; SQLSTATE chỉ retry bounded `40001`/`40P01` với backoff+jitter. Lỗi thuộc code owner sửa, không bẻ test.
+    - **Sản phẩm:** Log output test + load report (evidence checklist mục 17).
+    - **Phụ thuộc:** Bước 14–21.
+    - **Verify:** `‹cần chốt: lệnh test tổng + load runner thật sau bootstrap›` trên PostgreSQL/Supavisor mục tiêu; kỳ vọng required suite pass, last-unit không double-spend, transaction pinning xác nhận, load report đo latency/error/deadlock/retry/lock-wait; dán output thật.
+    - **Lane:** Backend + Frontend + Tester (tự kiểm trước gate).
+
+23. **Bước 23 — QA + reviewer song song**
+    - **Hành động:** QA kiểm chứng acceptance/checklist (API/functional, DB/concurrency/load, security/accessibility/responsive) từ output thật; reviewer kiểm ownership, port-only worker, lock order, atomic SQL, DB clock, no network-under-lock, append-only/audit, decimal contract, no Redis/billing/Data Plane business integration. Lặp tối đa ba vòng.
+    - **Sản phẩm:** Kết quả gate mục 20.
+    - **Phụ thuộc:** Bước 22.
+    - **Verify:** QA gate PASS với evidence; reviewer hết mục “phải sửa”. Cùng lỗi lặp lần hai, Supavisor không pinning, hoặc thiếu quyết định → khai báo TẮC/CẠN LƯỢT theo mục 19.
+    - **Lane:** QA + Reviewer (edit deny).
+
+24. **Bước 24 — Cập nhật tài liệu sau sign-off**
+    - **Hành động:** Chỉ khi cả hai gate đạt, cập nhật OpenAPI/runbook (timeout/outage/reconciliation/revoke/adjustment)/rollback/docs từ source và output đã kiểm chứng; đề nghị exit. Không ghi “đã chạy” nếu chưa chạy.
+    - **Sản phẩm:** Tài liệu API/runbook đã đối chiếu source.
+    - **Phụ thuộc:** Bước 23 (cả hai gate đạt).
+    - **Verify:** Đối chiếu docs ↔ OpenAPI ↔ migration ↔ source; không tuyên bố có billing/Data Plane integration thật/Redis ledger; mọi lệnh/path khớp repo thật.
+    - **Lane:** Document.
 
 ## 16. Parallel lanes và ownership
 

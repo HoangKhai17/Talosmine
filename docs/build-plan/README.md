@@ -120,6 +120,22 @@ Migration được triển khai theo phase, không tạo toàn bộ 25 bảng c�
 6. **Fixes:** chủ lane sửa code; không sửa test chỉ để pass. Chạy lại gate liên quan.
 7. **Docs:** cập nhật README/API/runbook/build plan theo behavior đã xác minh, không theo dự định chưa triển khai.
 
+### Định dạng runbook cho `## 15. Ordered steps`
+
+Mục `## 15. Ordered steps` của **mọi** phase phải viết dưới dạng runbook thực thi, không phải danh sách ý định chung chung. Mỗi bước là một khối có ID `P{phase}.{n}` (ví dụ `P1.3`) theo đúng thứ tự phụ thuộc thật, và đủ **5 thành phần bắt buộc**:
+
+1. **Hành động** — việc cụ thể phải làm, đủ rõ để một lane bắt tay vào được (ví dụ "khởi tạo workspace", "viết docker-compose cho PostgreSQL + Supavisor", "tạo migration baseline tạo schema `control_plane`").
+2. **Sản phẩm** — đường dẫn file/thư mục/artifact được tạo hoặc sửa, dùng canonical path của plan.
+3. **Phụ thuộc** — bước `P{phase}.{n}` trước đó và/hoặc decision gate cần xong trước; ghi `—` nếu không có.
+4. **Verify** — cách kiểm chứng cụ thể, quan sát được (lệnh chạy và output kỳ vọng, endpoint trả gì, migration apply từ DB sạch, review completeness…). Không ghi lệnh giả: nếu công cụ chưa được chốt thì ghi rõ "sau khi ‹cần chốt: …› xong mới có lệnh thật".
+5. **Lane/owner** — một trong `backend` / `frontend` / `tester` / `orchestrator(infra,CI)` / `document` / `architect` / `qa` / `reviewer`, theo ownership manifest ở mục Ownership lanes.
+
+Quy tắc kèm theo:
+
+- Bước phụ thuộc một quyết định chưa chốt phải đánh dấu `‹cần chốt: X›` ngay tại chỗ; không tự điền giá trị, version, package hay tag.
+- Giữ trật tự phụ thuộc thật: bước tuần tự ghi phụ thuộc tường minh; bước chạy đồng thời (ví dụ `frontend ║ backend ║ tester` sau contract freeze) phải ghi rõ "chạy song song".
+- Verify phải là điều kiện quan sát được, không phải lời hứa. Nếu phase không tạo code (ví dụ P0), verify là review/completeness/sign-off tài liệu, không phải chạy lệnh.
+
 ## Ownership lanes
 
 | Lane | Ownership chính | Không được làm |

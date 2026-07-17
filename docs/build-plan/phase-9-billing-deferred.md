@@ -209,26 +209,115 @@ Không tạo fake provider fixture trước provider approval. Test phải dùng
 
 ## 15. Ordered steps
 
-### Trong trạng thái deferred
+Runbook này là **chuẩn bị deferred**, không phải lệnh khởi công. Phase giữ canonical status `blocked` với metadata `deferred: true`. Các bước sau **separate billing approval** chỉ được bắt đầu khi cổng mục 3 đã mở; trước thời điểm đó, mọi bước implementation ở trạng thái chờ và không được tạo bất kỳ artifact billing thật nào (provider adapter, checkout, webhook/callback endpoint, billing worker, UI, bảng `billing_*`, dependency, secret, workflow hay test fixture). Mỗi bước mô tả theo năm thành phần: **Hành động**, **Sản phẩm**, **Phụ thuộc**, **Verify** và **Lane** (khớp mục 16). Trong giai đoạn deferred, **Verify chủ đạo là ADR/decision record được phê duyệt** — không phải code chạy được. Payment provider là decision gate ‹cần chốt: provider/account/region, API version, sandbox, credential ownership›; deployment/infra impact kế thừa quyết định của Phase 8.
 
-1. Giữ trạng thái phase là `blocked` và metadata `deferred: true`; không tạo code/schema/API/UI/dependency/secret.
-2. Chỉ thu thập yêu cầu, owner, compliance và các lựa chọn cần con người quyết định.
-3. Khi có nhu cầu kinh doanh chính thức, thực hiện re-entry checklist ở mục 19 trước mọi implementation.
+### Trong trạng thái deferred (đang áp dụng)
 
-### Sau khi được phê duyệt tái nhập
+#### Bước 1 — Giữ cô lập và không tạo artifact billing
 
-4. Chọn provider và chốt toàn bộ product/tax/lifecycle/effective timing/retention/PCI decisions bằng ADR.
-5. Architect/product lập quyết định, data flow, threat/failure/reconciliation model và review architecture/schema ở vai trò read-only; không viết implementation.
-6. Freeze Billing Adapter, verified event envelope, Subscription mutation mapping, OpenAPI và UX contracts.
-7. Lập file-level ownership manifest: migrations thuộc backend; toàn bộ web thuộc một frontend owner; tests thuộc tester; docs thuộc document; infra/workflows/root/shared chỉ có writer sau approval tương ứng.
-8. Backend thiết kế/viết schema delta và migration không bịa cột; migration tiếp tục qua privacy/PCI/retention/outbox review. Backend là writer OpenAPI duy nhất chỉ khi orchestrator giao rõ trong manifest.
-9. Tester viết test từ contract; backend và frontend chỉ triển khai trên path ownership riêng. Orchestrator chỉ viết infra/workflow/root/shared sau explicit user approval; không mở lane `Infrastructure`.
-10. Triển khai provider verification/idempotency/order/reconcile trước mutation; sau đó nối `SubscriptionMutationPort`.
-11. Một frontend owner triển khai cả user và admin UI, không grant quyền từ client; document subagent chỉ cập nhật docs.
-12. Chạy sandbox contract, security, duplicate/out-of-order/replay, lifecycle/timing, reconciliation, concurrency và web tests.
-13. Chạy migration/rollout/rollback drill ở staging; đối chiếu P8 DR/revoke/observability không bị suy giảm.
-14. Cập nhật index/modular/schema/OpenAPI và tài liệu vận hành qua đúng owner trong manifest.
-15. QA và reviewer độc lập; chỉ mở production khi exit gate đạt và có go/no-go riêng.
+- **Hành động:** Giữ phase `blocked` + `deferred: true`; xác nhận P1–P8 không phụ thuộc provider/billing; không tạo code/schema/API/UI/dependency/secret/workflow/test fixture billing.
+- **Sản phẩm:** Không có artifact mới. Chỉ tài liệu phase này (ngoại lệ kế hoạch duy nhất được phép tồn tại).
+- **Phụ thuộc:** Không.
+- **Verify:** Rà soát repo xác nhận **không có** provider adapter, `billing_*` table, checkout/webhook endpoint, billing dependency/secret/workflow; canonical 25 domain tables giữ nguyên; `subscriptions.source_reference` không bị dùng như schema billing đầy đủ.
+- **Lane:** `subagent/document` (chỉ ghi nhận); `subagent/qa` verify read-only theo mục 20.
+
+#### Bước 2 — Thu thập yêu cầu và owner cho decision gate
+
+- **Hành động:** Thu thập business case, owner (product, finance/tax, security/privacy, support/refund, engineering) và các lựa chọn cần con người quyết định ở mục 3; ghi rõ mỗi decision gate còn ‹cần chốt›.
+- **Sản phẩm:** `docs/**` (bảng decision gate mục 3 với trạng thái từng mục, danh sách owner).
+- **Phụ thuộc:** Bước 1.
+- **Verify:** Mỗi decision gate mục 3 có mục ghi rõ đang mở/đã có owner; không mục nào bị điền default kỹ thuật/nghiệp vụ thay con người.
+- **Lane:** `subagent/document` (ghi record). Quyết định thuộc người dùng/owner; không agent nào tự chọn provider.
+
+#### Bước 3 — Cổng tái nhập
+
+- **Hành động:** Khi có nhu cầu kinh doanh chính thức, thực hiện re-entry checklist mục 19 trước mọi implementation; không mở lane nào cho tới khi checklist hoàn tất.
+- **Sản phẩm:** `docs/**` (re-entry checklist đã đánh dấu, liên kết bằng chứng approval).
+- **Phụ thuộc:** Bước 2; Phase 8 PASS; **separate billing approval của người dùng.**
+- **Verify:** Re-entry checklist mục 19 đủ điều kiện; ADR billing riêng được ký; mọi decision gate mục 3 có expected outcome kiểm thử được. Thiếu bất kỳ mục nào → phase vẫn `blocked`/`deferred`, dừng tại đây.
+- **Lane:** `subagent/document` ghi checklist; approval là hành động người dùng.
+
+### Sau khi được phê duyệt tái nhập (chưa kích hoạt)
+
+#### Bước 4 — ADR provider và quyết định lifecycle
+
+- **Hành động:** Chọn provider ‹cần chốt: provider/account/region, API version, sandbox, credential ownership› và chốt toàn bộ price/currency/tax, checkout, webhook signature, customer mapping, upgrade/downgrade/cancel/refund, proration, payment failure, entitlement effective timing, retention/reconciliation, PII/PCI scope và outbox decision bằng ADR.
+- **Sản phẩm:** `docs/**` (ADR billing được ký + decision tables lifecycle, mỗi quyết định có timeline example và expected subscription/entitlement outcome).
+- **Phụ thuộc:** Bước 3.
+- **Verify:** **ADR được phê duyệt** với mọi decision gate mục 3 đã đóng; mỗi quyết định có ví dụ timeline kiểm thử được. Đây là verify dạng decision record, chưa có code.
+- **Lane:** `subagent/document` ghi ADR; quyết định thuộc owner đã phê duyệt; `subagent/architect` review read-only.
+
+#### Bước 5 — Threat model, data flow và schema review read-only
+
+- **Hành động:** Architect/product lập trust boundary, data flow, threat/failure/reconciliation model và review architecture/schema ở vai trò read-only; xác định owner/invariant cho `billing_*`, verified provider event, idempotency/dedup và outbox nếu ADR duyệt. Không viết implementation, không bịa exact column.
+- **Sản phẩm:** `docs/**` (threat model, data-flow, schema review notes; privacy/PCI assessment nháp).
+- **Phụ thuộc:** Bước 4.
+- **Verify:** Review được ký; không quyết định exact physical column trước provider contract; email không được dùng làm identity key; outbox chỉ xuất hiện nếu ADR/schema review duyệt.
+- **Lane:** `subagent/architect` + `subagent/document` (read-only decision/review + ghi record).
+
+#### Bước 6 — Freeze contract
+
+- **Hành động:** Freeze Billing Adapter boundary, verified event envelope, `SubscriptionMutationPort` mapping (event → command), OpenAPI/browser/admin/provider ingress contract, UX states và security/observability/rollout gates.
+- **Sản phẩm:** `docs/**` (contract freeze record); `contracts/openapi/control-plane.v1.yaml` delta chỉ do writer được chỉ định chạm sau manifest.
+- **Phụ thuộc:** Bước 5.
+- **Verify:** Contract không đưa provider-specific identifier vào core Subscription/Entitlement/Quota nếu adapter-owned mapping cô lập được; contract change kéo theo cập nhật ADR/schema/OpenAPI/test trước code.
+- **Lane:** `subagent/architect` review/freeze read-only; `orchestrator` + owner điều phối; `subagent/document` ghi record.
+
+#### Bước 7 — File-level ownership manifest
+
+- **Hành động:** Lập manifest tới cấp file trước khi mở parallel lanes: migrations + `apps/control-plane/**` thuộc backend; toàn bộ `apps/web/**` (user + admin) thuộc một frontend owner; `tests/**` thuộc tester; `docs/**` thuộc document; `infra/**`, `.github/workflows/**` và root/shared chỉ có writer sau approval tương ứng; OpenAPI chỉ backend viết nếu orchestrator giao rõ.
+- **Sản phẩm:** `docs/**` (ownership manifest với đúng một writer/file + bằng chứng approval).
+- **Phụ thuộc:** Bước 6.
+- **Verify:** Mỗi file có đúng một writer; không chia sẻ write ownership; không tạo file ngoài manifest; không mở lane `Infrastructure`.
+- **Lane:** `orchestrator` + owner đã phê duyệt điều phối; `subagent/document` ghi manifest.
+
+#### Bước 8 — Schema delta và migration (không bịa cột)
+
+- **Hành động:** Backend thiết kế/viết schema delta `billing_*` và migration forward chỉ từ provider contract/query model đã duyệt; migration qua privacy/PCI/retention/outbox review; giữ canonical subscription timeline/idempotency/append-only/hard quota invariant. Backend là writer OpenAPI duy nhất chỉ khi manifest giao rõ.
+- **Sản phẩm:** `apps/control-plane/drizzle/migrations/`, `apps/control-plane/**/billing/**`; `contracts/openapi/control-plane.v1.yaml` nếu được giao.
+- **Phụ thuộc:** Bước 7. **Cần user approval trước khi chạm `infra/**`/`.github/workflows/**` liên quan.**
+- **Verify:** Migration staging + backup/PITR checkpoint đạt; không exact column nào từ phỏng đoán; outbox chỉ tồn tại nếu ADR duyệt; expand/backfill/validate/contract nếu đụng dữ liệu hiện hữu.
+- **Lane:** `subagent/backend`.
+
+#### Bước 9 — Provider verification/idempotency/ordering/reconcile trước mutation
+
+- **Hành động:** Triển khai provider ingress xác minh signature/authenticity trên raw body theo official protocol, chống replay, deduplicate, áp ordering/effective-time policy; reconciliation query provider theo credential tối thiểu; chỉ sau đó nối `SubscriptionMutationPort`. Tester viết test từ contract song song.
+- **Sản phẩm:** `apps/control-plane/**/billing/**` (verify/dedupe/order/reconcile, mapping); `tests/**` (contract/security/lifecycle/reconciliation/concurrency).
+- **Phụ thuộc:** Bước 8; provider sandbox/official fixture ‹cần chốt›. `orchestrator` chỉ viết infra/workflow/root/shared **sau explicit user approval**; không mở lane `Infrastructure`.
+- **Verify:** Test duplicate/out-of-order/replay/forged callback dùng sandbox/official fixture đã duyệt; "verified" không tự cấp quyền; Billing không ghi trực tiếp table domain khác.
+- **Lane:** `subagent/backend` (implementation); `subagent/tester` (`tests/**`); `orchestrator` **sau approval** cho infra/workflow.
+
+#### Bước 10 — User/admin billing UI (không grant từ client)
+
+- **Hành động:** Một frontend owner triển khai cả user và admin billing UI + BFF theo contract; trạng thái lấy từ server reconciliation/subscription state; client success chỉ điều hướng/hiển thị trạng thái đang xác minh, không gửi lệnh grant.
+- **Sản phẩm:** `apps/web/**/billing/**` (user + admin UI, BFF routes).
+- **Phụ thuộc:** Bước 6 (UX contract), Bước 9 (server state).
+- **Verify:** Không nút "force entitlement"/"Upgrade" giả; checkout từ BFF authenticated + CSRF + exact return URL; accessibility (keyboard/focus/screen reader/contrast) và responsive desktop/mobile/tablet cho pending/error/retry; analytics/log không thu payment credential/token/invoice PII.
+- **Lane:** `subagent/frontend`.
+
+#### Bước 11 — Test suite đầy đủ và staging drill
+
+- **Hành động:** Chạy sandbox contract, security/privacy/PCI, duplicate/out-of-order/replay, forged callback, refund/cancel, timeout, reconciliation, lifecycle/timing, concurrency và web tests; chạy migration/rollout/rollback drill ở staging; đối chiếu P8 DR/revoke/observability không suy giảm.
+- **Sản phẩm:** `tests/**` (evidence đầy đủ); `docs/**` (staging drill report).
+- **Phụ thuộc:** Bước 9, Bước 10. Phần drill hạ tầng **cần user approval trước khi chạm `infra/**`/`.github/workflows/**`.**
+- **Verify:** Mỗi test lưu command/version/environment/timestamp/expected/actual/artifact; entitlement timing đúng decision table tại các biên; rollback/forward-fix không xóa provider/audit history; P8 capacity/DR/observability được đánh giá lại cho billing workload.
+- **Lane:** `subagent/tester`; `orchestrator` **sau approval** cho drill hạ tầng; `subagent/document` ghi report.
+
+#### Bước 12 — Cập nhật tài liệu nguồn sự thật
+
+- **Hành động:** Cập nhật `docs/index.md`, `docs/modular.md`, `docs/database-schema.md`, OpenAPI và runbook vận hành/support qua đúng owner trong manifest; không còn mô tả billing là deferred sai với trạng thái thực.
+- **Sản phẩm:** `docs/**` (index/modular/schema/runbook đồng bộ); OpenAPI qua owner được giao.
+- **Phụ thuộc:** Bước 11.
+- **Verify:** ADR, index, modular, schema, OpenAPI nhất quán; P1–P8 vẫn không phụ thuộc provider/billing module; không tài liệu nào tuyên bố billing đã triển khai trước bằng chứng.
+- **Lane:** `subagent/document` (docs); owner được giao cho OpenAPI.
+
+#### Bước 13 — QA/reviewer độc lập và go/no-go riêng
+
+- **Hành động:** Chạy QA và reviewer read-only; tối đa ba vòng theo `AGENTS.md`; chỉ mở production khi exit gate mục 18 đạt và có go/no-go riêng cho billing. QA/reviewer không sửa implementation.
+- **Sản phẩm:** `docs/**` (QA report, reviewer report, go/no-go record billing).
+- **Phụ thuộc:** Bước 1–12.
+- **Verify:** QA PASS và reviewer hết mục "phải sửa"; ADR approval chỉ mở phase, không tự đáp ứng exit gate; kết quả `PASS`/`FAIL`/`TẮC`/`CẠN LƯỢT` là verification metadata, không thay canonical status `blocked`/`deferred` trong tài liệu kế hoạch.
+- **Lane:** `subagent/qa` và `subagent/reviewer` (read-only, `edit: deny`); go/no-go thuộc người có thẩm quyền.
 
 ## 16. Parallel lanes và ownership
 

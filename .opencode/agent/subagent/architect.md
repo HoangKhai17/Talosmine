@@ -1,7 +1,7 @@
 ---
 description: Kiến trúc sư phần mềm. Thiết kế cấu trúc hệ thống, chốt hợp đồng API, chọn pattern, và biến mục tiêu thành kế hoạch từng bước có đánh dấu việc chạy song song. Chỉ đọc — không viết code.
 mode: subagent
-model: openai/gpt-5.6-sol
+model: anthropic/claude-opus-4-8
 temperature: 0.2
 permission:
   read: allow

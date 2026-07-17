@@ -1,7 +1,7 @@
 ---
 description: Người review code. Soát diff tìm bug logic, lỗ hổng bảo mật, và vấn đề bảo trì. Chỉ đọc — góp ý chứ không sửa code.
 mode: subagent
-model: openai/gpt-5.6-sol
+model: anthropic/claude-opus-4-8
 temperature: 0.1
 permission:
   read: allow

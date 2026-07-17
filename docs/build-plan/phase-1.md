@@ -194,20 +194,105 @@ Load tool có thể được chọn ở P1 nhưng hard-quota/load scenario nằm
 
 ## 15. Ordered steps
 
-1. Xác nhận P0 gate và mở từng technical decision/spike; lưu owner/approver/evidence.
-2. Xin người dùng phê duyệt cụ thể việc sửa `infra/**`, `.github/workflows/**` và root workspace/config trong P1; chưa có approval thì giữ các phần này `blocked`.
-3. Chốt Node exact, package manager/workspace và target paths; pin versions/lockfile policy.
-4. Chốt lint/format, test, UUIDv7, OpenAPI và Auth0 SDK decisions; sample app runtime giữ deferred P6.
-5. Chạy Supavisor và Caddy topology spike sau approval phù hợp; freeze DB/network assumptions.
-6. Orchestrator lập manifest file-level owner với một writer có quyền cho từng shared/root/OpenAPI file; architect chỉ review và freeze foundation contract/ownership.
-7. Writer được manifest giao bootstrap workspace/strict TypeScript; chỉ lúc này mới tạo script thật theo decisions.
-8. Frontend dựng responsive user/admin/auth/BFF shell với server-side admin deny boundary.
-9. Backend dựng NestJS/Fastify modules, API/worker entrypoints, health/error/correlation và migration baseline; chỉ write OpenAPI file nếu manifest giao.
-10. Orchestrator dựng pinned private Compose/Caddy/env/role và CI/GHCR skeleton sau user approval, hoặc giao path chính xác cho agent hiện hữu có quyền phù hợp trong manifest.
-11. Tester thêm baseline/smoke/migration/contract tests theo frozen contract.
-12. Integration từ clean clone; chạy **các command thật vừa được tạo** và lưu output/evidence. Không dùng command mẫu trong tài liệu thay evidence.
-13. QA và reviewer chạy độc lập; owner sửa lỗi, tối đa ba vòng.
-14. Document cập nhật command/path thực tế và status sau verification.
+Thứ tự: mở decision gate → user approval cho path điều kiện → contract freeze → bootstrap workspace → parallel impl (frontend ║ backend ║ tester) → infra/CI → integration từ clean clone → QA/reviewer → docs. Không tuyên bố command/script/service đã tồn tại; runbook là kế hoạch, evidence chỉ có sau khi chạy thật. Package manager, Node LTS, lint/format/test tool, UUIDv7 package, OpenAPI tool, Auth0 SDK, Supabase image tag và pooling mode đều là decision gate — giữ nguyên `‹cần chốt›` tại chỗ, không tự chọn.
+
+**P1.1 — Xác nhận P0 gate và mở technical decision/spike**
+- Hành động: xác nhận P0 `verified` cho các decision chặn bootstrap; mở từng technical decision gate và spike ở mục 3, lưu owner/approver/evidence.
+- Sản phẩm: decision-gate log/record dưới `docs/build-plan/` (không tạo code).
+- Phụ thuộc: P0 exit gate. `‹cần chốt: Node exact Active LTS, package manager + version + workspace mechanism, lint/format tool, test tools, UUIDv7 package, OpenAPI tool/approach, Auth0 SDK/version, Supavisor pooling mode, Caddy local topology, Supabase image/version tag›`.
+- Verify: mỗi gate có approver hoặc được đánh dấu còn mở; gate còn mở giữ phần phụ thuộc `blocked`; spike fail lặp lần hai ghi **TẮC**.
+- Lane: `orchestrator` điều phối; `architect` review closure.
+
+**P1.2 — Xin user approval cho path điều kiện**
+- Hành động: xin người dùng phê duyệt cụ thể việc sửa `infra/**`, `.github/workflows/**` và root workspace/config trong P1.
+- Sản phẩm: approval record; chưa tạo file.
+- Phụ thuộc: P1.1.
+- Verify: có approval tường minh mới mở các bước infra/CI/root; thiếu thì các phần đó giữ `blocked`.
+- Lane: `orchestrator`.
+
+**P1.3 — Chốt runtime/workspace/target paths và pin version**
+- Hành động: chốt Node exact, package manager/workspace mechanism, lockfile policy và finalize target monorepo layout theo README.
+- Sản phẩm: version/tool manifest record + layout finalize note dưới `docs/build-plan/`; root workspace/config path được xác lập chờ writer ở P1.7.
+- Phụ thuộc: P1.1, P1.2. `‹cần chốt: exact Node LTS, package manager + version, workspace mechanism, lockfile policy›`.
+- Verify: version được pin và ghi lại; layout khớp canonical paths (`apps/web/`, `apps/control-plane/src/main-api.*`, `apps/control-plane/src/main-worker.*`, `apps/control-plane/drizzle/migrations/`, `contracts/openapi/`, `integrations/`, `tests/`, `infra/compose/`, `infra/caddy/`, `.github/workflows/`).
+- Lane: `orchestrator` (root/workspace decision); `architect` review.
+
+**P1.4 — Chốt lint/format, test, UUIDv7, OpenAPI, Auth0 SDK**
+- Hành động: chốt lint/format tool + policy, test tool (unit/integration-E2E/load), UUIDv7 package + generation boundary, OpenAPI source-of-truth/validation approach và Auth0 SDK phù hợp Next.js runtime/BFF; sample app runtime giữ deferred P6.
+- Sản phẩm: tool decision record + command-naming dự kiến dưới `docs/build-plan/` (command chỉ được coi là chạy được sau khi script tồn tại và chạy thật).
+- Phụ thuộc: P1.3. `‹cần chốt: lint/format tool, test runner, UUIDv7 package, OpenAPI tool, Auth0 SDK package/version›`.
+- Verify: mỗi tool có owner, command naming và baseline scope; không thêm library ngoài decision; sample app runtime vẫn deferred.
+- Lane: `orchestrator`/`architect` (decision), `backend`/`frontend`/`tester` cấp input.
+
+**P1.5 — Spike Supavisor và Caddy topology**
+- Hành động: chạy spike chứng minh transaction pinning/row-lock/isolation trên pooling mode đã chọn; chốt Caddy local/deploy topology và private-network assumptions.
+- Sản phẩm: spike evidence record dưới `docs/build-plan/`; assumptions dùng cho `infra/compose/` và `infra/caddy/` ở P1.10.
+- Phụ thuộc: P1.2, P1.4. `‹cần chốt: Supavisor pooling mode + transaction pinning strategy, Caddy local routing/TLS/hostname trust model›`.
+- Verify: spike cho evidence transaction/row-lock/isolation quan sát được; không dựa session affinity/advisory lock; Supabase/Studio/Supavisor không public. Spike fail lặp lần hai ghi **TẮC**.
+- Lane: `orchestrator` (infra spike) + `backend` (DB behavior); `architect` review.
+
+**P1.6 — Contract freeze + manifest file-level owner**
+- Hành động: orchestrator lập manifest gán đúng một writer có quyền cho từng shared/root file và `contracts/openapi/**`; architect review/freeze foundation contract (runtime/tool versions, paths/module boundary, script names/semantics, health semantics, OpenAPI source/artifact, error envelope, correlation, env contract, ports/network, DB roles, shell routes, CI/GHCR behavior).
+- Sản phẩm: ownership manifest + freeze record dưới `docs/build-plan/`.
+- Phụ thuộc: P1.3, P1.4, P1.5.
+- Verify: mỗi shared/root/OpenAPI file có đúng một writer; architect chỉ review/freeze, không write; các mục freeze tại mục 13 đủ.
+- Lane: `orchestrator` (manifest) + `architect` (freeze).
+
+**P1.7 — Bootstrap workspace và strict TypeScript**
+- Hành động: writer được manifest giao khởi tạo workspace gốc, strict TypeScript config và tạo **script thật** cho install/dev/build/lint/typecheck/test/migrate/compose theo decision.
+- Sản phẩm: root workspace manifest/lockfile, root `tsconfig` strict, package scripts (canonical root config paths); chạy song song chỉ bắt đầu sau bước này.
+- Phụ thuộc: P1.6; P1.2 approval cho root config. `‹cần chốt: package manager + workspace mechanism (từ P1.3)›`.
+- Verify: `install` từ lockfile trên clean clone chạy được sau khi script tồn tại; command chỉ được ghi là chạy được sau khi thực thi thật (evidence ở P1.12).
+- Lane: `orchestrator` hoặc agent được manifest giao root/workspace.
+
+**P1.8 — Scaffold Next.js user/admin/auth/BFF shell (chạy song song)**
+- Hành động: dựng `apps/web` responsive Next.js + strict TS với route group `(user)`, `admin`, `auth` và BFF server boundary; admin route/action/handler qua server-side deny-by-default guard; loading/error/not-found + accessibility baseline. Không business data, không login hoạt động.
+- Sản phẩm: `apps/web/app/(user)/`, `apps/web/app/admin/`, `apps/web/app/auth/`, BFF handler/server boundary theo Next.js convention.
+- Phụ thuộc: P1.7; chạy song song với P1.9, P1.11. `‹cần chốt: Auth0 SDK (chỉ tạo boundary/placeholder, không wiring thật, deferred P2)›`.
+- Verify: web build pass; `(user)` render shell; direct `admin` request bị deny server-side; keyboard/focus + responsive viewport smoke pass (lệnh thật có sau P1.4 tool + P1.7 script).
+- Lane: `frontend`.
+
+**P1.9 — Scaffold NestJS/Fastify Control Plane + migration baseline (chạy song song)**
+- Hành động: dựng `apps/control-plane` NestJS + Fastify adapter strict TS với module boundary; tạo API entrypoint `apps/control-plane/src/main-api.*` và worker entrypoint `apps/control-plane/src/main-worker.*` từ cùng codebase (worker chỉ gọi application port); health liveness/readiness, error envelope, correlation middleware; migration baseline tại `apps/control-plane/drizzle/migrations/` tạo schema `control_plane`, migration/runtime role tách quyền và grants nền tối thiểu (KHÔNG tạo 25 domain tables). Chỉ write `contracts/openapi/` skeleton nếu manifest giao.
+- Sản phẩm: `apps/control-plane/src/main-api.*`, `apps/control-plane/src/main-worker.*`, `apps/control-plane/src/modules/`, `apps/control-plane/drizzle/migrations/` (baseline schema + role), `contracts/openapi/` skeleton (nếu được giao).
+- Phụ thuộc: P1.7, P1.6 (manifest cho OpenAPI writer); chạy song song với P1.8, P1.11. Migration thứ tự theo `database-schema.md` mục 17.1 bước 1 (chỉ schema/role/grant nền, chưa tạo bảng domain). `‹cần chốt: UUIDv7 package, OpenAPI tool/approach (từ P1.4)›`.
+- Verify: API + worker production build pass; migration baseline apply từ DB sạch, inspect có schema `control_plane` + role tách quyền, runtime role không có `CREATE/ALTER/DROP`; rerun theo documented policy; liveness/readiness/error/correlation đúng frozen contract (lệnh thật có sau P1.4/P1.7).
+- Lane: `backend`.
+
+**P1.10 — Dựng private Compose/Caddy/env/role và CI/GHCR skeleton**
+- Hành động: tạo Supabase official self-hosted Docker Compose skeleton pin theo image tag đã duyệt (postgres/supavisor/studio private-only); Caddy skeleton chỉ route web/API; `.env.example` không secret; GitHub Actions/GHCR skeleton không chứa credential.
+- Sản phẩm: `infra/compose/`, `infra/caddy/`, `.env.example`, `.github/workflows/`.
+- Phụ thuộc: P1.2 approval, P1.5 spike, P1.6 manifest. `‹cần chốt: Supabase image/version tag để pin, Caddy topology (từ P1.5)›`.
+- Verify: compose config validate; Supabase/Studio/Supavisor không public, chỉ Caddy expose route đã duyệt; env example không chứa secret; CI job chạy quality/build/test/migration; GHCR step an toàn khi thiếu credential và không tuyên bố publish success khi chưa có quyền.
+- Lane: `orchestrator` (hoặc agent được manifest giao path chính xác).
+
+**P1.11 — Thêm baseline/smoke/migration/contract tests (chạy song song)**
+- Hành động: viết test theo frozen contract: clean-install/clean-clone bootstrap, strict typecheck + lint, production build web/API/worker, error-envelope/correlation unit, web smoke (`(user)`/denied `admin`/loading/error/not-found + keyboard/responsive), API liveness/readiness + no-stack/no-secret, worker startup/shutdown + no public port, compose/private-network check, migration smoke từ DB sạch, Supavisor spike assertions, OpenAPI validation/drift, secret scan.
+- Sản phẩm: `tests/` và test-only fixtures/config.
+- Phụ thuộc: P1.6 frozen contract; chạy song song với P1.8, P1.9; consume artifact từ P1.8–P1.10 khi tích hợp. `‹cần chốt: test runner + OpenAPI validation tool + secret-scan tool (từ P1.4)›`.
+- Verify: test tồn tại và chạy được sau khi tool + script có; tester không hạ kỳ vọng để pass (bug thuộc code, giao owner sửa).
+- Lane: `tester`.
+
+**P1.12 — Integration từ clean clone**
+- Hành động: từ một clean clone, chạy **các command thật vừa tạo** (install/build/lint/typecheck/test/migrate/compose) và lưu output/evidence; ghép artifact theo contract đã khóa.
+- Sản phẩm: integration evidence log dưới `docs/build-plan/` (output thật, không dùng command mẫu thay evidence).
+- Phụ thuộc: P1.7–P1.11.
+- Verify: install từ lockfile + toàn bộ command chạy trên môi trường sạch; contract đổi phải quay lại P1.6 re-freeze và thông báo mọi lane.
+- Lane: `orchestrator` điều phối; owner từng lane hỗ trợ.
+
+**P1.13 — QA và reviewer chạy độc lập + vòng sửa**
+- Hành động: QA chạy gate từ clean state (commands/builds/tests/compose/migration/exposure/secret scan) và lưu evidence; reviewer kiểm architecture/module boundary/security/rollback/docs; owner sửa lỗi, tối đa ba vòng.
+- Sản phẩm: QA PASS/FAIL + reviewer “mục phải sửa” trong bảng mục 20.
+- Phụ thuộc: P1.12.
+- Verify: QA `PASS`, reviewer hết “mục phải sửa”; command chưa tồn tại phải báo đúng là chưa có; lặp lỗi lần hai ghi **TẮC**, hết ba vòng ghi **CẠN LƯỢT** (metadata, không thay status canonical).
+- Lane: `qa` ║ `reviewer` (read-only); owner lane sửa code.
+
+**P1.14 — Cập nhật docs và status theo evidence**
+- Hành động: cập nhật command/path/version/env/health/migration/CI docs theo behavior đã chạy thật; cập nhật mục 1 (status) chỉ sau khi exit gate đạt.
+- Sản phẩm: command reference + setup docs khớp source/config thật; status update trong `docs/build-plan/`.
+- Phụ thuộc: P1.13.
+- Verify: docs chỉ liệt kê command/script đã tồn tại và được chạy; vẫn nói rõ business feature chưa implement.
+- Lane: `document`.
 
 ## 16. Parallel lanes và ownership
 

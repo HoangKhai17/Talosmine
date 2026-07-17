@@ -202,21 +202,129 @@ Mỗi test phải lưu command/version/environment, timestamp, expected/actual, 
 
 ## 15. Ordered steps
 
-1. Xác nhận P7 PASS; xin explicit user approval cho owner của `infra/**` và `.github/workflows/**`; lập change owner/RACI. Không có approval thì giữ phase `blocked` và không mở lane hạ tầng/workflow.
-2. So sánh một VPS, hai VPS app/data và HA tương lai; phê duyệt topology cùng tradeoff/risk acceptance, rồi hoàn tất các quyết định còn lại ở mục 3.
-3. Chỉ sau approval mới freeze topology, contract, version matrix, network/data flow và threat model production.
-4. Chuẩn bị staging tương đồng topology đã duyệt. Chỉ tách app/data VPS khi decision record chọn phương án đó; trong mọi phương án phải khóa Supabase/Studio khỏi Internet.
-5. Thiết lập role runtime/migration, secret reference, firewall, Caddy/TLS và image pin; kiểm tra không có credential trong repo/artifact.
-6. Xây pipeline build → test → publish GHCR → approve promotion; chỉ thêm SBOM/signing/scanning theo tooling đã duyệt.
-7. Hiện thực migration one-shot và release order: backup/checkpoint → migration task → validation → API → worker → web.
-8. Thêm/kiểm chứng liveness, readiness, graceful drain, schema compatibility và rollback/forward-fix decision tree.
-9. Thiết lập backup off-host, WAL/PITR monitoring và runbook restore/upgrade; chạy restore drill đầu tiên.
-10. Thêm telemetry/redaction/dashboard/alert/runbook bằng tooling đã duyệt và kiểm thử tín hiệu.
-11. Harden user/admin web, session/revoke, CSP/image URL và admin operation protections.
-12. Chạy security, concurrency, capacity, connection và Supavisor tests; xử lý finding theo severity gate.
-13. Chạy deploy rollback drill, secret rotation, M2M revoke, append-only retention procedure test và DR game day.
-14. Chạy QA và reviewer độc lập; tối đa ba vòng làm → kiểm → sửa → kiểm lại theo `AGENTS.md`.
-15. Hoàn tất go-live review. Chỉ triển khai production khi mọi exit gate đạt và người có thẩm quyền ký go/no-go; kế hoạch này không tự tuyên bố go-live.
+Runbook thực thi dưới đây giữ nguyên mạch logic của phase và mô tả mỗi bước theo năm thành phần: **Hành động**, **Sản phẩm** (path/artifact), **Phụ thuộc**, **Verify** (drill + kết quả đo được) và **Lane** (khớp mục 16). Các bước chạm `infra/**` và `.github/workflows/**` chỉ do `orchestrator` thực hiện **sau explicit user approval** (hoặc agent hiện hữu được user giao path); trước approval các bước đó giữ trạng thái chờ và không được mở. Runbook này không tuyên bố bất kỳ deploy/drill nào đã chạy hay đã go-live; ô Verify chỉ đạt khi có evidence thật từ môi trường và kết luận độc lập của QA/reviewer.
+
+Mọi mục tiêu định lượng (RPO/RTO, capacity/SLO budget, revoke SLA, drain timeout) là ‹cần chốt: quyết định mục 3›; runbook mô tả cách đo, không tự đặt ngưỡng. Deployment topology là decision gate ‹cần chốt: một VPS / hai VPS app-data / HA tương lai›; mọi bước topology-specific chỉ áp dụng theo phương án đã được con người phê duyệt.
+
+### Bước 1 — Xác nhận cổng đầu vào và approval sở hữu hạ tầng
+
+- **Hành động:** Thu thập bằng chứng Phase 7 PASS cho toàn bộ mandatory roster; xin explicit user approval cho owner của `infra/**` và `.github/workflows/**`; lập change owner/RACI, incident commander và lịch on-call/escalation.
+- **Sản phẩm:** `docs/**` change record (RACI, approval log, roster P7 evidence index).
+- **Phụ thuộc:** Phase 7 PASS từ QA/reviewer; approval người dùng cho hai path hạ tầng. Không có approval → giữ phase `blocked`, không mở lane hạ tầng/workflow.
+- **Verify:** Đối chiếu QA/reviewer sign-off P7 không còn mục "phải sửa" và không còn app bắt buộc chưa verify; approval được ghi văn bản với named authority.
+- **Lane:** `subagent/document` (ghi record). Approval là hành động của người dùng; không agent nào tự cấp.
+
+### Bước 2 — Chốt deployment topology và các human decision mục 3
+
+- **Hành động:** So sánh ‹cần chốt: một VPS / hai VPS app-data / HA tương lai› với network boundary, failure domain, capacity, bảo mật, chi phí, RPO/RTO và đường nâng cấp; phê duyệt topology cùng risk acceptance. Hoàn tất các quyết định còn lại mục 3: RPO/RTO, retention/privacy, revoke SLA, outage/last-known-good, capacity/SLO, domain/network, data residency, observability/secret/scanning tooling.
+- **Sản phẩm:** `docs/**` topology decision record + bảng quyết định mục 3 (mỗi mục có owner/approval).
+- **Phụ thuộc:** Bước 1.
+- **Verify:** Mỗi quyết định bắt buộc có named authority ký; thiếu bất kỳ quyết định nào → dừng tại thiết kế, không điền default giả. Nếu chọn single primary không automatic failover, decision record ghi rõ hậu quả downtime và quy trình manual recovery.
+- **Lane:** Quyết định thuộc người dùng/owner được phê duyệt; `subagent/document` ghi record; `subagent/architect` chỉ review read-only.
+
+### Bước 3 — Freeze contract, version matrix và ownership manifest
+
+- **Hành động:** Sau approval, freeze topology, release contract (image/version matrix, Compose project, domain/DNS/TLS, network allowlist), threat model production; lập file-level ownership manifest tới cấp file trước khi mở bất kỳ lane nào.
+- **Sản phẩm:** `docs/**` release contract + ownership manifest; `contracts/openapi/control-plane.v1.yaml` chỉ do integration owner được chỉ định chạm.
+- **Phụ thuộc:** Bước 2 (topology approved).
+- **Verify:** Manifest gán đúng một owner cho mỗi file, gồm bằng chứng approval cho `infra/**`, `.github/workflows/**`, OpenAPI và mọi root/shared file; không file nào chia sẻ write ownership.
+- **Lane:** `subagent/architect` review/đề xuất read-only; `orchestrator` cùng owner đã phê duyệt điều phối freeze; `subagent/document` ghi manifest.
+
+### Bước 4 — Chuẩn bị staging tương đồng topology
+
+- **Hành động:** Dựng staging khớp topology đã duyệt (chỉ tách app/data VPS nếu decision record chọn phương án đó); khóa Supabase API/database/Supavisor quản trị/Studio khỏi Internet; chỉ expose bề mặt ứng dụng qua Caddy.
+- **Sản phẩm:** `infra/**` (Compose staging, Caddy, network overlays theo topology).
+- **Phụ thuộc:** Bước 3. **Cần user approval trước khi chạm `infra/**`.**
+- **Verify:** Probe từ Internet xác nhận endpoint Supabase/Studio không truy cập được; chỉ route ứng dụng qua Caddy phản hồi; ghi lại kết quả scan port/endpoint.
+- **Lane:** `orchestrator` **sau explicit user approval** (hoặc agent hiện hữu được giao path).
+
+### Bước 5 — Thiết lập role, secret, firewall, Caddy/TLS và image pin
+
+- **Hành động:** Cấu hình role runtime tối thiểu qua Supavisor và role migration riêng; secret reference theo công cụ đã duyệt (không đưa secret vào image/source/log); firewall deny-by-default; Caddy/TLS; pin image bằng digest/định danh bất biến.
+- **Sản phẩm:** `infra/**` (secret reference config, firewall rules, Caddy config, image pin manifest).
+- **Phụ thuộc:** Bước 4; công cụ secret handling đã duyệt ở mục 3. **Cần user approval trước khi chạm `infra/**`.**
+- **Verify:** Secret scan trên repo/artifact/layer/log không phát hiện credential; xác minh runtime role không có quyền owner/migration; image reference là immutable digest, không floating tag.
+- **Lane:** `orchestrator` **sau explicit user approval**.
+
+### Bước 6 — Xây pipeline CI/CD build → test → publish → promotion
+
+- **Hành động:** Dựng GitHub Actions build → test → publish GHCR → approve promotion với provenance phù hợp; chỉ thêm SBOM/signing/scanning nếu ‹cần chốt: tooling supply-chain đã duyệt›; nếu chưa duyệt thì ghi blocker/risk, không tự chọn công cụ.
+- **Sản phẩm:** `.github/workflows/**` (build/publish/promotion/migration gate/security checks).
+- **Phụ thuộc:** Bước 5. **Cần user approval trước khi chạm `.github/workflows/**`.**
+- **Verify:** Pipeline chạy trên staging tạo image immutable đã pin; promotion yêu cầu approval; secret scan gate chặn khi có secret; ghi command/version/run link thật.
+- **Lane:** `orchestrator` **sau explicit user approval**.
+
+### Bước 7 — Hiện thực migration one-shot và release order
+
+- **Hành động:** Triển khai release order **backup/checkpoint → migration task (one-shot) → validation → API → worker → web**; migration không nằm trong startup path của bất kỳ process nào.
+- **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (forward migrations), `apps/control-plane/**` (worker entrypoint không tự migrate); orchestration deploy thuộc `infra/**`/`.github/workflows/**`.
+- **Phụ thuộc:** Bước 6; migration chain P7 đã đóng phiên bản. Phần deploy orchestration **cần user approval trước khi chạm `infra/**`/`.github/workflows/**`.**
+- **Verify:** Staging deploy theo đúng order: backup/checkpoint tạo trước, migration task chạy một lần và pass validation (constraint, trigger append-only, grants, schema version) trước khi rollout API → worker → web; startup với schema incompatible fail rõ ràng và không nhận traffic.
+- **Lane:** `subagent/backend` (migrations, worker/API); `orchestrator` **sau approval** cho deploy orchestration.
+
+### Bước 8 — health/readiness/drain và rollback/forward-fix decision tree
+
+- **Hành động:** Thêm/kiểm chứng liveness, readiness (theo dependency/policy đã duyệt), graceful drain có giới hạn thời gian ‹cần chốt: drain timeout›, schema compatibility check và rollback/forward-fix decision tree.
+- **Sản phẩm:** `apps/control-plane/**` (health/readiness/drain, schema check); `docs/**` (rollback/forward-fix decision tree).
+- **Phụ thuộc:** Bước 7.
+- **Verify:** Drill removal khỏi readiness → instance ngừng nhận traffic mới; drain cho request/transaction đang chạy hoàn tất trong timeout đo được; liveness không lộ secret/chi tiết nội bộ; rollback image khi schema backward-compatible drill thành công.
+- **Lane:** `subagent/backend`; `subagent/document` ghi decision tree.
+
+### Bước 9 — Backup off-host, WAL/PITR monitoring và restore drill đầu tiên
+
+- **Hành động:** Thiết lập backup rời host/failure domain primary tới vị trí off-host phù hợp data residency (mã hóa, integrity check, retention theo quyết định); WAL archive/PITR monitoring cho freshness/gap; runbook restore/upgrade; chạy restore drill #1.
+- **Sản phẩm:** `infra/**` (backup/restore/DR scripts, WAL/PITR monitoring config); `docs/**` (runbook restore/upgrade + kết quả drill).
+- **Phụ thuộc:** Bước 5; RPO/RTO ‹cần chốt: mục 3›; data residency ‹cần chốt: mục 3›. **Cần user approval trước khi chạm `infra/**`.**
+- **Verify:** Restore drill trong môi trường cô lập phục hồi base backup + WAL tới recovery point mục tiêu; đo **data loss thực tế** so với RPO và **thời gian khôi phục thực tế** so với RTO; chạy consistency/application smoke; WAL freshness alert fire trước khi vi phạm RPO. Drill pass chỉ khi số đo nằm trong ngưỡng đã duyệt.
+- **Lane:** `orchestrator` **sau explicit user approval** (scripts/config); `subagent/document` ghi kết quả đo.
+
+### Bước 10 — Observability: telemetry, dashboard, alert, runbook
+
+- **Hành động:** Thêm structured log/correlation, metrics (request/error/latency, readiness, worker lag, DB/Supavisor connections, lock contention, backup/WAL freshness, restore status, revoke propagation), trace sampling/redaction, dashboard và alert bằng ‹cần chốt: observability tooling đã duyệt›; không ghi PII/token/secret.
+- **Sản phẩm:** `apps/control-plane/**` và `apps/web/**` (application instrumentation); `infra/**` (telemetry infrastructure config); `docs/**` (alert catalog + runbook link).
+- **Phụ thuộc:** Bước 8, Bước 9; tooling observability đã duyệt mục 3. Phần infra **cần user approval trước khi chạm `infra/**`.**
+- **Verify:** Synthetic alert fire-test cho từng alert (owner/severity/threshold/runbook link); correlation ID xuyên BFF → API → worker; kiểm tra log/trace không chứa PII/token/secret; không đánh dấu pass chỉ vì dashboard tồn tại.
+- **Lane:** `subagent/backend` + `subagent/frontend` (instrumentation theo path); `orchestrator` **sau approval** (telemetry infra); `subagent/document` ghi catalog.
+
+### Bước 11 — Harden user/admin web
+
+- **Hành động:** Cấu hình CSP dựa trên inventory nguồn thật, HSTS sau khi domain/TLS sẵn sàng, `frame-ancestors`, MIME/referrer/permissions policy; BFF cookie `HttpOnly`/`Secure`/`SameSite` + CSRF; `image_url` allowlist với chặn loopback/private/link-local sau DNS resolution; logout/revoke xóa cookie và vô hiệu session server-side; admin re-auth/step-up/reason/confirmation/audit.
+- **Sản phẩm:** `apps/web/**` (headers/CSP, BFF session/revoke, image URL policy, admin protections).
+- **Phụ thuộc:** Bước 3 (domain/TLS contract); performance budget ‹cần chốt: mục 10›.
+- **Verify:** Test TLS/header/CSP/CSRF/cookie; SSRF qua image URL bị chặn; logout vô hiệu session server-side; accessibility (keyboard/focus/screen reader/contrast/reduced motion) và responsive desktop/mobile/tablet đạt tiêu chí đã duyệt; đo performance budget với ngưỡng đã phê duyệt.
+- **Lane:** `subagent/frontend`.
+
+### Bước 12 — Security, concurrency, capacity và Supavisor tests
+
+- **Hành động:** Chạy security test (direct endpoint/admin bypass, private Supabase/Studio exposure, log/token/PII leakage, least-privilege, forged health/admin requests); concurrency (remaining=1 hard quota, duplicate reconciliation); capacity/connection storm; Supavisor saturation/recovery; DB unavailable fail-closed; xử lý finding theo severity gate.
+- **Sản phẩm:** `tests/**` (security/concurrency/capacity/Supavisor tests + evidence).
+- **Phụ thuộc:** Bước 7–11; capacity/SLO budget ‹cần chốt: mục 3›.
+- **Verify:** remaining=1 dưới tải chỉ cho tối đa một reserve thành công; connection/Supavisor test đáp ứng connection budget/SLO đã duyệt mà không phá fail-closed invariant; mọi test lưu command/version/environment/timestamp/expected/actual/artifact/người xác minh. Finding **Critical** phải đóng, không waiver.
+- **Lane:** `subagent/tester`.
+
+### Bước 13 — Deploy rollback drill, secret rotation, M2M revoke, retention procedure và DR game day
+
+- **Hành động:** Chạy deploy rollback/forward-fix drill; secret rotation drill (deploy/runtime/database/Auth0) xác nhận credential cũ bị vô hiệu trong revoke SLA; M2M identity/scope revoke test; append-only retention procedure test (không tắt trigger, không `TRUNCATE`/rewrite lịch sử); DR game day giả lập mất host/container/failure domain theo topology đã duyệt (gồm mất riêng app/data VPS nếu chọn hai VPS).
+- **Sản phẩm:** `tests/**` (rollback/DR/rotation/retention evidence); `infra/**`/`.github/workflows/**` phần drill script/gate; `docs/**` (DR game day report, gap list, remediation).
+- **Phụ thuộc:** Bước 9 (restore/backup), Bước 12; revoke SLA ‹cần chốt: mục 3›. Phần script/gate **cần user approval trước khi chạm `infra/**`/`.github/workflows/**`.**
+- **Verify:** DR game day dùng runbook, đo thời gian phát hiện/điều phối/recovery và data loss thực tế so với RPO/RTO; ghi gap và rerun sau sửa; secret rotation xác nhận request bằng credential cũ bị deny trong SLA; retention procedure không xóa/sửa lịch sử `usage_events`/`audit_events`. Mọi gap **Critical** phải đóng, không waiver/risk acceptance.
+- **Lane:** `subagent/tester` (test/evidence); `orchestrator` **sau approval** (drill script/gate hạ tầng); `subagent/document` ghi report.
+
+### Bước 14 — QA và reviewer độc lập
+
+- **Hành động:** Chạy QA và reviewer read-only; tối đa ba vòng làm → kiểm → sửa → kiểm lại theo `AGENTS.md`. QA/reviewer không sửa implementation.
+- **Sản phẩm:** `docs/**` (QA report, reviewer report — do owner tài liệu tổng hợp; QA/reviewer tự ghi kết luận theo quyền của họ).
+- **Phụ thuộc:** Bước 1–13.
+- **Verify:** QA verify command/path/config từ repo và môi trường thật, không chấp nhận output mô phỏng; reviewer phân loại "phải sửa"/"khuyến nghị". Kết quả `PASS`/`FAIL`/`TẮC`/`CẠN LƯỢT` là verification metadata, không thay canonical status `blocked`.
+- **Lane:** `subagent/qa` và `subagent/reviewer` (read-only, `edit: deny`).
+
+### Bước 15 — Go-live review (không tự tuyên bố go-live)
+
+- **Hành động:** Hoàn tất go-live checklist (DNS/TLS, version, migration, smoke, owner, communications) và risk acceptance topology đã duyệt; trình hồ sơ readiness để người có thẩm quyền ký go/no-go.
+- **Sản phẩm:** `docs/**` (go-live checklist, known risks, go/no-go record).
+- **Phụ thuộc:** Bước 14 (QA PASS + reviewer hết mục "phải sửa"); mọi exit gate mục 18 đạt.
+- **Verify:** Checklist hoàn chỉnh và đồng bộ cấu hình thật; nếu single primary thì ghi rõ không automatic failover; risk acceptance không override Critical gap/QA PASS/reviewer gate. **Kế hoạch này không tự tuyên bố production đã bật traffic**; go-live chỉ xảy ra sau chữ ký go/no-go của người có thẩm quyền.
+- **Lane:** `subagent/document` (ghi checklist/record). Quyết định go/no-go thuộc người có thẩm quyền, không phải agent.
 
 ## 16. Parallel lanes và ownership
 
