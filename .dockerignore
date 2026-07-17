@@ -1,0 +1,85 @@
+# Build context của mọi image là ROOT repo (xem infra/docker/*.Dockerfile).
+# File này giữ context nhỏ và — quan trọng hơn — giữ secret ra ngoài image.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# CÁI BẪY: .dockerignore KHÔNG dùng luật giống .gitignore
+# ─────────────────────────────────────────────────────────────────────────────
+# Trong .gitignore, `*.tsbuildinfo` khớp Ở MỌI CẤP. Trong .dockerignore thì KHÔNG:
+# pattern dùng luật Go filepath.Match, và `*` không vượt qua dấu `/`. Vì vậy
+# `*.tsbuildinfo` CHỈ khớp file ở ngay root — `apps/control-plane/*.tsbuildinfo`
+# vẫn lọt vào context. Muốn khớp mọi cấp phải viết `**/*.tsbuildinfo`.
+#
+# Đây không phải chuyện lý thuyết. Nó đã cắn thật một lần:
+# `apps/control-plane/tsconfig.build.tsbuildinfo` lọt vào context, tsc đọc nó,
+# tin rằng output đã có sẵn và BỎ QUA việc emit 4 file dist/shared/*.js — trong
+# khi dist/ lại bị .dockerignore loại nên trong image chẳng có gì. Build vẫn
+# EXIT=0, image vẫn tạo ra, và chỉ vỡ lúc container KHỞI ĐỘNG:
+#     Error: Cannot find module '../../shared/database.js'
+# Tệ hơn: kết quả phụ thuộc state trên máy người build — CI (clean clone, không
+# có tsbuildinfo) sẽ ra image KHÁC với máy dev. Đúng nghĩa mất reproducibility.
+#
+# => Mọi pattern dưới đây phải có cặp `x` + `**/x` nếu muốn khớp mọi cấp.
+
+# ── Secret: KHÔNG BAO GIỜ vào build context ──────────────────────────────────
+# `docker build` gửi cả context cho daemon và mỗi `COPY . .` có thể bake .env vào
+# một layer. Layer thì đọc lại được từ image đã publish, kể cả khi file bị xoá ở
+# layer sau. Đây là dòng quan trọng nhất của file này.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+*.key
+**/*.key
+*.pem
+**/*.pem
+secrets/
+**/secrets/
+
+# ── Dependencies: cài lại trong image từ lockfile, không copy từ host ────────
+# node_modules của host là binary build cho Windows/macOS — copy vào image Linux
+# sẽ hỏng theo kiểu khó đoán.
+node_modules
+**/node_modules
+.pnpm-store
+
+# ── Output build ─────────────────────────────────────────────────────────────
+# Image tự build lại từ source; output của host không bao giờ được copy vào.
+dist
+**/dist
+.next
+**/.next
+build
+**/build
+out
+**/out
+coverage
+**/coverage
+# `**/` là BẮT BUỘC ở đây — xem khối "CÁI BẪY" đầu file.
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# ── Không liên quan tới runtime ──────────────────────────────────────────────
+.git
+.github
+docs
+image
+playwright-report
+test-results
+blob-report
+.claude
+.opencode
+.idea
+.DS_Store
+Thumbs.db
+*.log
+
+# ── infra: compose/Caddy không thuộc image ứng dụng ──────────────────────────
+# Dockerfile được nêu bằng `-f` nên nó không cần nằm trong context.
+infra
+
+# CỐ Ý KHÔNG ignore `tests/`: pnpm-workspace.yaml khai nó là workspace package,
+# nên lockfile có importer `tests` và `pnpm install --frozen-lockfile` trong image
+# FAIL (ERR_PNPM_OUTDATED_LOCKFILE) nếu tests/package.json không có trong context.
+# Cả hai Dockerfile vì thế `COPY tests/package.json tests/` ở stage `manifests` —
+# chỉ manifest, không copy test code vào image.

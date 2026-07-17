@@ -1,0 +1,51 @@
+import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * Playwright — E2E/smoke cho apps/web (DEC-T05, phase-1 mục 14).
+ *
+ * Phạm vi P1 cố ý hẹp: shell chưa có business feature nào, nên test ở đây chỉ chứng minh
+ * ba thứ mà exit gate P1 yêu cầu:
+ *   1. `(user)` render được;
+ *   2. `/admin` bị deny NGAY TẠI SERVER (không phải redirect phía client);
+ *   3. shell dùng được ở ba viewport và bằng bàn phím.
+ *
+ * `webServer`: Playwright tự build + start Next rồi tự tắt. Dùng `next start` (production
+ * build) chứ không phải `next dev`, vì CSP ở dev có nới thêm `'unsafe-eval'`/`'unsafe-inline'`
+ * cho React Refresh — test trên dev sẽ đo nhầm một CSP không tồn tại ở production.
+ */
+const PORT = 3123;
+const BASE_URL = `http://127.0.0.1:${PORT}`;
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: process.env.CI ? [['github'], ['list']] : [['list']],
+
+  use: {
+    baseURL: BASE_URL,
+    trace: 'on-first-retry',
+  },
+
+  projects: [
+    // Ba viewport: phase-1 mục 10 yêu cầu MỘT codebase chạy được ở desktop,
+    // máy tính bảng và điện thoại. Test chạy trên cả ba để "responsive" là điều
+    // đo được, không phải lời hứa.
+    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
+    { name: 'tablet', use: { ...devices['iPad (gen 7)'] } },
+    { name: 'mobile', use: { ...devices['Pixel 5'] } },
+  ],
+
+  webServer: {
+    command: 'pnpm --filter @talosmine/web run build && pnpm --filter @talosmine/web run start',
+    url: BASE_URL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
+    env: {
+      PORT: String(PORT),
+      NODE_ENV: 'production',
+    },
+  },
+});

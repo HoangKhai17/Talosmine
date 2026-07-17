@@ -1,0 +1,183 @@
+openapi: 3.1.0
+
+# NGUỒN SỰ THẬT của Control Plane API (DEC-T07).
+#
+# Đây là file VIẾT TAY. Nó không được sinh ra từ code.
+# Thứ tự bắt buộc: sửa file này -> `pnpm openapi:lint` -> `pnpm openapi:types` ->
+# commit type đã sinh -> rồi mới implement.
+#
+# Vì sao spec-first chứ không code-first (@nestjs/swagger):
+# build plan yêu cầu CONTRACT FREEZE TRƯỚC khi ba lane frontend/backend/tester chạy
+# song song. Code-first sẽ đảo ngược thứ tự đó — spec chỉ tồn tại sau khi code xong,
+# nên không có gì để freeze, và frontend buộc phải đoán API.
+#
+# `pnpm openapi:drift` chặn việc spec và type đã commit lệch nhau.
+#
+# PHẠM VI P1: chỉ health. Mọi endpoint nghiệp vụ (identity, catalog, plan, quota)
+# thuộc P2+ và CHƯA tồn tại — không khai ở đây để tránh mô tả thứ không có.
+
+info:
+  title: Talosmine Control Plane API
+  version: 1.0.0
+  description: |
+    Control Plane của Talosmine — nguồn sự thật về identity, entitlement và quota.
+
+    **Trạng thái: P1 (bootstrap).** Chỉ có health endpoint. Không có capability nghiệp vụ nào.
+
+    Quy ước xuyên phase:
+    - Số lượng (quantity/limit/counter/amount) biểu diễn bằng **decimal string**, không phải
+      JSON number — PostgreSQL dùng `bigint` và JSON number mất chính xác ngoài 2^53.
+    - Thời gian dùng timestamp có timezone; business time dựa DB clock.
+    - Mọi lỗi trả về `ErrorEnvelope` với `code` máy đọc được. Client bắt theo `code`,
+      không theo `message`.
+  license:
+    name: UNLICENSED
+
+servers:
+  - url: https://talosmine.localhost
+    description: Local dev qua Caddy (DEC-T11)
+
+tags:
+  - name: health
+    description: |
+      Endpoint hạ tầng cho orchestrator và reverse proxy.
+      Nằm NGOÀI versioning `/v1` vì nó không phải API nghiệp vụ có contract với client.
+
+paths:
+  /health/live:
+    get:
+      tags: [health]
+      operationId: getLiveness
+      summary: Liveness probe
+      description: |
+        Process và event loop còn đáp ứng hay không. **KHÔNG chạm database.**
+
+        Vì sao không chạm DB: liveness quyết định việc RESTART container. Nếu nó phụ thuộc
+        DB thì một sự cố DB sẽ làm restart hàng loạt app vốn đang khoẻ — biến sự cố một
+        thành phần thành sự cố toàn hệ thống. Dùng `/health/ready` cho việc kiểm dependency.
+      security: []
+      responses:
+        '200':
+          description: Process còn sống.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    const: ok
+              example:
+                status: ok
+
+  /health/ready:
+    get:
+      tags: [health]
+      operationId: getReadiness
+      summary: Readiness probe
+      description: |
+        Có nên nhận traffic không. **CÓ** kiểm tra dependency bắt buộc (database).
+
+        DB chết -> trả 503 -> ngừng nhận traffic, nhưng container KHÔNG bị restart.
+
+        Response cố ý tối giản: không lộ host DB, version, connection string hay chi tiết
+        dependency nào. Health endpoint không được trở thành công cụ do thám topology.
+      security: []
+      responses:
+        '200':
+          description: Sẵn sàng nhận traffic.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                additionalProperties: false
+                properties:
+                  status:
+                    type: string
+                    const: ready
+              example:
+                status: ready
+        '503':
+          description: Dependency chưa sẵn sàng. Không nhận traffic.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                code: SERVICE_UNAVAILABLE
+                message: Dependency chưa sẵn sàng.
+                correlationId: 018f3a2b-7c4d-7000-8000-000000000000
+
+components:
+  securitySchemes:
+    userSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token user do Auth0 phát, được BFF chuyển tiếp.
+        **CHƯA dùng ở P1** — wiring Auth0 thật là P2 và phụ thuộc DEC-B03 (tenant thật).
+    serviceIdentity:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        M2M token của backend ứng dụng (Data Plane). Mỗi backend có identity RIÊNG,
+        audience cụ thể và exact resource scope. Không dùng chung credential.
+        **CHƯA dùng ở P1.**
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      description: |
+        Hình dạng lỗi ổn định cho MỌI lỗi rời khỏi API, kể cả lỗi không lường trước.
+
+        Ràng buộc bảo mật: không bao giờ chứa stack trace, secret, connection string
+        hay chi tiết nội bộ. Với lỗi 5xx, `message` luôn là thông điệp chung — chi tiết
+        thật chỉ đi vào log phía server, truy được bằng `correlationId`.
+      required: [code, message, correlationId]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: |
+            Mã máy đọc được, ổn định, không phụ thuộc câu chữ giao diện.
+            Client bắt lỗi theo trường này.
+          pattern: '^[A-Z][A-Z0-9_]*$'
+          examples:
+            - INTERNAL_ERROR
+            - VALIDATION_FAILED
+            - SERVICE_UNAVAILABLE
+        message:
+          type: string
+          description: Thông điệp an toàn để hiển thị.
+          maxLength: 500
+        correlationId:
+          type: string
+          format: uuid
+          description: |
+            Truy vết xuyên BFF -> API -> worker -> log.
+            Nhận từ header `X-Correlation-Id` nếu hợp lệ, ngược lại server sinh mới (UUIDv7).
+            **Không phải** idempotency key — đừng dùng lẫn.
+        details:
+          type: object
+          description: Chi tiết bổ sung theo allowlist. Không bao giờ chứa dữ liệu nhạy cảm.
+          additionalProperties: true
+
+  parameters:
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: |
+        UUID để truy vết. Không gửi thì server tự sinh.
+        Định dạng sai KHÔNG làm request fail — server bỏ qua và sinh cái mới, vì làm hỏng
+        một request hợp lệ chỉ vì header truy vết xấu là đánh đổi sai.
+      schema:
+        type: string
+        format: uuid
+
+security: []

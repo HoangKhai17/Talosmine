@@ -140,6 +140,45 @@ Mọi version dưới đây được đọc từ registry thật ngày 2026-07-1
 - **GHCR:** step push có điều kiện; thiếu credential thì skip và **báo skip**, không được log như thành công.
 - **Affected phase:** P1, P8.
 
+### DEC-T16 — Overlay compose cho dev và cổng host
+
+`approved` 2026-07-17, sau khi P1.10 chạy thật.
+
+- **Vấn đề:** `docker-compose.yml` cố ý 0 port (DEC-T10). Đúng cho production, nhưng
+  drizzle-kit / Drizzle Studio / psql chạy trên host thì không tới được database.
+- **Quyết định:** thêm `infra/compose/docker-compose.dev.yml` — overlay **chỉ dùng ở máy cá nhân**,
+  chỉ THÊM `ports`, không đổi image/network/volume/env.
+- **Bind loopback:** `127.0.0.1:55432 -> db:5432` và `127.0.0.1:56543 -> supavisor:6543`.
+  Không bind `0.0.0.0` nên không lộ ra LAN.
+- **Vì sao 55432/56543 chứ không phải 5432/6543:** máy dev **đã có một PostgreSQL của dự án
+  khác** giữ cổng 5432 (kiểm chứng: `Get-NetTCPConnection -LocalPort 5432` → PID 6836).
+  Chiếm cổng đó sẽ hoặc làm `up` fail, hoặc tệ hơn là khiến công cụ lặng lẽ trỏ nhầm
+  database của dự án kia. Dịch sang dải 55xxx để hai dự án sống chung trên một máy.
+- **Ràng buộc:** overlay này **không bao giờ** dùng ở staging/production. Lệnh production chỉ
+  nêu `docker-compose.yml`. P8 coi việc một service ngoài Caddy publish port ra Internet là
+  stop condition.
+- **Affected phase:** P1, P5 (test concurrency cần đi qua pooler), P8 (không áp dụng).
+
+### DEC-T17 — Node cô lập cho Talosmine, không đổi Node toàn máy
+
+`approved` 2026-07-17, thay cho ý định ban đầu là `nvm use`.
+
+- **Vấn đề phát hiện khi thực thi:** nvm-windows cho **mỗi bản Node một kho global riêng**.
+  Máy dev có 5 CLI global cài dưới v25.2.1: `opencode`, `claude`, `gemini`, `bun`, `yarn`.
+  `nvm use 24.18.0` sẽ đổi symlink `C:\Program Files\nodejs` và làm **cả 5 CLI biến mất** —
+  gồm chính bộ công cụ chủ dự án đang dùng để làm việc. Nó cũng đổi Node của mọi dự án khác.
+- **Quyết định:** giữ global ở v25.2.1. Cài Node 24.18.0 vào `%APPDATA%\nvm\v24.18.0`
+  (đúng cấu trúc nvm, nên `nvm use` vẫn dùng được sau này nếu muốn), rồi kích hoạt theo
+  từng shell bằng `scripts/use-node.ps1` / `scripts/use-node.sh` — chỉ sửa `PATH` của phiên.
+- **Kiểm chứng sau khi cài:** `node --version` → v24.18.0 trong shell dự án; symlink global
+  vẫn trỏ v25.2.1; `opencode`/`claude` còn nguyên.
+- **Ghi chú:** `nvm.exe` **không dùng được** trong môi trường non-interactive — nó exit 0,
+  không in gì và không cài gì. Node 24.18.0 được tải trực tiếp từ nodejs.org và **đã kiểm
+  checksum SHA256** khớp `SHASUMS256.txt`.
+- **Ghi chú thứ hai:** Node 25 **đã bỏ corepack**; Node 24 vẫn kèm. Đây là một lý do độc lập
+  nữa để DEC-T01 chọn 24 — DEC-T02 dựa vào corepack.
+- **Affected phase:** P1+. CI và Docker vẫn pin 24.18.0 độc lập với host nên không lệch.
+
 ## B. Quyết định nghiệp vụ — chờ chủ dự án
 
 Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default hợp lý" vào bất kỳ ô nào dưới đây.
@@ -178,7 +217,7 @@ Trạng thái giữ `proposed` cho tới khi chủ dự án cung cấp tenant th
 | Phase | Quyết định bắt buộc phải `approved` để mở phase | Tình trạng hiện tại |
 |---|---|---|
 | P0 | DEC-G01 | Đạt cho phần kỹ thuật; inventory app vẫn `open` (DEC-B01). |
-| **P1** | DEC-T01…T13 | **Đủ — P1 được mở.** |
+| **P1** | DEC-T01…T13, T15…T17 | **Đủ — P1 đang thực thi.** Xem [`evidence-p1.md`](./evidence-p1.md) để biết phần nào đã chạy thật. |
 | P2 | DEC-B03, DEC-B04, DEC-B10, DEC-T14 | Chưa đủ. |
 | P3 | DEC-B01, DEC-B05, DEC-T12 | Chưa đủ. |
 | P4 | DEC-B04, DEC-B09, DEC-B10 | Chưa đủ. |

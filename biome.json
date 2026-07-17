@@ -18,6 +18,7 @@
       "!contracts/openapi/generated",
       "!apps/control-plane/drizzle/migrations",
       "!infra/compose/volumes",
+      "!**/next-env.d.ts",
       "!.opencode",
       "!.claude"
     ]

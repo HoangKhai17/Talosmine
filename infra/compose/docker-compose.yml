@@ -48,10 +48,14 @@ services:
       # Backup phải bao gồm nó (docs/build-plan/phase-8 mục 8).
       - db-config:/etc/postgresql-custom
     healthcheck:
-      test: ['CMD', 'pg_isready', '-U', 'postgres', '-h', 'localhost']
+      test: ['CMD', 'pg_isready', '-U', 'supabase_admin', '-h', 'localhost']
       interval: 5s
       timeout: 5s
       retries: 10
+      # start_period: init script của Supabase chạy khá lâu. Không có nó, các lần
+      # kiểm tra fail trong giai đoạn init bị tính là hỏng, `db` bị coi là unhealthy
+      # và `supavisor` (depends_on: service_healthy) bỏ cuộc dù db rồi sẽ khoẻ.
+      start_period: 90s
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: 5432
@@ -60,7 +64,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD là bắt buộc}
       PGDATABASE: ${POSTGRES_DB:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
-      POSTGRES_USER: postgres
+      # KHÔNG set POSTGRES_USER ở đây.
+      # Image supabase/postgres mặc định POSTGRES_USER=supabase_admin, và toàn bộ
+      # `migrate.sh` của image kết nối bằng chính role đó ngay câu lệnh đầu tiên.
+      # Đặt POSTGRES_USER=postgres sẽ khiến initdb tạo superuser tên `postgres`,
+      # `supabase_admin` không bao giờ tồn tại, migrate.sh chết ở dòng 1 và KHÔNG
+      # init script nào được áp dụng — thất bại im lặng, container vẫn báo healthy.
+      # Compose chính thức cũng cố ý không set biến này.
       TALOSMINE_MIGRATION_PASSWORD: ${TALOSMINE_MIGRATION_PASSWORD:?bắt buộc}
       TALOSMINE_RUNTIME_PASSWORD: ${TALOSMINE_RUNTIME_PASSWORD:?bắt buộc}
     command:

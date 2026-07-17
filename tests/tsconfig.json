@@ -1,0 +1,26 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // Vitest biên dịch bằng Vite; tsc ở đây chỉ để typecheck.
+    // composite yêu cầu emit nên không dùng chung được với noEmit (giống apps/web).
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+
+    // Vitest resolve module qua Vite, không qua Node. `bundler` là mô hình khớp với
+    // thứ thật sự chạy — dùng NodeNext ở đây sẽ bắt import phải có đuôi `.js` trong khi
+    // Vite không yêu cầu, tức tsc sẽ kiểm một hợp đồng khác với runtime.
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // KHÔNG khai DOM: unit/integration/concurrency đều chạy ở Node (`environment: 'node'`).
+    // Nếu sau này thêm Playwright vào workspace này, callback của `page.evaluate()` chạy
+    // TRONG TRÌNH DUYỆT và sẽ cần `lib: ["ES2023", "DOM", "DOM.Iterable"]` — thiếu nó thì
+    // `document`/`getComputedStyle` báo TS2584.
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "../vitest.config.ts"],
+  "exclude": ["node_modules"]
+}

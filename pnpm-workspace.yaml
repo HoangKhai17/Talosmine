@@ -7,11 +7,22 @@ packages:
 # một package bị chiếm có thể chạy code tuỳ ý lúc install). Chỉ bật cho package thật sự cần,
 # và phải nêu lý do — đây là allowlist có chủ đích, không phải "bật cho hết lỗi".
 allowBuilds:
-  # esbuild: tải native binary đúng platform. Vitest và tsx phụ thuộc nó.
+  # esbuild: tải native binary đúng platform. Vitest và tsx phụ thuộc nó. BẮT BUỘC.
   esbuild: true
   # sharp: native binary xử lý ảnh. Next.js image optimizer cần (DEC-T12: ảnh đi qua
   # Next image proxy, nên đường này bắt buộc hoạt động).
   sharp: true
+
+  # Ba package dưới đây đến từ chuỗi testcontainers -> dockerode -> ssh2.
+  # Đặt `false` có chủ đích: chúng chỉ là tối ưu native tuỳ chọn.
+  # - ssh2 / cpu-features: chỉ cần khi nói chuyện với Docker daemon QUA SSH.
+  #   Ta nói chuyện qua npipe (Windows) / unix socket (Linux/CI), nên không dùng tới.
+  # - protobufjs: postinstall chỉ sinh type tiện ích, không cần cho runtime.
+  # Nếu testcontainers thật sự hỏng vì thiếu chúng, đổi thành `true` KÈM lý do —
+  # đừng bật chỉ để lời cảnh báo biến mất.
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
 
 # pnpm mặc định tạo node_modules strict (không phantom dependency).
 # Đây là điều kiện hỗ trợ luật ranh giới module tại docs/modular.md mục 1.2:

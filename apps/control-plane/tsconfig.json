@@ -12,8 +12,18 @@
     // ESM + emitDecoratorMetadata + Fastify adapter là đường ít người đi và dễ vỡ.
     // Root workspace vẫn là ESM; chỉ package này khác, và package.json của nó
     // khai "type": "commonjs" để khớp.
-    "module": "CommonJS",
-    "moduleResolution": "Node10",
+    //
+    // Dùng Node16 chứ KHÔNG phải cặp CommonJS/Node10:
+    //   - Node16 đọc "type" trong package.json để quyết định emit CJS hay ESM.
+    //     Vì package.json ở đây là "commonjs", output vẫn là CommonJS như mong muốn.
+    //   - `moduleResolution: node10` đã bị deprecate và sẽ ngừng hoạt động ở TypeScript 7.
+    //     Ta đang cố ý ở lại 5.9.3 (DEC-T03), nhưng không có lý do gì phải viết
+    //     bằng option sắp bị gỡ.
+    //   - Node16 cũng là lý do import trong file này dùng đuôi `.js` (ví dụ
+    //     `./health.service.js`) dù nguồn là `.ts` — đó là yêu cầu của module resolution
+    //     hiện đại, không phải nhầm lẫn.
+    "module": "Node16",
+    "moduleResolution": "Node16",
 
     // verbatimModuleSyntax bị tắt ở đây (base bật).
     // Lý do: nó buộc `import type` bị xoá hoàn toàn, trong khi emitDecoratorMetadata

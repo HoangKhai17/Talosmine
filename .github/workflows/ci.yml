@@ -1,0 +1,464 @@
+# Talosmine CI — ĐÚNG 4 job theo DEC-T13: quality, test, db, build.
+#
+# Một workflow chứa cả 4 job (không tách 4 file) để "CI chạy đủ 4 job" ở exit gate
+# P1 mục 18 điều 7 kiểm được bằng một lần nhìn vào một run.
+#
+# Version KHÔNG hardcode rời rạc: Node đọc từ .nvmrc (nguồn sự thật của DEC-T01),
+# pnpm đọc từ `packageManager` trong package.json (DEC-T02). Đổi version = sửa
+# một chỗ, không phải săn tìm trong yml.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# TRUNG THỰC — đọc trước khi tin workflow này màu xanh
+# ─────────────────────────────────────────────────────────────────────────────
+# File này CHƯA từng chạy: GitHub Actions không chạy được trên máy dev. Nó được
+# verify bằng (1) parse YAML, (2) đối chiếu từng `pnpm <script>` với package.json,
+# (3) build thật hai image ở local. Run thật trên GitHub mới là evidence đầy đủ.
+#
+# KHÔNG step nào ở đây có `continue-on-error` hay `|| true`. Một CI xanh giả còn
+# tệ hơn không có CI: nó biến "chưa làm" thành "đã xong" trong mắt người đọc.
+# Nếu một job đỏ, đó là thông tin thật — đừng bịt nó.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Push liên tiếp lên cùng ref: huỷ run cũ, khỏi tốn runner cho commit đã cũ.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Mặc định đọc-thôi cho MỌI job. Job `build` tự xin thêm `packages: write`.
+# Least privilege: một job không cần quyền ghi thì không được có nó.
+permissions:
+  contents: read
+
+env:
+  # corepack hỏi xác nhận khi tải package manager; runner không ai trả lời.
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 1/4 — quality: typecheck + lint + OpenAPI validate/drift
+  # ═══════════════════════════════════════════════════════════════════════════
+  quality:
+    name: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # Thứ tự bắt buộc: setup-node TRƯỚC corepack. Ngược lại thì corepack sẽ gắn
+      # shim vào bản Node mặc định của runner, rồi setup-node đổi Node và shim biến mất.
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Bật corepack và khoá pnpm theo packageManager
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      # Chốt chặn DEC-T01/T02: Node và pnpm trong CI phải KHỚP .nvmrc và
+      # packageManager. Exit gate P1 mục 18 điều 1 yêu cầu ba nơi khớp nhau
+      # (.nvmrc / engines / container / CI) — đây là chỗ CI tự chứng minh phần của nó.
+      - name: Xác nhận Node và pnpm khớp version đã pin
+        run: |
+          set -euo pipefail
+          expected_node="v$(tr -d '[:space:]' < .nvmrc)"
+          actual_node="$(node --version)"
+          if [ "$actual_node" != "$expected_node" ]; then
+            echo "::error::Node lệch: .nvmrc yêu cầu $expected_node, runner đang chạy $actual_node"
+            exit 1
+          fi
+          expected_pnpm="$(node -p "require('./package.json').packageManager.split('@')[1]")"
+          actual_pnpm="$(pnpm --version)"
+          if [ "$actual_pnpm" != "$expected_pnpm" ]; then
+            echo "::error::pnpm lệch: packageManager yêu cầu $expected_pnpm, đang chạy $actual_pnpm"
+            exit 1
+          fi
+          echo "Node $actual_node / pnpm $actual_pnpm — khớp."
+
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      # --frozen-lockfile: lockfile lệch thì FAIL. KHÔNG tự sửa (DEC-T02).
+      # Lockfile lệch nghĩa là ai đó cài package mà quên commit lockfile —
+      # sửa hộ ở CI sẽ giấu mất chuyện đó và làm build không còn reproducible.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+
+      - run: pnpm lint
+
+      # DEC-T07 spec-first: YAML viết tay là nguồn sự thật, type sinh ra được commit.
+      # `openapi:drift` sinh lại type và fail nếu khác bản đã commit — chặn đúng cái
+      # lỗi im lặng "sửa spec, quên sinh lại type, code compile qua nhưng chạy sai".
+      - run: pnpm openapi:lint
+
+      - run: pnpm openapi:drift
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 2/4 — test: Vitest (unit + integration)
+  # ═══════════════════════════════════════════════════════════════════════════
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Bật corepack và khoá pnpm theo packageManager
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      # Vitest 4.1.10 (DEC-T05). tests/ dùng testcontainers cho phần DB — chạy được
+      # trên ubuntu runner vì Docker có sẵn. Đó là điều kiện cần cho test DB
+      # "không mock" ở P1.11/P5.
+      - run: pnpm test
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # TODO(P1.11 — lane tester): thêm `pnpm test:e2e` vào job này.
+      #
+      # CỐ Ý CHƯA THÊM, không phải bỏ sót. Đã kiểm trạng thái thật của repo:
+      #   - tests/ đã có, nhưng CHỈ có test Vitest (unit/, integration/, concurrency/);
+      #   - KHÔNG có test Playwright nào;
+      #   - @playwright/test 1.61.1 (DEC-T05) chưa có trong dependency của repo;
+      #   - không có playwright.config.ts ở bất kỳ đâu.
+      # `pnpm test:e2e` CÓ trong package.json ("playwright test") nhưng sẽ fail vì
+      # thiếu cả ba thứ trên. Thêm nó bây giờ là bịa một step chưa ai chạy được —
+      # phase-1 mục 15 cấm chuyện đó.
+      #
+      # Khi lane tester giao web smoke (P1.8 verify: keyboard/focus + ba viewport),
+      # thêm ĐÚNG hai step:
+      #   - run: pnpm exec playwright install --with-deps chromium
+      #   - run: pnpm test:e2e
+      # ─────────────────────────────────────────────────────────────────────────
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 3/4 — db: migration smoke trên PostgreSQL THẬT, từ DB rỗng
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # Vì sao KHÔNG dùng `services:` service container mà dùng chính compose của repo:
+  # image supabase/postgres:17.6.1.136 chỉ đúng khi chạy kèm init-script của nó
+  # (infra/compose/volumes/db/*.sql) — đó là nơi hai role LOGIN talosmine_migration
+  # và talosmine_runtime được tạo. `services:` không mount volume kiểu đó được.
+  # Dùng compose thật cũng có nghĩa smoke này kiểm luôn chính file mà dev đang chạy,
+  # thay vì một PostgreSQL "gần giống".
+  db:
+    name: db
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Bật corepack và khoá pnpm theo packageManager
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: Cache pnpm store
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+
+      # Password SINH NGẪU NHIÊN mỗi run, không hardcode và không lấy từ secrets:
+      # đây là một database dùng một lần rồi vứt, nên secret thật ở đây vừa thừa
+      # vừa là rủi ro. `add-mask` để chúng không lọt vào log nếu lỡ bị echo.
+      #
+      # SECRET_KEY_BASE/VAULT_ENC_KEY/JWT_SECRET không được service `db` dùng,
+      # nhưng vẫn PHẢI có giá trị: docker compose interpolate CẢ file trước khi
+      # chọn service, nên `${SECRET_KEY_BASE:?...}` của supavisor sẽ chặn ngay
+      # cả khi ta chỉ `up db`.
+      - name: Sinh env dùng một lần cho compose
+        run: |
+          set -euo pipefail
+          migration_pw="$(openssl rand -hex 24)"
+          runtime_pw="$(openssl rand -hex 24)"
+          postgres_pw="$(openssl rand -hex 24)"
+          echo "::add-mask::$migration_pw"
+          echo "::add-mask::$runtime_pw"
+          echo "::add-mask::$postgres_pw"
+
+          cat > .env.ci <<EOF
+          POSTGRES_PASSWORD=$postgres_pw
+          POSTGRES_DB=postgres
+          TALOSMINE_MIGRATION_PASSWORD=$migration_pw
+          TALOSMINE_RUNTIME_PASSWORD=$runtime_pw
+          SECRET_KEY_BASE=$(openssl rand -hex 32)
+          VAULT_ENC_KEY=$(openssl rand -hex 16)
+          JWT_SECRET=$(openssl rand -hex 24)
+          POOLER_TENANT_ID=talosmine
+          EOF
+
+          # Chỉ URL migration được đưa sang step sau. drizzle-kit nối TRỰC TIẾP
+          # PostgreSQL (cổng 55432 của overlay dev), KHÔNG qua Supavisor, bằng role
+          # migration riêng — DEC-T09. Runtime role cố ý không xuất hiện ở đây vì
+          # nó không có quyền DDL.
+          echo "MIGRATION_DATABASE_URL=postgresql://talosmine_migration:$migration_pw@127.0.0.1:55432/postgres" >> "$GITHUB_ENV"
+
+      # `config` là gate rẻ nhất: cú pháp/interpolation sai thì fail ở đây thay vì
+      # sau 90 giây chờ container.
+      - name: Validate compose
+        run: |
+          docker compose \
+            -f infra/compose/docker-compose.yml \
+            --env-file .env.ci \
+            config --quiet
+
+      # Volume rỗng => DB RỖNG. Đây là điều kiện của "apply từ DB rỗng"
+      # (phase-1 mục 15, P1.10). Overlay dev-only cần thiết vì baseline cố ý không
+      # publish port nào (DEC-T10), mà drizzle-kit chạy trên runner chứ không trong
+      # container. Overlay bind 127.0.0.1 nên vẫn không lộ ra ngoài.
+      - name: Bật PostgreSQL từ volume rỗng
+        run: |
+          docker compose \
+            -f infra/compose/docker-compose.yml \
+            -f infra/compose/docker-compose.dev.yml \
+            --env-file .env.ci \
+            up -d --wait db
+
+      # Init-script của Supabase phụ thuộc chéo nhau và có tiền sử FAIL IM LẶNG:
+      # container vẫn `healthy` trong khi không script nào được áp dụng
+      # (evidence-p1.md — "Ba cái bẫy im lặng"). Nên không tin healthcheck; kiểm
+      # bằng thứ quan sát được là hai role có thật.
+      - name: Xác nhận init-script đã chạy thật (không tin mỗi healthcheck)
+        run: |
+          set -euo pipefail
+          roles="$(docker exec talosmine-db psql -U supabase_admin -d postgres -tAc \
+            "SELECT count(*) FROM pg_roles WHERE rolname IN ('talosmine_migration','talosmine_runtime') AND rolcanlogin")"
+          if [ "$roles" != "2" ]; then
+            echo "::error::Init-script của db KHÔNG chạy đủ: chỉ thấy $roles/2 role LOGIN."
+            docker compose -f infra/compose/docker-compose.yml --env-file .env.ci logs db
+            exit 1
+          fi
+
+      # Lệnh canonical của DEC-T15. Nó apply bằng role migration.
+      - name: pnpm db:migrate — apply baseline từ DB rỗng
+        run: pnpm db:migrate
+
+      # Không tin exit code của migrate; kiểm hậu quả quan sát được.
+      # Đây là phần "smoke" thật sự: schema có tồn tại không, và việc tách role có
+      # ĐANG hiệu lực không — phase-1 mục 8 và mục 17 (DB).
+      - name: Kiểm schema và tách quyền role
+        run: |
+          set -euo pipefail
+          psql() { docker exec talosmine-db psql -U supabase_admin -d postgres -tAc "$1"; }
+
+          schema="$(psql "SELECT count(*) FROM pg_namespace WHERE nspname='control_plane'")"
+          [ "$schema" = "1" ] || { echo "::error::Thiếu schema control_plane sau migrate."; exit 1; }
+
+          # Runtime role KHÔNG được có CREATE ở bất kỳ đâu. Đây là ràng buộc bảo mật
+          # của phase-1 mục 8, kiểm bằng catalog chứ không bằng lời khai trong SQL.
+          for check in \
+            "SELECT has_schema_privilege('talosmine_runtime','control_plane','CREATE')|f|runtime có CREATE trên control_plane" \
+            "SELECT has_schema_privilege('talosmine_runtime','public','CREATE')|f|runtime có CREATE trên public" \
+            "SELECT has_database_privilege('talosmine_runtime','postgres','CREATE')|f|runtime có CREATE trên database" \
+            "SELECT has_schema_privilege('talosmine_runtime','control_plane','USAGE')|t|runtime KHÔNG dùng được control_plane" \
+            "SELECT rolsuper FROM pg_roles WHERE rolname='talosmine_runtime'|f|runtime là superuser" \
+            "SELECT rolcreaterole FROM pg_roles WHERE rolname='talosmine_runtime'|f|runtime tạo được role" \
+          ; do
+            sql="${check%%|*}"; rest="${check#*|}"; want="${rest%%|*}"; label="${rest#*|}"
+            got="$(psql "$sql")"
+            if [ "$got" != "$want" ]; then
+              echo "::error::Tách role SAI — $label (mong đợi '$want', nhận '$got')"
+              exit 1
+            fi
+          done
+
+          # Chứng minh bằng hành vi, không chỉ bằng catalog: runtime thử tạo bảng
+          # thì PHẢI bị từ chối.
+          if docker exec talosmine-db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 \
+               -c "SET ROLE talosmine_runtime; CREATE TABLE control_plane.should_fail(id int);" 2>/dev/null; then
+            echo "::error::Runtime role TẠO ĐƯỢC bảng — tách quyền không có hiệu lực."
+            exit 1
+          fi
+          echo "Schema control_plane có; runtime role không CREATE/ALTER/DROP được. OK."
+
+      # `down -v` xoá volume: không để state rò rỉ sang run sau, và đây cũng chính
+      # là đường rollback được ghi ở phase-1 mục 19.
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose \
+            -f infra/compose/docker-compose.yml \
+            -f infra/compose/docker-compose.dev.yml \
+            --env-file .env.ci \
+            down -v || true
+          rm -f .env.ci
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # 4/4 — build: Docker image cho web và control-plane. Push GHCR CÓ ĐIỀU KIỆN.
+  # ═══════════════════════════════════════════════════════════════════════════
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Chỉ job này cần ghi package. Xin ở cấp job, không ở cấp workflow.
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Build LUÔN chạy — kể cả khi không push được. Đó là điểm chính: một
+      # Dockerfile hỏng phải làm đỏ CI ngay, không đợi tới lúc có credential.
+      - name: Build image web
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: false
+          load: true
+          tags: talosmine/web:${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+      - name: Build image control-plane
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: infra/docker/control-plane.Dockerfile
+          push: false
+          load: true
+          tags: talosmine/control-plane:${{ github.sha }}
+          cache-from: type=gha,scope=control-plane
+          cache-to: type=gha,scope=control-plane,mode=max
+
+      # Kiểm bằng thứ quan sát được: image có chạy đúng non-root không.
+      # phase-1 mục 12 yêu cầu least privilege — kiểm ở đây thay vì tin comment
+      # trong Dockerfile.
+      - name: Xác nhận image chạy non-root
+        run: |
+          set -euo pipefail
+          for image in talosmine/web talosmine/control-plane; do
+            uid="$(docker run --rm --entrypoint id "$image:${{ github.sha }}" -u)"
+            if [ "$uid" = "0" ]; then
+              echo "::error::$image chạy bằng root (uid 0) — vi phạm least privilege."
+              exit 1
+            fi
+            echo "$image -> uid $uid (non-root)"
+          done
+
+      # ─────────────────────────────────────────────────────────────────────────
+      # GHCR — push CÓ ĐIỀU KIỆN.
+      #
+      # Yêu cầu cứng của phase-1 mục 18 điều 7 và DEC-T13: thiếu credential thì
+      # SKIP và BÁO SKIP, tuyệt đối không log như thành công. "Publish success chỉ
+      # được ghi nếu THẬT SỰ chạy có quyền."
+      #
+      # Hai trường hợp không push được, và cả hai là bình thường chứ không phải lỗi:
+      #   1. pull_request (nhất là từ fork): GITHUB_TOKEN chỉ read-only, `packages:
+      #      write` xin cũng không được cấp. Đây là cơ chế bảo vệ của GitHub, không
+      #      phải cấu hình sai — PR từ người lạ mà push được image vào registry của
+      #      dự án thì đó mới là lỗ hổng.
+      #   2. Repo fork / chưa bật package: token không có quyền.
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Xác định có push GHCR được không
+        id: ghcr
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "can_push=false" >> "$GITHUB_OUTPUT"
+            echo "reason=Event là pull_request — GITHUB_TOKEN chỉ read-only với GHCR." >> "$GITHUB_OUTPUT"
+          elif [ -z "${GHCR_TOKEN:-}" ]; then
+            echo "can_push=false" >> "$GITHUB_OUTPUT"
+            echo "reason=Không có credential GHCR (secrets.GITHUB_TOKEN rỗng)." >> "$GITHUB_OUTPUT"
+          else
+            echo "can_push=true" >> "$GITHUB_OUTPUT"
+            echo "reason=Có credential GHCR." >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Đăng nhập GHCR
+        if: steps.ghcr.outputs.can_push == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tag là commit SHA, KHÔNG phải `latest`.
+      # Cùng lý do DEC-T10 cấm tag trôi trong compose: `latest` là con trỏ động,
+      # nên "image nào đang chạy" trở thành câu hỏi không trả lời được. SHA thì
+      # truy ngược được về đúng một commit.
+      - name: Push web lên GHCR
+        if: steps.ghcr.outputs.can_push == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: infra/docker/web.Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/web:${{ github.sha }}
+          cache-from: type=gha,scope=web
+
+      - name: Push control-plane lên GHCR
+        if: steps.ghcr.outputs.can_push == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: infra/docker/control-plane.Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/control-plane:${{ github.sha }}
+          cache-from: type=gha,scope=control-plane
+
+      # Báo SKIP thật to. Không có step này thì một run "xanh" không push gì trông
+      # y hệt một run "xanh" đã publish — chính là kiểu nhập nhằng mà mục 18 điều 7
+      # cấm. `::warning::` hiện lên đầu trang run, không chìm trong log.
+      - name: BÁO SKIP — GHCR không được push
+        if: steps.ghcr.outputs.can_push != 'true'
+        run: |
+          echo "::warning title=GHCR push SKIPPED::${{ steps.ghcr.outputs.reason }} Image ĐÃ BUILD nhưng KHÔNG được publish."
+          {
+            echo "## GHCR publish: **SKIPPED**"
+            echo ""
+            echo "Lý do: ${{ steps.ghcr.outputs.reason }}"
+            echo ""
+            echo "Image \`web\` và \`control-plane\` đã **build thành công** và đã được kiểm chạy non-root,"
+            echo "nhưng **KHÔNG có image nào được publish lên GHCR** trong run này."
+            echo ""
+            echo "Đây **không** phải lỗi. Nhưng cũng **không** được coi run này là bằng chứng"
+            echo "rằng publish hoạt động (phase-1 mục 18 điều 7)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ghi nhận GHCR đã push
+        if: steps.ghcr.outputs.can_push == 'true'
+        run: |
+          {
+            echo "## GHCR publish: **OK**"
+            echo ""
+            echo "- \`ghcr.io/${{ github.repository }}/web:${{ github.sha }}\`"
+            echo "- \`ghcr.io/${{ github.repository }}/control-plane:${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -31,3 +31,11 @@ CREATE ROLE talosmine_runtime LOGIN PASSWORD :'runtime_pw'
 
 GRANT CONNECT ON DATABASE postgres TO talosmine_migration;
 GRANT CONNECT ON DATABASE postgres TO talosmine_runtime;
+
+-- CREATE trên database chỉ cấp cho role migration — đây là quyền tạo schema.
+-- Cấp ở đây (chạy bằng supabase_admin) vì bản thân migration baseline không thể
+-- tự cấp quyền cho chính nó.
+-- talosmine_runtime CỐ Ý không có quyền này: nó không được tạo schema, và đó là
+-- một nửa của việc tách role (nửa còn lại là REVOKE CREATE trên schema, nằm trong
+-- migration baseline).
+GRANT CREATE ON DATABASE postgres TO talosmine_migration;

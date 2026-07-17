@@ -1,0 +1,124 @@
+# Talosmine — reverse proxy (DEC-T11).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# VÌ SAO CHỈ CADDY ĐƯỢC EXPOSE
+# ─────────────────────────────────────────────────────────────────────────────
+# Caddy là container DUY NHẤT bind port ra ngoài. Mọi service khác sống trên
+# network nội bộ của compose và chỉ nói chuyện với nhau bằng hostname service.
+#
+# Đây là quyết định BẢO MẬT, không phải sở thích topology:
+#
+#   1. `db` và `supavisor` là đường vào PostgreSQL. Bất kỳ ai chạm được chúng là
+#      chạm thẳng vào dữ liệu, VÒNG QUA toàn bộ enforcement entitlement/quota của
+#      Control Plane. Đó chính là lý do PostgREST đã bị loại khỏi compose
+#      (DEC-T10) — publish Supabase endpoint ở đây sẽ dựng lại đúng lỗ hổng vừa
+#      cất công bịt.
+#   2. phase-8 mục 19 coi việc một service ngoài Caddy expose ra ngoài là
+#      STOP CONDITION. Không có ngoại lệ "chỉ để debug".
+#   3. Bề mặt tấn công có một cửa thì audit được. Có năm cửa thì không.
+#
+# => File này CỐ Ý không có upstream nào trỏ tới `db`, `supavisor`, `studio`,
+#    `meta` hay `kong`. Nếu bạn thấy mình sắp thêm một cái, hãy dừng lại: nhu cầu
+#    truy cập DB lúc dev đã có đường riêng là overlay
+#    `infra/compose/docker-compose.dev.yml` (bind 127.0.0.1, chỉ máy dev) và
+#    `docker compose exec`.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# TLS
+# ─────────────────────────────────────────────────────────────────────────────
+# Hostname local là `talosmine.localhost`. Caddy tự cấp cert nội bộ cho `.localhost`
+# và trình duyệt tin `*.localhost` sẵn — KHÔNG cần chỉnh trust store thủ công,
+# không cần mkcert. Đổi hostname bằng biến TALOSMINE_SITE_ADDRESS khi lên môi
+# trường thật; lúc đó Caddy chuyển sang ACME/Let's Encrypt tự động.
+{
+	# Admin API của Caddy (mặc định :2019) cho phép sửa cấu hình runtime.
+	# Trong container nó là một cửa hậu không ai cần — tắt hẳn.
+	admin off
+
+	# Chỉ tin X-Forwarded-* đến từ dải private (tức từ network nội bộ của compose).
+	# Không có dòng này, một client ngoài Internet có thể tự khai X-Forwarded-For và
+	# giả mạo IP nguồn trong log/rate-limit của các phase sau.
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+# Header bảo mật đặt ở TẦNG PROXY.
+#
+# Vì sao lặp lại vài header mà Next.js đã tự đặt (apps/web/next.config.ts):
+# `header` của Caddy là SET (ghi đè), không phải append — nên không sinh header
+# trùng. Cái được là Control Plane API (`/v1/*`, `/health/*`) cũng được phủ, vì
+# nó KHÔNG tự đặt các header này. Đặt ở proxy là lớp phòng thủ chung cho mọi
+# upstream, kể cả upstream tương lai quên đặt.
+(talosmine_security_headers) {
+	header {
+		# Không lộ phần mềm/phiên bản đang chạy.
+		-Server
+		-X-Powered-By
+
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+
+		# ─────────────────────────────────────────────────────────────────────
+		# CSP CỐ Ý KHÔNG ĐẶT Ở ĐÂY — ĐỪNG THÊM VÀO.
+		# ─────────────────────────────────────────────────────────────────────
+		# CSP theo DEC-T12 do Next.js sinh THEO TỪNG REQUEST kèm một nonce mới
+		# (apps/web/proxy.ts). Caddy chỉ đặt được header tĩnh, không sinh nonce.
+		#
+		# Nếu đặt CSP ở đây, `header` sẽ GHI ĐÈ CSP có nonce của Next → script
+		# inline của App Router mất nonce hợp lệ → trang không hydrate. Triệu
+		# chứng là "trang trắng, console báo CSP" và rất tốn thời gian truy.
+		# Một policy, một nơi sinh. Nơi đó là apps/web/proxy.ts.
+		#
+		# HSTS cũng không đặt ở P1: `talosmine.localhost` dùng cert nội bộ, và
+		# một HSTS lỡ tay kèm includeSubDomains sẽ ép HTTPS cho MỌI `*.localhost`
+		# trên máy dev — hỏng luôn dự án khác. HSTS thuộc P8, khi đã có domain thật.
+	}
+}
+
+{$TALOSMINE_SITE_ADDRESS:talosmine.localhost} {
+	import talosmine_security_headers
+
+	# Log ra stdout để `docker compose logs` thấy được.
+	# `X-Correlation-Id` được Control Plane sinh/trả; Caddy chuyển tiếp nguyên vẹn
+	# mọi header nên không cần cấu hình gì thêm cho correlation.
+	log {
+		output stdout
+		format json
+	}
+
+	# ── Control Plane API ────────────────────────────────────────────────────
+	# `/v1/*`     : API nghiệp vụ, versioning theo URI (main-api.ts:enableVersioning).
+	# `/health/*` : liveness/readiness, cố ý VERSION_NEUTRAL vì là endpoint hạ tầng.
+	#               Response đã được thiết kế không lộ config/secret/topology
+	#               (health.controller.ts), nên để public là chấp nhận được.
+	@control_plane path /v1/* /health/*
+	handle @control_plane {
+		reverse_proxy {$TALOSMINE_API_UPSTREAM:control-plane:3001}
+	}
+
+	# ── Web / BFF (Next.js) ──────────────────────────────────────────────────
+	# Bắt phần còn lại. BFF (`/api/bff/*`) nằm TRONG Next.js nên đi chung đường —
+	# đó là điểm chính của BFF: browser chỉ nói chuyện với web origin, còn
+	# credential M2M ở lại phía server.
+	handle {
+		reverse_proxy {$TALOSMINE_WEB_UPSTREAM:web:3000}
+	}
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TRẠNG THÁI THẬT — đọc trước khi dùng
+# ─────────────────────────────────────────────────────────────────────────────
+# Hai upstream `web:3000` và `control-plane:3001` là hostname của service CHƯA
+# tồn tại trong infra/compose/docker-compose.yml (bản đó mới có `db` + `supavisor`).
+# File này vì thế là cấu hình ĐÚNG nhưng CHƯA được chạy end-to-end. Nó chỉ hoạt
+# động sau khi compose có thêm service `caddy`, `web`, `control-plane` — dựng từ
+# infra/docker/*.Dockerfile. Không tuyên bố "Caddy đã route được" cho tới lúc đó.
+#
+# Port upstream lấy từ default thật của code, không phải phỏng đoán:
+#   - control-plane 3001 : API_PORT default trong apps/control-plane/src/shared/env.ts
+#   - web 3000           : default của `next start`
