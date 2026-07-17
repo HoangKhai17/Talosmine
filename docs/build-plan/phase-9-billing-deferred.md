@@ -30,12 +30,17 @@ Khi chưa qua cổng:
 ### Cổng điều kiện
 
 - [ ] Phase 8 đã PASS, production foundation/DR/revoke/observability có bằng chứng phù hợp.
-- [ ] Có product owner, finance/tax owner, security/privacy owner, support/refund owner và engineering owner.
-- [ ] ADR billing riêng được duyệt về provider, trust boundary, data flow, lifecycle, schema và vận hành.
+- [ ] ADR billing riêng được **chủ dự án** ký về provider, trust boundary, data flow, lifecycle, schema và vận hành.
+
+### Mô hình vận hành: solo
+
+Dự án là một người + các AI agent (DEC-G01 tại `./decision-register.md`). Không có product owner, finance/tax owner, security/privacy owner, support/refund owner hay engineering owner tách biệt — **mọi vai đó là chủ dự án**, và điều đó làm P9 nặng hơn chứ không nhẹ hơn: billing kéo theo nghĩa vụ thuế, hoàn tiền, hỗ trợ khách hàng và PCI mà một người phải gánh hết, liên tục, sau khi code đã xong. Đó là một lý do độc lập để billing tiếp tục deferred, ngoài việc chưa chọn provider (DEC-B13, `open`).
+
+`qa` và `reviewer` vẫn là lane tách biệt read-only theo `AGENTS.md` mục 4b; luật ba vòng, `TẮC` và `CẠN LƯỢT` giữ nguyên. Chủ dự án tự đề xuất rồi tự phê duyệt là điểm yếu cố hữu của mô hình solo, nên reviewer gate không được bỏ qua.
 
 ### Decision gates bắt buộc
 
-- [ ] **Provider:** provider/account/region, API/version, availability, sandbox, rate limit, data residency, contract và ownership credential.
+- [ ] **Provider** (DEC-B13, `open`)**:** provider/account/region, API/version, availability, sandbox, rate limit, data residency, contract và ownership credential.
 - [ ] **Giá/currency/tax:** catalog giá, currency được hỗ trợ, rounding, inclusive/exclusive tax, invoice/receipt, jurisdiction và nguồn sự thật.
 - [ ] **Checkout:** hosted/embedded/custom model, server-created intent/session, return URL allowlist, expiry/retry, abandoned checkout và accessibility.
 - [ ] **Webhook signature:** thuật toán/cơ chế chính thức của provider, raw-body requirement, key rotation, timestamp/tolerance, replay defense và response/retry protocol.
@@ -48,7 +53,7 @@ Khi chưa qua cổng:
 - [ ] **PII/PCI scope:** dữ liệu nào được phép đi qua/lưu/log, hosted fields/tokenization, SAQ/compliance ownership và incident obligations.
 - [ ] **Outbox:** có thực sự cần hay không; nếu có, semantics/owner/retention/delivery và thay đổi baseline “MVP không outbox” phải được duyệt trong ADR/schema review.
 
-Mỗi quyết định phải có ví dụ timeline và expected subscription/entitlement outcome có thể kiểm thử. Thiếu một gate thì trạng thái Phase 9 vẫn là `blocked`; không chọn default kỹ thuật hoặc nghiệp vụ thay con người.
+Mỗi quyết định phải có ví dụ timeline và expected subscription/entitlement outcome có thể kiểm thử. Thiếu một gate thì trạng thái Phase 9 vẫn là `blocked`; không chọn default kỹ thuật hoặc nghiệp vụ thay con người. Toàn bộ các gate trên do **chủ dự án** ký; không có finance/tax hay legal team để ủy thác phần thuế, hoàn tiền và PII/PCI.
 
 ## 4. Phạm vi
 
@@ -59,7 +64,7 @@ Chỉ **sau phê duyệt**, phạm vi khái niệm gồm:
 - Mapping customer/subscription/provider reference theo policy đã duyệt.
 - Chuyển event hợp lệ thành command qua `SubscriptionMutationPort`; Billing không ghi trực tiếp bảng Subscription/Entitlement/Quota.
 - User billing UI cho checkout/manage/status/history ở phạm vi sản phẩm đã duyệt.
-- Admin billing UI cho support, event status, reconciliation/refund/cancel theo permission và separation of duties.
+- Admin billing UI cho support, event status, reconciliation/refund/cancel theo permission deny-by-default. Separation of duties **không** khả thi khi chỉ có một admin: bù lại bằng reason bắt buộc, confirmation, idempotency và audit trail đầy đủ — chốt chặn là dấu vết không xóa được, không phải người thứ hai duyệt.
 - Audit, reconciliation, alert, runbook, privacy/PCI controls và provider outage behavior.
 - Schema delta `billing_*`, provider events và outbox **chỉ nếu** architecture/schema review duyệt.
 
@@ -221,21 +226,21 @@ Runbook này là **chuẩn bị deferred**, không phải lệnh khởi công. P
 - **Verify:** Rà soát repo xác nhận **không có** provider adapter, `billing_*` table, checkout/webhook endpoint, billing dependency/secret/workflow; canonical 25 domain tables giữ nguyên; `subscriptions.source_reference` không bị dùng như schema billing đầy đủ.
 - **Lane:** `subagent/document` (chỉ ghi nhận); `subagent/qa` verify read-only theo mục 20.
 
-#### Bước 2 — Thu thập yêu cầu và owner cho decision gate
+#### Bước 2 — Thu thập yêu cầu cho decision gate
 
-- **Hành động:** Thu thập business case, owner (product, finance/tax, security/privacy, support/refund, engineering) và các lựa chọn cần con người quyết định ở mục 3; ghi rõ mỗi decision gate còn ‹cần chốt›.
-- **Sản phẩm:** `docs/**` (bảng decision gate mục 3 với trạng thái từng mục, danh sách owner).
+- **Hành động:** Thu thập business case và các lựa chọn cần chủ dự án quyết định ở mục 3; ghi rõ mỗi decision gate còn ‹cần chốt›. Không lập bảng owner nhiều vai: theo DEC-G01 mọi gate đều thuộc chủ dự án. Ghi kèm **chi phí vận hành liên tục** mà một người phải gánh sau khi bật billing — hỗ trợ, hoàn tiền, đối soát, nghĩa vụ thuế — vì đó là dữ liệu đầu vào cho quyết định có nên mở P9 hay không.
+- **Sản phẩm:** `docs/**` (bảng decision gate mục 3 với trạng thái từng mục).
 - **Phụ thuộc:** Bước 1.
-- **Verify:** Mỗi decision gate mục 3 có mục ghi rõ đang mở/đã có owner; không mục nào bị điền default kỹ thuật/nghiệp vụ thay con người.
-- **Lane:** `subagent/document` (ghi record). Quyết định thuộc người dùng/owner; không agent nào tự chọn provider.
+- **Verify:** Mỗi decision gate mục 3 ghi rõ đang mở hay đã chốt; không mục nào bị điền default kỹ thuật/nghiệp vụ thay con người. DEC-B13 tại `./decision-register.md` vẫn `open` thì P9 vẫn đóng.
+- **Lane:** `subagent/document` (ghi record). Quyết định thuộc chủ dự án; không agent nào tự chọn provider.
 
 #### Bước 3 — Cổng tái nhập
 
 - **Hành động:** Khi có nhu cầu kinh doanh chính thức, thực hiện re-entry checklist mục 19 trước mọi implementation; không mở lane nào cho tới khi checklist hoàn tất.
 - **Sản phẩm:** `docs/**` (re-entry checklist đã đánh dấu, liên kết bằng chứng approval).
-- **Phụ thuộc:** Bước 2; Phase 8 PASS; **separate billing approval của người dùng.**
-- **Verify:** Re-entry checklist mục 19 đủ điều kiện; ADR billing riêng được ký; mọi decision gate mục 3 có expected outcome kiểm thử được. Thiếu bất kỳ mục nào → phase vẫn `blocked`/`deferred`, dừng tại đây.
-- **Lane:** `subagent/document` ghi checklist; approval là hành động người dùng.
+- **Phụ thuộc:** Bước 2; Phase 8 PASS; **separate billing approval của chủ dự án.**
+- **Verify:** Re-entry checklist mục 19 đủ điều kiện; ADR billing riêng được chủ dự án ký; mọi decision gate mục 3 có expected outcome kiểm thử được. Thiếu bất kỳ mục nào → phase vẫn `blocked`/`deferred`, dừng tại đây.
+- **Lane:** `subagent/document` ghi checklist; approval là hành động của chủ dự án.
 
 ### Sau khi được phê duyệt tái nhập (chưa kích hoạt)
 
@@ -244,8 +249,8 @@ Runbook này là **chuẩn bị deferred**, không phải lệnh khởi công. P
 - **Hành động:** Chọn provider ‹cần chốt: provider/account/region, API version, sandbox, credential ownership› và chốt toàn bộ price/currency/tax, checkout, webhook signature, customer mapping, upgrade/downgrade/cancel/refund, proration, payment failure, entitlement effective timing, retention/reconciliation, PII/PCI scope và outbox decision bằng ADR.
 - **Sản phẩm:** `docs/**` (ADR billing được ký + decision tables lifecycle, mỗi quyết định có timeline example và expected subscription/entitlement outcome).
 - **Phụ thuộc:** Bước 3.
-- **Verify:** **ADR được phê duyệt** với mọi decision gate mục 3 đã đóng; mỗi quyết định có ví dụ timeline kiểm thử được. Đây là verify dạng decision record, chưa có code.
-- **Lane:** `subagent/document` ghi ADR; quyết định thuộc owner đã phê duyệt; `subagent/architect` review read-only.
+- **Verify:** **ADR được chủ dự án ký** với mọi decision gate mục 3 đã đóng và DEC-B13 chuyển `approved` tại `./decision-register.md`; mỗi quyết định có ví dụ timeline kiểm thử được. Đây là verify dạng decision record, chưa có code.
+- **Lane:** `subagent/document` ghi ADR; quyết định thuộc chủ dự án; `subagent/architect` review read-only.
 
 #### Bước 5 — Threat model, data flow và schema review read-only
 

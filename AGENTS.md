@@ -29,19 +29,42 @@ ghi tại `docs/stack-tech.md`.
 | Data access | Drizzle ORM/Drizzle Kit; SQL transaction có kiểm soát cho hard quota |
 | Deploy | Docker Compose trên VPS, Caddy, GitHub Actions, GHCR |
 
+### Version và tooling — đã chốt
+
+`docs/build-plan/decision-register.md` là **nguồn sự thật duy nhất** cho tool, version và tên
+script. Bảng D của file đó liệt kê version pin (Node 24.18.0, pnpm 11.13.1, TypeScript 5.9.3,
+NestJS 11.1.28, Next 16.2.10, Drizzle, Vitest, Playwright...). Bảng E (DEC-T15) liệt kê tên
+lệnh canonical.
+
+**Đọc register trước khi hỏi về tool/version.** Đừng dừng để hỏi một quyết định đã chốt rồi.
+
 ### Luật cứng — đọc kỹ hai lần
 
 **Tuyệt đối không tự bịa, tự giả định, hay âm thầm thay đổi tech stack, framework, thư viện,
 hay cấu trúc thư mục đã được phê duyệt.**
 
-Nếu cần một quyết định chưa có trong bảng trên hoặc `docs/stack-tech.md`:
+- Không tự nâng version vì "có bản mới". Version chỉ đổi bằng một record superseding có lý do.
+- Không cài thêm package ngoài bảng D. Cần thêm → đề xuất record, không cài rồi báo sau.
+
+Nếu cần một quyết định **chưa có** trong bảng trên, `docs/stack-tech.md`, hay decision register:
 
 1. **DỪNG LẠI.**
 2. Báo về cho orchestrator, nói rõ chính xác đang thiếu quyết định nào.
 3. **Không** được tiếp tục bằng cách chọn đại một thứ "nghe có vẻ hợp lý".
 
-Mọi thay đổi stack phải được người dùng phê duyệt và đồng bộ lại vào mục này cùng tài liệu
-quyết định liên quan trước khi hiện thực.
+### Ranh giới ủy quyền — quan trọng
+
+| Loại quyết định | Ai chốt |
+|---|---|
+| Tool, version, tên script, cấu hình kỹ thuật | Agent được ủy quyền (register nhóm A) |
+| Metric, quota, plan, giá, SLA, retention, danh sách app, payment provider | **Chỉ chủ dự án.** Không ngoại lệ. |
+
+Agent điền một giá trị nghiệp vụ thay chủ dự án là **lỗi nghiêm trọng nhất** có thể mắc trong
+dự án này — nó biến một blocker nhìn thấy được thành một giả định ẩn. Phân vân thuộc loại nào
+→ giữ nguyên `‹cần chốt: ...›` và báo.
+
+Mọi thay đổi stack phải được người dùng phê duyệt và đồng bộ lại vào mục này cùng decision
+register trước khi hiện thực.
 
 ---
 

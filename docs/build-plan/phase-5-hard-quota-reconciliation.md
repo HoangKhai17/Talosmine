@@ -19,6 +19,8 @@ Phase này hiện thực hard quota trong **cùng Control Plane NestJS modular m
 
 ## 3. Prerequisites và human decisions
 
+**Approver duy nhất cho mọi quyết định nghiệp vụ/bảo mật/vận hành dưới đây là chủ dự án** (`./decision-register.md`, DEC-G01). Dự án là solo dev + AI agents; không có product/security/operations/business owner tách biệt ký duyệt chéo. Agent không tự approve thay con người, kể cả khi đề xuất do agent soạn.
+
 - [ ] Phase 4 đã được QA/reviewer ký đạt; Plan Version, Subscription, Entitlement, exact-feature scope và audit UoW ổn định; `service_identity_scopes` staging có canonical columns và chỉ chứa entitlement rows hợp lệ.
 - [ ] Trước implementation, `docs/database-schema.md` đã được source update để mô tả staged contract Phase 4 -> Phase 5, gồm validation và replacement của named checks/indexes; migration Phase 5 phải đối chiếu đúng contract đó.
 - [ ] Chọn **một metric mẫu** và phê duyệt stable application/feature/metric key, unit, `amount` cho từng logical operation và giới hạn plan/override dùng trong test.
@@ -29,7 +31,14 @@ Phase này hiện thực hard quota trong **cùng Control Plane NestJS modular m
 - [ ] Phê duyệt idempotency retention/retry window, canonical fingerprint fields/version, operation-reference lifecycle và bounded replay response.
 - [ ] Phê duyệt quota limit override giữa window, adjustment semantics, admin permission/separation of duties và reconciliation anomaly/manual path.
 - [ ] Phê duyệt retention/privacy cho usage/idempotency/audit/log, load target, SLO/alert threshold và worker batch/backoff/retry limits.
-- [ ] Kiểm chứng Supavisor transaction pinning, PostgreSQL version/isolation, SQLSTATE retry policy và backup/PITR checkpoint trên môi trường mục tiêu.
+- [ ] Kiểm chứng Supavisor transaction pinning, PostgreSQL version/isolation, SQLSTATE retry policy và backup/PITR checkpoint trên môi trường mục tiêu. Driver đã chốt tại DEC-T09 nên đây là **bước kiểm chứng runtime, không phải quyết định chọn tool**: `postgres@3.4.9` (postgres.js) + `drizzle-orm@0.45.2`, **bắt buộc `prepare: false`**.
+
+**Ràng buộc cứng từ DEC-T09 — đọc trước khi thiết kế transaction.** Runtime đi qua **Supavisor ở transaction pooling mode**, nên:
+
+- `prepare: false` là **điều kiện bắt buộc**, không phải tùy chọn tuning: prepared statement có tên sẽ vỡ khi connection bị trả về pool giữa các statement.
+- **Cấm mọi thứ phụ thuộc session state**: session-level advisory lock, temp table, `SET` ngoài transaction. Hard quota chỉ được dùng **row lock trong một transaction** (`../modular.md` mục 9.4) — đây là lý do lock order canonical ở mục 12 tồn tại.
+- Spike P1.5 phải chứng minh transaction pinning **trước khi P5 được build**. Pinning không đảm bảo → TẮC theo mục 19, không lách bằng session-level lock.
+- Migration dùng connection **trực tiếp tới PostgreSQL, không qua Supavisor**, bằng role migration riêng.
 
 Nếu thiếu metric/unit/amount/counting/failure, window/timezone/DST, TTL/late-success hoặc outage policy thì **không được bật reserve** cho metric đó. Không dùng fixture production giả để vượt prerequisite.
 
@@ -199,7 +208,13 @@ Backend ghi revision/commit. Breaking change sau freeze dừng frontend/backend/
 
 ## 15. Ordered steps
 
-Runbook thực thi tuần tự theo mạch **decisions → contract freeze → migration tuần tự → parallel impl → integration → QA/reviewer**. Mỗi bước ghi năm thành phần: **Hành động**, **Sản phẩm**, **Phụ thuộc**, **Verify**, **Lane** (khớp mục 16). Repo greenfield chưa có script build/test/lint/migrate; wrapper npm/CI đánh dấu `‹cần chốt: script thật sau bootstrap›`, nhưng tên bảng, constraint, trigger, index, lock order, tên test suite và thứ tự migration P5 là cụ thể và bắt buộc. Migration root là `apps/control-plane/drizzle/migrations/`. Không đánh dấu bước nào là “đã chạy”.
+Runbook thực thi tuần tự theo mạch **decisions → contract freeze → migration tuần tự → parallel impl → integration → QA/reviewer**. Mỗi bước ghi năm thành phần: **Hành động**, **Sản phẩm**, **Phụ thuộc**, **Verify**, **Lane** (khớp mục 16).
+
+**Tooling đã chốt.** Tên lệnh trong ô Verify lấy từ bảng script canonical DEC-T15 (`./decision-register.md` mục E); không tự đặt tên khác. Script được **tạo ở bước P1.7** — repo greenfield hiện chưa có script nào chạy được, nên mọi lệnh dưới đây chỉ chạy được sau P1.7 và **không bước nào được đánh dấu “đã chạy”**.
+
+**Concurrency evidence không thể mock.** `pnpm test:concurrency` bắt buộc chạy trên **PostgreSQL thật qua testcontainers 12.0.4 + @testcontainers/postgresql 12.0.4** (DEC-T05): last-unit không double-spend phụ thuộc row lock và isolation level thật của PostgreSQL, nên mock hay in-memory DB không tạo được evidence cho exit gate P5. Đây là điều kiện cần, không phải lựa chọn.
+
+Tên bảng, constraint, trigger, index, lock order, tên test suite và thứ tự migration P5 là cụ thể và bắt buộc. Migration root là `apps/control-plane/drizzle/migrations/`. Quyết định nghiệp vụ chưa chốt vẫn ghi `‹cần chốt: ...›`; approver duy nhất là chủ dự án (DEC-G01).
 
 ### Nhóm A — Decisions
 
@@ -211,10 +226,15 @@ Runbook thực thi tuần tự theo mạch **decisions → contract freeze → m
    - **Lane:** Orchestrator điều phối.
 
 2. **Bước 2 — Kiểm chứng Supavisor + PostgreSQL runtime**
-   - **Hành động:** Kiểm chứng Supavisor **transaction pinning**, PostgreSQL version/isolation level, SQLSTATE retry policy (`40001`/`40P01`) và backup/PITR checkpoint trên môi trường mục tiêu trước khi chốt transaction implementation.
+   - **Hành động:** Kiểm chứng Supavisor **transaction pinning**, PostgreSQL version/isolation level, SQLSTATE retry policy (`40001`/`40P01`) và backup/PITR checkpoint trên môi trường mục tiêu. Driver không phải quyết định mở: DEC-T09 đã chốt `postgres@3.4.9` (postgres.js) + `drizzle-orm@0.45.2` với **`prepare: false` bắt buộc** vì Supavisor chạy transaction pooling mode. Xác nhận client thật khởi tạo đúng `prepare: false`, và xác nhận không có code path nào dùng session state (session-level advisory lock, temp table, `SET` ngoài transaction) — các thứ này vỡ khi connection bị trả về pool giữa các statement.
    - **Sản phẩm:** Ghi chú kiểm chứng runtime (đính kèm evidence checklist mục 17).
-   - **Phụ thuộc:** Bước 1.
-   - **Verify:** Chạy transaction thử qua Supavisor `‹cần chốt: connection string/pooler endpoint thật sau bootstrap›`; kỳ vọng session giữ nguyên connection trong suốt transaction (pinning xác nhận), và `SHOW transaction_isolation` trả mức đã duyệt. Nếu pinning không đảm bảo → khai báo TẮC theo mục 19.
+   - **Phụ thuộc:** Bước 1; spike P1.5 (transaction pinning) đã có kết quả.
+   - **Verify:** Đứng từ stack local `docker compose -f infra/compose/docker-compose.yml up -d` (DEC-T10/T15), nối qua **Supavisor endpoint** bằng client `postgres@3.4.9` cấu hình `prepare: false`, chạy transaction thử. Kỳ vọng, với evidence dán thật:
+     - `BEGIN` → nhiều statement → `COMMIT` giữ nguyên một backend connection suốt transaction: `SELECT pg_backend_pid()` gọi hai lần trong cùng transaction trả **cùng một giá trị** (pinning xác nhận);
+     - `SHOW transaction_isolation` trả mức đã duyệt;
+     - chạy lại cùng client với `prepare: true` kỳ vọng **lỗi** khi statement bị pool trả về giữa chừng — đây là bằng chứng `prepare: false` là ràng buộc bắt buộc chứ không phải tuning;
+     - `pnpm db:migrate` nối **trực tiếp PostgreSQL, không qua Supavisor**, chạy được bằng role migration.
+     Nếu pinning không đảm bảo → khai báo TẮC theo mục 19; **không** lách bằng session-level advisory lock.
    - **Lane:** Backend + Architect (read-only).
 
 ### Nhóm B — Contract freeze
@@ -230,7 +250,7 @@ Runbook thực thi tuần tự theo mạch **decisions → contract freeze → m
    - **Hành động:** Backend ghi path/method/operation ID + audience, `issuer + subject` + reservation resource binding, decimal-string schema (pattern/range) cho mọi quantity/limit/counter/delta, idempotency namespace `service + operation + key` + fingerprint version + timeout recovery, reservation states/terminal transitions/partial-commit/expiry, window start/end/reset/timezone + remaining disclaimer, error/reason/`X-Correlation-Id`, `QuotaReservationPort`/`QuotaReconciliationPort` (gồm duplicate candidate no-op), admin permission/pagination bounds. Examples dùng metric mẫu đã duyệt. Architect review read-only rồi freeze.
    - **Sản phẩm:** `contracts/openapi/control-plane.v1.yaml` (revision freeze, ghi commit).
    - **Phụ thuộc:** Bước 3.
-   - **Verify:** Validate OpenAPI 3.1 bằng `‹cần chốt: openapi lint/validate script thật sau bootstrap›`; kỳ vọng 0 lỗi schema, mọi quantity là decimal string (không dùng JSON number), không có billing/Data Plane business operation.
+   - **Verify:** `pnpm openapi:lint` (redocly lint `contracts/openapi/control-plane.v1.yaml`, DEC-T07/T15) kỳ vọng 0 lỗi schema OpenAPI 3.1; `pnpm openapi:drift` kỳ vọng type sinh lại khớp bản đã commit; mọi quantity là decimal string (không dùng JSON number); không có billing/Data Plane business operation.
    - **Lane:** Backend (contract writer) + Architect (review/freeze).
 
 ### Nhóm C — Migration tuần tự P5 (root `apps/control-plane/drizzle/migrations/`, forward-only)
@@ -304,7 +324,7 @@ Thứ tự migration bắt buộc: `plan_quota_policies` → `quota_limit_overri
     - **Hành động:** Viết migration test đối chiếu staged-to-final schema P5 của `docs/database-schema.md`: clean upgrade từ staged P4, dirty/representative P4 rows chặn replacement, final named checks chấp nhận đúng feature/metric shapes, entitlement-history preservation, composite FK, no-cascade history, role grants, forward-fix/pre-traffic rollback gate. Chỉ sau final validation mới expose quota API.
     - **Sản phẩm:** `tests/control-plane/migration/p5-staged-to-final.spec.ts`, `tests/control-plane/migration/append-only-trigger.spec.ts`.
     - **Phụ thuộc:** Bước 5–13.
-    - **Verify:** Chạy suite bằng `‹cần chốt: test runner thật sau bootstrap›` trên PostgreSQL thật; kỳ vọng dirty P4 row chặn được replacement, entitlement history count không đổi, append-only trigger block mutation. Preflight/rehearsal fail → giữ nguyên P4 constraints, không mở quota API.
+    - **Verify:** `pnpm test` (Vitest 4.1.10, DEC-T05/T15) chạy suite trên **PostgreSQL thật qua testcontainers 12.0.4 + @testcontainers/postgresql 12.0.4**; migration được apply bằng `pnpm db:migrate` với role migration nối trực tiếp PostgreSQL, không qua Supavisor. Kỳ vọng dirty P4 row chặn được replacement, entitlement history count không đổi, append-only trigger block mutation. Preflight/rehearsal fail → giữ nguyên P4 constraints, không mở quota API.
     - **Lane:** Backend (migration owner) + Tester.
 
 ### Nhóm D — Parallel implementation (sau freeze)
@@ -327,7 +347,7 @@ Thứ tự migration bắt buộc: `plan_quota_policies` → `quota_limit_overri
     - **Hành động:** Hiện thực `ReserveUsageCommand` theo canonical transaction với atomic conditional update `limit - committed - active_reserved >= requested`, ghi `usage_reservations` + `usage_events(reserved)` + bucket counter trong cùng transaction. Lock order canonical **service identity/scope → idempotency → bucket → reservation**; không network call dưới row lock; fail-closed khi DB/entitlement không sẵn sàng.
     - **Sản phẩm:** `apps/control-plane/src/modules/quota/` (reserve).
     - **Phụ thuộc:** Bước 16.
-    - **Verify:** `tests/control-plane/quota/last-unit-concurrency.spec.ts` — tại remaining = 1, nhiều reserve đồng thời có tổng successful quantity tối đa 1, bucket/event/reservation nhất quán; `tests/control-plane/quota/lock-order.spec.ts` assert đúng thứ tự lock.
+    - **Verify:** `pnpm test:concurrency` (DEC-T15) chạy `tests/control-plane/quota/last-unit-concurrency.spec.ts` trên **PostgreSQL thật qua testcontainers 12.0.4 + @testcontainers/postgresql 12.0.4** (DEC-T05), client `postgres@3.4.9` với `prepare: false` qua Supavisor. Kỳ vọng: tại remaining = 1, nhiều reserve đồng thời có tổng successful quantity tối đa 1, bucket/event/reservation nhất quán. **Không mock, không in-memory DB** — bằng chứng này phụ thuộc row lock và isolation thật của PostgreSQL, và là điều kiện cần của exit gate P5. `tests/control-plane/quota/lock-order.spec.ts` assert đúng thứ tự lock; assert không có session-level advisory lock (vỡ dưới transaction pooling, DEC-T09).
     - **Lane:** Backend.
 
 18. **Bước 18 — Commit / cancel / status**
@@ -364,7 +384,8 @@ Thứ tự migration bắt buộc: `plan_quota_policies` → `quota_limit_overri
     - **Hành động:** Chạy migration/unit/contract/PostgreSQL/concurrency/reconciliation/security/load/web/mock suites; kiểm chứng Supavisor transaction pinning trong test thật; SQLSTATE chỉ retry bounded `40001`/`40P01` với backoff+jitter. Lỗi thuộc code owner sửa, không bẻ test.
     - **Sản phẩm:** Log output test + load report (evidence checklist mục 17).
     - **Phụ thuộc:** Bước 14–21.
-    - **Verify:** `‹cần chốt: lệnh test tổng + load runner thật sau bootstrap›` trên PostgreSQL/Supavisor mục tiêu; kỳ vọng required suite pass, last-unit không double-spend, transaction pinning xác nhận, load report đo latency/error/deadlock/retry/lock-wait; dán output thật.
+    - **Verify:** chạy theo thứ tự trên PostgreSQL/Supavisor mục tiêu và dán output thật: `pnpm install --frozen-lockfile` → `pnpm typecheck` → `pnpm lint` → `pnpm openapi:lint` + `pnpm openapi:drift` → `pnpm db:migrate` (role migration, nối trực tiếp không qua Supavisor) → `pnpm test` → **`pnpm test:concurrency`** (PostgreSQL thật qua testcontainers) → `pnpm test:e2e` → `pnpm build`. Kỳ vọng required suite pass, last-unit không double-spend, transaction pinning xác nhận với `prepare: false`, SQLSTATE chỉ retry bounded `40001`/`40P01`.
+      **Load runner chưa được chốt** (DEC-T05: công cụ load riêng như k6 giữ `open` tới P8). Load target/threshold cũng thuộc `‹cần chốt: load target + SLO/alert threshold mục 3›`. Cho tới khi chốt, load/contention được đo bằng Vitest chạy song song với pool `threads` (DEC-T05) và phải báo rõ giới hạn của cách đo này thay vì trình bày như một load test đầy đủ.
     - **Lane:** Backend + Frontend + Tester (tự kiểm trước gate).
 
 23. **Bước 23 — QA + reviewer song song**

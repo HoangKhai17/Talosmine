@@ -13,7 +13,7 @@ Billing không thuộc Phase 8. Không thêm provider, checkout, webhook, bảng
 ## 2. Mục tiêu
 
 - Đưa baseline Next.js BFF, NestJS/Fastify Control Plane, worker và Supabase self-hosted tới trạng thái sẵn sàng vận hành production có thể kiểm chứng.
-- Thiết lập đường triển khai lặp lại được bằng Docker Compose trên VPS, Caddy, GHCR và GitHub Actions theo đúng stack đã duyệt.
+- Thiết lập đường triển khai lặp lại được bằng Docker Compose trên VPS, Caddy, GHCR và GitHub Actions theo đúng stack đã duyệt và các quyết định đã chốt tại `./decision-register.md`: compose Supabase tag **`v1.26.07`** rút gọn còn **PostgreSQL + Supavisor + Studio** (DEC-T10), Caddy là proxy duy nhất expose ra Internet (DEC-T11), mọi image pin theo **digest** ghi ở `infra/compose/IMAGE-PINS.md`, CI bốn job `quality`/`test`/`db`/`build` đẩy image lên GHCR (DEC-T13).
 - Bảo vệ ranh giới Internet/private network, session, M2M identity, secret, quyền database và thao tác quản trị.
 - Chứng minh backup off-host, WAL/PITR và quy trình restore đáp ứng RPO/RTO đã duyệt bằng restore drill có đo thời gian và mức mất dữ liệu.
 - Có health/readiness, graceful drain, quan sát, cảnh báo, runbook, capacity test, rollback/forward-fix và game day trước go-live.
@@ -25,28 +25,41 @@ Billing không thuộc Phase 8. Không thêm provider, checkout, webhook, bảng
 
 - [ ] Có bằng chứng Phase 7 PASS từ QA và reviewer cho **toàn bộ roster ứng dụng bắt buộc**; không còn app bắt buộc chưa onboard/chưa verify và không còn mục “phải sửa”. P7 mới chỉ đạt một phần hoặc chỉ pass một tập con không mở P8.
 - [ ] OpenAPI, schema, migration chain và image build của P7 đã được đóng phiên bản ứng viên.
-- [ ] Có chủ sở hữu vận hành, bảo mật, dữ liệu và incident commander; có lịch on-call/escalation được phê duyệt.
 - [ ] Ngay đầu phase, user đã explicit approval cho `orchestrator` sửa `infra/**` và `.github/workflows/**`, **hoặc** đã giao từng path đó cho một agent hiện hữu có quyền sửa và phạm vi phù hợp. Nếu chưa có approval/assignment này thì không mở công việc trên hai path; không tự tạo lane `Infrastructure`.
+
+### Mô hình vận hành: solo
+
+Dự án là **một người + các AI agent** (DEC-G01 tại `./decision-register.md`). Không có Product owner, Security owner, Legal/Privacy owner, Operations team hay incident commander tách biệt; không có RACI nhiều vai và không có on-call rotation. Mọi vai đó là **chủ dự án**.
+
+- **Approver duy nhất:** chủ dự án ký mọi quyết định mục 3, mọi risk acceptance và go/no-go. Agent không tự approve, kể cả khi đề xuất do agent soạn.
+- **Incident owner duy nhất:** khi có sự cố, chủ dự án là người quyết định đóng write, chọn PITR target và chấp nhận data loss. Không có escalation chain để leo thang — chỉ có runbook mục 19 và một người đọc nó.
+- **Vẫn tách lane `qa`/`reviewer`:** đây **không phải** nghi thức tổ chức mà là luật chống tự lừa của `AGENTS.md` mục 4b. QA và reviewer `edit: deny`; agent viết code không được tự tuyên bố code mình đạt. Luật ba vòng, `TẮC` và `CẠN LƯỢT` giữ nguyên hiệu lực.
+
+Vì chỉ có một người, thứ quyết định phase này sống hay chết không phải sơ đồ trách nhiệm mà là bốn thứ cụ thể, mỗi thứ có bước runbook riêng ở mục 15: **alert đi tới kênh chủ dự án thật sự đọc** (Bước 10), **runbook khi service chết** (Bước 8), **restore từ backup có drill đo được** (Bước 9) và **kill-switch** (Bước 8).
 
 ### Quyết định phải chốt trước implementation
 
-- [ ] **RPO/RTO:** mục tiêu cho PostgreSQL, cấu hình và secret; cách đo, phạm vi sự cố, tần suất restore drill và ngưỡng pass/fail.
-- [ ] **Retention/privacy:** loại dữ liệu, mục đích, thời hạn, legal hold, anonymization/deletion, quyền đọc và tương tác với backup/PITR cho session, idempotency, usage, audit, log, trace.
-- [ ] **Revoke SLA:** thời gian hội tụ tối đa cho account/session, entitlement, cache, M2M identity/scope và credential rotation/revoke.
+- [ ] **RPO/RTO** (DEC-B12, `open`)**:** mục tiêu cho PostgreSQL, cấu hình và secret; cách đo, phạm vi sự cố, tần suất restore drill và ngưỡng pass/fail.
+- [ ] **Retention/privacy** (DEC-B11, `open`)**:** loại dữ liệu, mục đích, thời hạn, legal hold, anonymization/deletion, quyền đọc và tương tác với backup/PITR cho session, idempotency, usage, audit, log, trace.
+- [ ] **Revoke SLA** (DEC-B10, `open`)**:** thời gian hội tụ tối đa cho account/session, entitlement, cache, M2M identity/scope và credential rotation/revoke.
+- [ ] **Kênh nhận alert:** ‹cần chốt: kênh cụ thể chủ dự án thật sự đọc› và ngưỡng nào được phép đánh thức người. Một dự án solo không có ai trực thay; alert gửi vào nơi không ai đọc thì bằng không có alert. Phải chốt cả kênh lẫn danh sách alert được phép gửi tới đó.
+- [ ] **Kill-switch:** ‹cần chốt: phạm vi và cách kích hoạt› — cách một người chặn traffic ở Caddy hoặc tắt một app khỏi Hub mà không cần deploy lại và không phá invariant fail-closed.
 - [ ] **Outage/last-known-good:** phân loại từng feature; TTL; trải nghiệm degraded; feature nào luôn fail-closed. Authentication, hard quota và entitlement rủi ro cao không được fail-open.
 - [ ] **Capacity/SLO:** tải dự kiến, headroom, latency/error/availability objectives, budget kết nối database, concurrency worker và ngưỡng cảnh báo.
 - [ ] **Deployment topology:** so sánh và phê duyệt rõ (a) một VPS chạy app + data, (b) VPS ứng dụng và VPS dữ liệu tách biệt, và (c) HA trong tương lai. Decision record phải nêu network boundary, failure domain/correlated failure, vận hành, capacity, bảo mật, chi phí, độ phức tạp, RPO/RTO và đường nâng cấp. Hai VPS có thể là target được khuyến nghị nhưng không được freeze hay yêu cầu trước approval; HA tương lai không được diễn giải là đã có.
 - [ ] **Domain/network:** domain production, DNS, TLS, port/firewall, egress allowlist, nguồn IP quản trị và cách truy cập Studio theo topology đã được phê duyệt; nếu chọn hai VPS mới chốt private link/routing giữa app và data VPS.
 - [ ] **Data residency:** nơi đặt host theo topology được duyệt, nơi lưu backup off-host, nơi log/trace được xử lý và giới hạn truyền dữ liệu.
-- [ ] **Chấp nhận rủi ro topology:** người có thẩm quyền ký các rủi ro còn lại của lựa chọn đã duyệt. Nếu dùng single primary không automatic failover, phải nêu rõ hậu quả downtime và quy trình restore/manual recovery.
-- [ ] Công cụ observability, secret handling, vulnerability scanning, SBOM và signing nếu có đã được duyệt. Phase này không tự chọn công cụ mới.
+- [ ] **Chấp nhận rủi ro topology:** chủ dự án ký các rủi ro còn lại của lựa chọn đã duyệt (DEC-G01). Dự án solo trên VPS gần như chắc chắn là single primary không automatic failover: phải nêu rõ hậu quả downtime và quy trình restore/manual recovery do chính chủ dự án thực hiện.
+- [ ] Công cụ observability, secret handling, vulnerability scanning, SBOM và signing nếu có đã được duyệt. Phase này không tự chọn công cụ mới. Load tool riêng đang giữ `open` tới P8 theo DEC-T05; concurrency test dùng `pnpm test:concurrency`.
 
 Thiếu bất kỳ quyết định bắt buộc nào thì dừng ở thiết kế/runbook tương ứng; không điền default giả để vượt cổng.
 
 ## 4. Phạm vi
 
-- Docker Compose production trên VPS với Caddy ở biên, image lấy từ GHCR và pipeline GitHub Actions có approval.
-- Triển khai topology đã được con người phê duyệt. Nếu chọn hai VPS thì tách workload ứng dụng/dữ liệu và private routing; nếu chọn một VPS thì vẫn cô lập network/container và ghi nhận shared failure domain. Trong mọi lựa chọn, chỉ bề mặt ứng dụng qua Caddy được public; endpoint Supabase và Studio phải private.
+- Docker Compose production trên VPS với Caddy ở biên, image lấy từ GHCR và pipeline GitHub Actions có approval của chủ dự án.
+- Nâng compose Supabase `v1.26.07` từ P1 (`infra/compose/docker-compose.yml`) lên cấu hình production: giữ đúng **PostgreSQL + Supavisor + Studio**, không kéo lại GoTrue/Realtime/Storage/Edge Functions/Kong (DEC-T10 — identity thuộc Auth0, các service kia là bề mặt tấn công thừa). Nếu một service Supabase bị loại xuất hiện trở lại trong compose production, đó là stop condition mục 19, không phải tùy chọn.
+- Mọi image trong compose production tham chiếu **digest** (`image: ...@sha256:...`) khớp `infra/compose/IMAGE-PINS.md`; không tag trôi (`latest`, `nightly`, `2-alpine` trần).
+- Triển khai topology đã được chủ dự án phê duyệt. Nếu chọn hai VPS thì tách workload ứng dụng/dữ liệu và private routing; nếu chọn một VPS thì vẫn cô lập network/container và ghi nhận shared failure domain. Trong mọi lựa chọn, **Caddy là container duy nhất publish port ra Internet** (DEC-T11); PostgreSQL, Supavisor và Studio nằm trên internal network và không publish port ra host.
 - Quyền runtime/migration tách biệt; secret injection/rotation/revoke theo công cụ đã duyệt, không đưa secret vào image, source, log hoặc workflow output.
 - Migration task one-shot; rollout API, worker và web có health/readiness/drain; migration không chạy ở mỗi lần process startup.
 - Backup PostgreSQL/Supabase off-host, WAL/PITR, restore drill, upgrade/version pin và staging validation.
@@ -67,21 +80,25 @@ Thiếu bất kỳ quyết định bắt buộc nào thì dừng ở thiết k�
 
 ## 6. Deliverables
 
-- Bộ Compose và cấu hình môi trường production/staging đã review, kèm sơ đồ network/data flow và inventory port/endpoint.
-- Caddy routing/TLS/security configuration; Supabase/Studio không public.
-- GitHub Actions build/publish/deploy dùng image immutable đã pin bằng digest hoặc định danh bất biến đã duyệt; promotion có approval và provenance phù hợp khả năng tooling được duyệt.
-- Runbook migration, rollout, rollback/forward-fix, drain, backup, PITR, restore, upgrade, secret rotation, M2M revoke, incident và retention.
+- Bộ Compose production/staging (`infra/compose/**`) dẫn xuất từ compose Supabase `v1.26.07` đã rút gọn còn PostgreSQL + Supavisor + Studio, kèm sơ đồ network/data flow và inventory port/endpoint.
+- `infra/compose/IMAGE-PINS.md` cập nhật cho mọi image production, mỗi dòng có digest và ngày ghi.
+- Caddy routing/TLS/security configuration; Caddy là container duy nhất publish port; Supabase/Studio không public.
+- GitHub Actions build/publish/deploy dùng image immutable pin bằng digest; promotion có approval của chủ dự án và provenance phù hợp khả năng tooling được duyệt.
+- Runbook migration, rollout, rollback/forward-fix, drain, backup, PITR, restore, upgrade, secret rotation, M2M revoke, retention và **kill-switch** — viết cho một người đọc lúc 3 giờ sáng: lệnh copy-paste được, không phải mô tả quy trình.
 - Bằng chứng staging deploy, rollback drill, restore drill, DR game day, capacity/Supavisor test và security test.
-- Dashboard/alert catalog với owner, severity, threshold, suppression và liên kết runbook.
-- Production go-live checklist, change record, danh sách known risks và văn bản chấp nhận rủi ro cho topology đã duyệt; nếu là single primary thì phải ghi rõ không automatic failover.
+- Alert catalog: mỗi alert có severity, threshold, **kênh đích** ‹cần chốt: kênh nhận alert mục 3›, liên kết runbook và bằng chứng fire-test. Không ghi cột owner — owner luôn là chủ dự án.
+- Production go-live checklist, change record, danh sách known risks và văn bản chấp nhận rủi ro topology do chủ dự án ký; nếu là single primary thì phải ghi rõ không automatic failover.
 - Báo cáo QA và reviewer độc lập. Không deliverable nào tự thân là bằng chứng production đã chạy.
 
 ## 7. Target paths
 
 Các path dưới đây là **đích dự kiến cho implementation sau khi P7 PASS**, không khẳng định chúng hiện tồn tại:
 
-- `infra/**`: Docker Compose, Caddy, network theo topology được duyệt, Supabase deployment overlays, backup/restore/DR scripts và cấu hình hạ tầng telemetry.
-- `.github/workflows/**`: build, publish GHCR, promotion, deploy, migration gate, rollback/drill và security checks đã được duyệt.
+- `infra/compose/docker-compose.yml` và overlay production/staging: Supabase `v1.26.07` rút gọn (PostgreSQL + Supavisor + Studio), app/worker/web và Caddy.
+- `infra/compose/IMAGE-PINS.md`: bảng digest canonical, mở rộng từ bản P1.10 sang mọi image production.
+- `infra/caddy/**`: Caddyfile production, TLS và security header ở biên.
+- `infra/**` còn lại: network theo topology được duyệt, backup/restore/DR scripts và cấu hình hạ tầng telemetry.
+- `.github/workflows/**`: mở rộng bốn job baseline `quality`/`test`/`db`/`build` của P1 (DEC-T13) thêm publish GHCR, promotion, deploy, migration gate, rollback/drill và security checks đã được duyệt.
 - `apps/control-plane/drizzle/migrations/`: forward migrations đã review; migration chỉ chạy qua one-shot task, không nằm trong startup path.
 - `apps/control-plane/src/main-worker.*`: entrypoint worker canonical của cùng Control Plane modular monolith.
 - `apps/control-plane/**`: health/readiness, graceful shutdown/drain, runtime configuration, application instrumentation và worker lifecycle.
@@ -97,8 +114,9 @@ Không tạo `apps/*/billing`, billing workflow, billing secret hoặc billing s
 ### Quyền và kết nối
 
 - Runtime chỉ dùng role tối thiểu cho repository của Control Plane qua Supavisor; không dùng owner/migration role.
-- Migration task dùng role riêng, secret riêng, thời hạn/quyền truy cập được kiểm soát; Studio là ngoại lệ quản trị private và có audit truy cập phù hợp.
-- Xác minh pool mode, transaction semantics, prepared statement behavior nếu được dùng, connection timeout, pool budget cho API/worker/migration và tổng giới hạn PostgreSQL.
+- Migration task chạy `pnpm db:migrate` bằng role migration riêng, **nối trực tiếp PostgreSQL không qua Supavisor** (DEC-T09/DEC-T15), secret riêng, thời hạn/quyền truy cập được kiểm soát; Studio là ngoại lệ quản trị private và có audit truy cập phù hợp.
+- Xác minh Supavisor ở **transaction pooling mode** và `prepare: false` của postgres.js vẫn giữ nguyên trên production (DEC-T09): prepared statement có tên sẽ vỡ khi connection bị trả về pool. Kiểm tra connection timeout, pool budget cho API/worker/migration và tổng giới hạn PostgreSQL.
+- Cấm mọi thứ phụ thuộc session state trên đường runtime — session-level advisory lock, temp table, `SET` ngoài transaction. Hard quota chỉ dùng row lock trong một transaction.
 
 ### Trình tự và an toàn migration
 
@@ -114,7 +132,7 @@ Không tạo `apps/*/billing`, billing workflow, billing secret hoặc billing s
 - Backup phải rời host/failure domain chứa primary data tới vị trí off-host phù hợp data residency; chi tiết luồng mạng phụ thuộc topology đã duyệt. Mã hóa, quyền truy cập, integrity check và retention theo quyết định đã duyệt.
 - WAL archive/PITR phải có monitoring cho freshness/gap và cảnh báo trước khi vi phạm RPO.
 - Restore drill dùng môi trường cô lập, phục hồi cả base backup + WAL tới recovery point mục tiêu, chạy kiểm tra consistency/application smoke và đo **data loss thực tế** cùng **thời gian khôi phục thực tế** so với RPO/RTO.
-- Pin version image Supabase/PostgreSQL và thành phần liên quan; upgrade trước ở staging với bản sao dữ liệu đã sanitize hoặc bộ dữ liệu đại diện, kiểm tra extension/Compose compatibility, backup và đường quay lại.
+- Image Supabase/PostgreSQL pin theo digest tại `infra/compose/IMAGE-PINS.md`; nâng version là sửa digest trong file đó cùng một record superseding ở `./decision-register.md`, không phải đổi tag tại chỗ. Upgrade trước ở staging với bản sao dữ liệu đã sanitize hoặc bộ dữ liệu đại diện, kiểm tra extension/Compose compatibility, backup và đường quay lại. Dự án **không** cài extension DB cho UUIDv7 (DEC-T06 sinh ID ở application layer), nên đường upgrade không phải kéo theo extension đó.
 - Capacity test bao phủ connection exhaustion, Supavisor saturation/recovery, API/worker competition, quota lock contention và hành vi fail-closed.
 
 Retention của `audit_events`/`usage_events` phải qua procedure đặc quyền, approval và audit riêng; không tắt trigger, `TRUNCATE`, sửa hay xóa lịch sử tùy tiện. Procedure chỉ được hiện thực sau khi policy, legal basis và ảnh hưởng backup/PITR được duyệt.
@@ -152,13 +170,14 @@ Retention của `audit_events`/`usage_events` phải qua procedure đặc quyề
 
 ### Network và secret
 
-- Internet → Caddy → web/API được phép theo route. Kết nối app → data chỉ qua endpoint/port tối thiểu theo topology đã duyệt; nếu tách hai VPS thì bắt buộc dùng private routing đã phê duyệt. Supabase API, database, Supavisor quản trị và Studio không public trong mọi topology.
+- Internet → Caddy → web/API được phép theo route. **Caddy là container duy nhất có `ports:` publish ra host** (DEC-T11); mọi service khác chỉ nói chuyện qua internal network của compose. Kết nối app → data chỉ qua endpoint/port tối thiểu theo topology đã duyệt; nếu tách hai VPS thì bắt buộc dùng private routing đã phê duyệt. PostgreSQL, Supavisor quản trị và Studio không public trong mọi topology.
+- Studio chỉ truy cập qua đường quản trị private ‹cần chốt: cách truy cập Studio, mục 3›; không đưa Studio ra sau Caddy public dù có thêm auth.
 - Firewall deny-by-default; SSH/admin access giới hạn nguồn/phương thức đã duyệt. Không dùng shared M2M credential giữa backend.
 - Thực hiện rotation drill cho deploy/runtime/database/Auth0 secret theo khả năng hệ thống đã duyệt; xác nhận credential cũ bị vô hiệu và request mới bị deny trong SLA.
 
 ### Supply chain
 
-- Pin base/runtime/Supabase/Caddy/application image theo policy đã duyệt; không dùng floating tag để promotion production.
+- Pin base/runtime/Supabase/Caddy/application image theo **digest** tại `infra/compose/IMAGE-PINS.md`; không dùng floating tag để promotion production. Base image ứng dụng là `node:24.18.0-bookworm-slim` khớp `.nvmrc` và `engines.node` (DEC-T01); Docker build dùng `--frozen-lockfile` (DEC-T02).
 - Nếu công cụ SBOM/signing/provenance/scanning đã được phê duyệt, thêm gate và xác minh ở deploy. Nếu chưa được duyệt, ghi blocker/risk; **không tự chọn công cụ** hoặc tuyên bố kiểm soát đã có.
 
 ### Observability
@@ -166,7 +185,8 @@ Retention của `audit_events`/`usage_events` phải qua procedure đặc quyề
 - Chỉ dùng tooling đã phê duyệt. Structured logs mang timestamp, service/version/environment, severity, operation và correlation; không mang PII/token/secret.
 - Metrics bao phủ request/error/latency, readiness, worker lag/outcome, DB/Supavisor connections, lock contention, backup/WAL freshness, restore status và revoke propagation theo quyết định đã duyệt.
 - Trace sampling/retention/redaction phải theo privacy policy; propagation không biến user identifier thành dữ liệu công khai.
-- Mỗi alert có owner, severity, điều kiện, cửa sổ, runbook và kiểm thử phát hiện/khôi phục; tránh alert không hành động được.
+- Mỗi alert có severity, điều kiện, cửa sổ, **kênh đích**, runbook và kiểm thử phát hiện/khôi phục. Owner luôn là chủ dự án nên không cần trường owner; thứ phải chốt là alert nào được phép gửi tới kênh đánh thức người và alert nào chỉ nằm trên dashboard.
+- Tiêu chí solo: một alert không dẫn tới hành động chủ dự án làm được một mình, lúc nửa đêm, bằng runbook có sẵn thì phải xóa hoặc hạ severity. Alert không ai đọc là nợ, không phải vùng phủ.
 
 ## 13. Contract freeze
 
@@ -174,12 +194,12 @@ Trước khi mở implementation, architect read-only review/đề xuất contra
 
 Release contract gồm:
 
-- deployment topology đã có human approval, image/version matrix, Compose project, domain/DNS/TLS và network allowlist tương ứng;
+- deployment topology đã được chủ dự án approve, image/digest matrix chốt tại `infra/compose/IMAGE-PINS.md`, danh sách service Supabase được giữ (PostgreSQL + Supavisor + Studio), Compose project, domain/DNS/TLS và network allowlist tương ứng;
 - biến cấu hình và secret reference theo environment, không ghi giá trị secret;
 - API/OpenAPI compatibility, schema version/migration order và minimum compatible application version;
 - liveness/readiness/drain semantics, timeout và rollout ordering;
 - backup/WAL/PITR format, encryption, retention, restore target và tiêu chí RPO/RTO;
-- SLO/capacity budget, telemetry field/redaction, alert thresholds và runbook owner;
+- SLO/capacity budget, telemetry field/redaction, alert thresholds, kênh nhận alert và kill-switch scope;
 - revoke/outage/last-known-good policy, session lifetime và admin-operation protection;
 - rollback/forward-fix decision tree cùng tiêu chí go/no-go.
 
@@ -204,23 +224,25 @@ Mỗi test phải lưu command/version/environment, timestamp, expected/actual, 
 
 Runbook thực thi dưới đây giữ nguyên mạch logic của phase và mô tả mỗi bước theo năm thành phần: **Hành động**, **Sản phẩm** (path/artifact), **Phụ thuộc**, **Verify** (drill + kết quả đo được) và **Lane** (khớp mục 16). Các bước chạm `infra/**` và `.github/workflows/**` chỉ do `orchestrator` thực hiện **sau explicit user approval** (hoặc agent hiện hữu được user giao path); trước approval các bước đó giữ trạng thái chờ và không được mở. Runbook này không tuyên bố bất kỳ deploy/drill nào đã chạy hay đã go-live; ô Verify chỉ đạt khi có evidence thật từ môi trường và kết luận độc lập của QA/reviewer.
 
-Mọi mục tiêu định lượng (RPO/RTO, capacity/SLO budget, revoke SLA, drain timeout) là ‹cần chốt: quyết định mục 3›; runbook mô tả cách đo, không tự đặt ngưỡng. Deployment topology là decision gate ‹cần chốt: một VPS / hai VPS app-data / HA tương lai›; mọi bước topology-specific chỉ áp dụng theo phương án đã được con người phê duyệt.
+Mọi mục tiêu định lượng (RPO/RTO, capacity/SLO budget, revoke SLA, drain timeout) là ‹cần chốt: quyết định mục 3›; runbook mô tả cách đo, không tự đặt ngưỡng. Deployment topology là decision gate ‹cần chốt: một VPS / hai VPS app-data / HA tương lai›; mọi bước topology-specific chỉ áp dụng theo phương án chủ dự án đã phê duyệt.
+
+Lệnh trong ô **Verify** dùng tên canonical tại DEC-T15 (`./decision-register.md` mục E). Các lệnh này chỉ tồn tại sau khi P1.7 tạo script và P1.10 tạo compose; trước đó chúng là hợp đồng tên, **chưa chạy được** — không bước nào dưới đây được coi là đã chạy.
 
 ### Bước 1 — Xác nhận cổng đầu vào và approval sở hữu hạ tầng
 
-- **Hành động:** Thu thập bằng chứng Phase 7 PASS cho toàn bộ mandatory roster; xin explicit user approval cho owner của `infra/**` và `.github/workflows/**`; lập change owner/RACI, incident commander và lịch on-call/escalation.
-- **Sản phẩm:** `docs/**` change record (RACI, approval log, roster P7 evidence index).
-- **Phụ thuộc:** Phase 7 PASS từ QA/reviewer; approval người dùng cho hai path hạ tầng. Không có approval → giữ phase `blocked`, không mở lane hạ tầng/workflow.
-- **Verify:** Đối chiếu QA/reviewer sign-off P7 không còn mục "phải sửa" và không còn app bắt buộc chưa verify; approval được ghi văn bản với named authority.
-- **Lane:** `subagent/document` (ghi record). Approval là hành động của người dùng; không agent nào tự cấp.
+- **Hành động:** Thu thập bằng chứng Phase 7 PASS cho toàn bộ mandatory roster; xin explicit approval của chủ dự án cho owner của `infra/**` và `.github/workflows/**`. Không lập RACI, không lập lịch on-call: theo DEC-G01 chủ dự án là approver và incident owner duy nhất — một bảng phân vai nhiều người sẽ mô tả một tổ chức không tồn tại.
+- **Sản phẩm:** `docs/**` change record (approval log, roster P7 evidence index).
+- **Phụ thuộc:** Phase 7 PASS từ QA/reviewer; approval của chủ dự án cho hai path hạ tầng. Không có approval → giữ phase `blocked`, không mở lane hạ tầng/workflow.
+- **Verify:** Đối chiếu QA/reviewer sign-off P7 không còn mục "phải sửa" và không còn app bắt buộc chưa verify; approval được ghi văn bản kèm ngày.
+- **Lane:** `subagent/document` (ghi record). Approval là hành động của chủ dự án; không agent nào tự cấp.
 
 ### Bước 2 — Chốt deployment topology và các human decision mục 3
 
-- **Hành động:** So sánh ‹cần chốt: một VPS / hai VPS app-data / HA tương lai› với network boundary, failure domain, capacity, bảo mật, chi phí, RPO/RTO và đường nâng cấp; phê duyệt topology cùng risk acceptance. Hoàn tất các quyết định còn lại mục 3: RPO/RTO, retention/privacy, revoke SLA, outage/last-known-good, capacity/SLO, domain/network, data residency, observability/secret/scanning tooling.
-- **Sản phẩm:** `docs/**` topology decision record + bảng quyết định mục 3 (mỗi mục có owner/approval).
+- **Hành động:** So sánh ‹cần chốt: một VPS / hai VPS app-data / HA tương lai› với network boundary, failure domain, capacity, bảo mật, chi phí, RPO/RTO và đường nâng cấp; phê duyệt topology cùng risk acceptance. Hoàn tất các quyết định còn lại mục 3: RPO/RTO (DEC-B12), retention/privacy (DEC-B11), revoke SLA (DEC-B10), outage/last-known-good, capacity/SLO, kênh nhận alert, kill-switch scope, domain/network, data residency, observability/secret/scanning tooling.
+- **Sản phẩm:** `docs/**` topology decision record; các quyết định nghiệp vụ được ghi ngược về `./decision-register.md` nhóm B khi chốt.
 - **Phụ thuộc:** Bước 1.
-- **Verify:** Mỗi quyết định bắt buộc có named authority ký; thiếu bất kỳ quyết định nào → dừng tại thiết kế, không điền default giả. Nếu chọn single primary không automatic failover, decision record ghi rõ hậu quả downtime và quy trình manual recovery.
-- **Lane:** Quyết định thuộc người dùng/owner được phê duyệt; `subagent/document` ghi record; `subagent/architect` chỉ review read-only.
+- **Verify:** Mỗi quyết định bắt buộc có chữ ký chủ dự án và ngày; thiếu bất kỳ quyết định nào → dừng tại thiết kế, không điền default giả. Trạng thái DEC-B10/B11/B12 chuyển `open` → `approved` tại register; còn `open` thì P8 vẫn đóng theo bảng C. Nếu chọn single primary không automatic failover, decision record ghi rõ hậu quả downtime và quy trình manual recovery do chủ dự án tự chạy.
+- **Lane:** Quyết định thuộc chủ dự án; `subagent/document` ghi record; `subagent/architect` chỉ review read-only.
 
 ### Bước 3 — Freeze contract, version matrix và ownership manifest
 
@@ -232,26 +254,26 @@ Mọi mục tiêu định lượng (RPO/RTO, capacity/SLO budget, revoke SLA, dr
 
 ### Bước 4 — Chuẩn bị staging tương đồng topology
 
-- **Hành động:** Dựng staging khớp topology đã duyệt (chỉ tách app/data VPS nếu decision record chọn phương án đó); khóa Supabase API/database/Supavisor quản trị/Studio khỏi Internet; chỉ expose bề mặt ứng dụng qua Caddy.
-- **Sản phẩm:** `infra/**` (Compose staging, Caddy, network overlays theo topology).
+- **Hành động:** Dựng staging khớp topology đã duyệt (chỉ tách app/data VPS nếu decision record chọn phương án đó) từ compose Supabase `v1.26.07` rút gọn của P1.10; xác nhận GoTrue/Realtime/Storage/Edge Functions/Kong vẫn không có mặt (DEC-T10); bỏ mọi `ports:` trừ Caddy; khóa PostgreSQL/Supavisor quản trị/Studio khỏi Internet.
+- **Sản phẩm:** `infra/compose/**` (compose staging + overlay theo topology), `infra/caddy/**` (Caddyfile staging).
 - **Phụ thuộc:** Bước 3. **Cần user approval trước khi chạm `infra/**`.**
-- **Verify:** Probe từ Internet xác nhận endpoint Supabase/Studio không truy cập được; chỉ route ứng dụng qua Caddy phản hồi; ghi lại kết quả scan port/endpoint.
+- **Verify:** `docker compose -f infra/compose/docker-compose.yml config` render đúng danh sách service kỳ vọng (PostgreSQL, Supavisor, Studio, api, worker, web, caddy) và **chỉ caddy có `ports:`**; `docker compose -f infra/compose/docker-compose.yml up -d` rồi probe từ Internet xác nhận endpoint Supabase/Studio không truy cập được; chỉ route ứng dụng qua Caddy phản hồi; ghi lại kết quả scan port/endpoint. Teardown bằng `docker compose -f infra/compose/docker-compose.yml down -v`.
 - **Lane:** `orchestrator` **sau explicit user approval** (hoặc agent hiện hữu được giao path).
 
 ### Bước 5 — Thiết lập role, secret, firewall, Caddy/TLS và image pin
 
-- **Hành động:** Cấu hình role runtime tối thiểu qua Supavisor và role migration riêng; secret reference theo công cụ đã duyệt (không đưa secret vào image/source/log); firewall deny-by-default; Caddy/TLS; pin image bằng digest/định danh bất biến.
-- **Sản phẩm:** `infra/**` (secret reference config, firewall rules, Caddy config, image pin manifest).
+- **Hành động:** Cấu hình role runtime tối thiểu qua Supavisor (transaction pooling, `prepare: false`) và role migration riêng nối trực tiếp PostgreSQL; secret reference theo công cụ đã duyệt (không đưa secret vào image/source/log); firewall deny-by-default; Caddy/TLS cho domain production ‹cần chốt: domain/DNS, mục 3›; cập nhật `infra/compose/IMAGE-PINS.md` cho mọi image production.
+- **Sản phẩm:** `infra/compose/IMAGE-PINS.md`, `infra/caddy/**`, `infra/**` (secret reference config, firewall rules).
 - **Phụ thuộc:** Bước 4; công cụ secret handling đã duyệt ở mục 3. **Cần user approval trước khi chạm `infra/**`.**
-- **Verify:** Secret scan trên repo/artifact/layer/log không phát hiện credential; xác minh runtime role không có quyền owner/migration; image reference là immutable digest, không floating tag.
+- **Verify:** Mọi `image:` trong compose production là `...@sha256:...` khớp một dòng của `infra/compose/IMAGE-PINS.md` — grep compose không còn tag trần; secret scan trên repo/artifact/layer/log không phát hiện credential; xác minh runtime role không có quyền owner/migration (thử `CREATE TABLE` bằng role runtime phải bị từ chối).
 - **Lane:** `orchestrator` **sau explicit user approval**.
 
-### Bước 6 — Xây pipeline CI/CD build → test → publish → promotion
+### Bước 6 — Mở rộng pipeline CI/CD sang publish → promotion
 
-- **Hành động:** Dựng GitHub Actions build → test → publish GHCR → approve promotion với provenance phù hợp; chỉ thêm SBOM/signing/scanning nếu ‹cần chốt: tooling supply-chain đã duyệt›; nếu chưa duyệt thì ghi blocker/risk, không tự chọn công cụ.
+- **Hành động:** Mở rộng bốn job baseline P1 `quality`/`test`/`db`/`build` (DEC-T13) thêm publish GHCR → approve promotion với provenance phù hợp; giữ nguyên luật P1: thiếu credential GHCR thì **skip và báo skip**, không log như thành công. Chỉ thêm SBOM/signing/scanning nếu ‹cần chốt: tooling supply-chain đã duyệt›; nếu chưa duyệt thì ghi blocker/risk, không tự chọn công cụ.
 - **Sản phẩm:** `.github/workflows/**` (build/publish/promotion/migration gate/security checks).
 - **Phụ thuộc:** Bước 5. **Cần user approval trước khi chạm `.github/workflows/**`.**
-- **Verify:** Pipeline chạy trên staging tạo image immutable đã pin; promotion yêu cầu approval; secret scan gate chặn khi có secret; ghi command/version/run link thật.
+- **Verify:** Job `quality` chạy `pnpm typecheck`, `pnpm lint`, `pnpm openapi:lint`, `pnpm openapi:drift`; job `test` chạy `pnpm test` và `pnpm test:e2e`; job `db` chạy `pnpm db:migrate` trên PostgreSQL container sạch; job `build` chạy `pnpm build` + Docker build với `--frozen-lockfile` và publish digest lên GHCR. Node version trong CI khớp `.nvmrc` (24.18.0). Pipeline trên staging tạo image immutable đã pin; promotion yêu cầu approval của chủ dự án; secret scan gate chặn khi có secret; ghi command/version/run link thật.
 - **Lane:** `orchestrator` **sau explicit user approval**.
 
 ### Bước 7 — Hiện thực migration one-shot và release order
@@ -259,31 +281,33 @@ Mọi mục tiêu định lượng (RPO/RTO, capacity/SLO budget, revoke SLA, dr
 - **Hành động:** Triển khai release order **backup/checkpoint → migration task (one-shot) → validation → API → worker → web**; migration không nằm trong startup path của bất kỳ process nào.
 - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (forward migrations), `apps/control-plane/**` (worker entrypoint không tự migrate); orchestration deploy thuộc `infra/**`/`.github/workflows/**`.
 - **Phụ thuộc:** Bước 6; migration chain P7 đã đóng phiên bản. Phần deploy orchestration **cần user approval trước khi chạm `infra/**`/`.github/workflows/**`.**
-- **Verify:** Staging deploy theo đúng order: backup/checkpoint tạo trước, migration task chạy một lần và pass validation (constraint, trigger append-only, grants, schema version) trước khi rollout API → worker → web; startup với schema incompatible fail rõ ràng và không nhận traffic.
+- **Verify:** Staging deploy theo đúng order: backup/checkpoint tạo trước, migration task chạy `pnpm db:migrate` **một lần** bằng role migration nối trực tiếp PostgreSQL và pass validation (constraint, trigger append-only, grants, schema version) trước khi rollout API → worker → web; chạy lại `pnpm db:migrate` là no-op. Startup API/worker với schema incompatible fail rõ ràng và không nhận traffic; grep image/entrypoint xác nhận không process nào gọi migrate lúc khởi động.
 - **Lane:** `subagent/backend` (migrations, worker/API); `orchestrator` **sau approval** cho deploy orchestration.
 
-### Bước 8 — health/readiness/drain và rollback/forward-fix decision tree
+### Bước 8 — health/readiness/drain, runbook "service chết", kill-switch và rollback/forward-fix decision tree
 
-- **Hành động:** Thêm/kiểm chứng liveness, readiness (theo dependency/policy đã duyệt), graceful drain có giới hạn thời gian ‹cần chốt: drain timeout›, schema compatibility check và rollback/forward-fix decision tree.
-- **Sản phẩm:** `apps/control-plane/**` (health/readiness/drain, schema check); `docs/**` (rollback/forward-fix decision tree).
+- **Hành động:** Thêm/kiểm chứng liveness, readiness (theo dependency/policy đã duyệt), graceful drain có giới hạn thời gian ‹cần chốt: drain timeout›, schema compatibility check và rollback/forward-fix decision tree. Viết hai runbook cho một người:
+  - **Service chết:** cây chẩn đoán từ triệu chứng tới lệnh — container nào chết (`docker compose -f infra/compose/docker-compose.yml ps`), log gần nhất (`docker compose -f infra/compose/docker-compose.yml logs --tail=200 <service>`), khởi động lại một service, quay về digest last-known-good ghi ở `infra/compose/IMAGE-PINS.md`, và mốc "khi nào ngừng sửa, chuyển sang restore Bước 9".
+  - **Kill-switch** ‹cần chốt: phạm vi, mục 3›: cách chặn traffic ở Caddy hoặc gỡ một app khỏi Hub **không cần deploy lại**, cùng cách bật lại và cách xác nhận không có entitlement/quota nào bị fail-open trong lúc tắt.
+- **Sản phẩm:** `apps/control-plane/**` (health/readiness/drain, schema check); `infra/caddy/**` (kill-switch tại biên); `docs/**` (runbook service-down, runbook kill-switch, rollback/forward-fix decision tree).
 - **Phụ thuộc:** Bước 7.
-- **Verify:** Drill removal khỏi readiness → instance ngừng nhận traffic mới; drain cho request/transaction đang chạy hoàn tất trong timeout đo được; liveness không lộ secret/chi tiết nội bộ; rollback image khi schema backward-compatible drill thành công.
-- **Lane:** `subagent/backend`; `subagent/document` ghi decision tree.
+- **Verify:** Drill removal khỏi readiness → instance ngừng nhận traffic mới; drain cho request/transaction đang chạy hoàn tất trong timeout đo được; liveness không lộ secret/chi tiết nội bộ; rollback image khi schema backward-compatible drill thành công. Runbook service-down được drill bằng cách **giết một container thật** trên staging và đi theo runbook không cần kiến thức ngoài văn bản; kill-switch drill xác nhận traffic bị chặn, hệ thống vẫn fail-closed và bật lại được. Runbook nào có bước không copy-paste chạy được là chưa đạt.
+- **Lane:** `subagent/backend` (health/readiness/drain); `orchestrator` **sau approval** (kill-switch tại Caddy); `subagent/document` ghi runbook và decision tree.
 
 ### Bước 9 — Backup off-host, WAL/PITR monitoring và restore drill đầu tiên
 
-- **Hành động:** Thiết lập backup rời host/failure domain primary tới vị trí off-host phù hợp data residency (mã hóa, integrity check, retention theo quyết định); WAL archive/PITR monitoring cho freshness/gap; runbook restore/upgrade; chạy restore drill #1.
+- **Hành động:** Thiết lập backup rời host/failure domain primary tới vị trí off-host phù hợp data residency ‹cần chốt: nơi lưu backup, mục 3› (mã hóa, integrity check, retention theo DEC-B11); WAL archive/PITR monitoring cho freshness/gap; viết **runbook restore** dạng lệnh copy-paste cho một người; chạy restore drill #1.
 - **Sản phẩm:** `infra/**` (backup/restore/DR scripts, WAL/PITR monitoring config); `docs/**` (runbook restore/upgrade + kết quả drill).
-- **Phụ thuộc:** Bước 5; RPO/RTO ‹cần chốt: mục 3›; data residency ‹cần chốt: mục 3›. **Cần user approval trước khi chạm `infra/**`.**
-- **Verify:** Restore drill trong môi trường cô lập phục hồi base backup + WAL tới recovery point mục tiêu; đo **data loss thực tế** so với RPO và **thời gian khôi phục thực tế** so với RTO; chạy consistency/application smoke; WAL freshness alert fire trước khi vi phạm RPO. Drill pass chỉ khi số đo nằm trong ngưỡng đã duyệt.
+- **Phụ thuộc:** Bước 5; RPO/RTO ‹cần chốt: DEC-B12›; retention ‹cần chốt: DEC-B11›; data residency ‹cần chốt: mục 3›. **Cần user approval trước khi chạm `infra/**`.**
+- **Verify:** Restore drill trong môi trường cô lập phục hồi base backup + WAL tới recovery point mục tiêu; đo **data loss thực tế** so với RPO và **thời gian khôi phục thực tế** so với RTO; chạy consistency check + application smoke; WAL freshness alert fire trước khi vi phạm RPO. Drill pass chỉ khi số đo nằm trong ngưỡng đã duyệt và **do chủ dự án tự chạy end-to-end chỉ bằng runbook** — đây là bài kiểm tra thật, vì trong sự cố thật cũng chỉ có một người đó. Backup chưa từng được restore không phải backup; evidence phải là số đo thật từ môi trường, không phải mô tả quy trình.
 - **Lane:** `orchestrator` **sau explicit user approval** (scripts/config); `subagent/document` ghi kết quả đo.
 
 ### Bước 10 — Observability: telemetry, dashboard, alert, runbook
 
-- **Hành động:** Thêm structured log/correlation, metrics (request/error/latency, readiness, worker lag, DB/Supavisor connections, lock contention, backup/WAL freshness, restore status, revoke propagation), trace sampling/redaction, dashboard và alert bằng ‹cần chốt: observability tooling đã duyệt›; không ghi PII/token/secret.
+- **Hành động:** Thêm structured log/correlation, metrics (request/error/latency, readiness, worker lag, DB/Supavisor connections, lock contention, backup/WAL freshness, restore status, revoke propagation), trace sampling/redaction, dashboard và alert bằng ‹cần chốt: observability tooling đã duyệt›; định tuyến alert tới ‹cần chốt: kênh nhận alert, mục 3›; không ghi PII/token/secret.
 - **Sản phẩm:** `apps/control-plane/**` và `apps/web/**` (application instrumentation); `infra/**` (telemetry infrastructure config); `docs/**` (alert catalog + runbook link).
-- **Phụ thuộc:** Bước 8, Bước 9; tooling observability đã duyệt mục 3. Phần infra **cần user approval trước khi chạm `infra/**`.**
-- **Verify:** Synthetic alert fire-test cho từng alert (owner/severity/threshold/runbook link); correlation ID xuyên BFF → API → worker; kiểm tra log/trace không chứa PII/token/secret; không đánh dấu pass chỉ vì dashboard tồn tại.
+- **Phụ thuộc:** Bước 8, Bước 9; tooling observability và kênh alert đã chốt mục 3. Phần infra **cần user approval trước khi chạm `infra/**`.**
+- **Verify:** Synthetic alert fire-test cho **từng** alert, và bằng chứng pass là **alert thật sự đến kênh chủ dự án đọc** (ảnh chụp/log của kênh), không phải alert xuất hiện trong dashboard. Mỗi alert phải dẫn tới đúng một runbook ở Bước 8/Bước 9. Correlation ID xuyên BFF → API → worker; kiểm tra log/trace không chứa PII/token/secret; không đánh dấu pass chỉ vì dashboard tồn tại. Alert nào không có runbook hoặc không hành động được một mình → xóa hoặc hạ severity, ghi lý do.
 - **Lane:** `subagent/backend` + `subagent/frontend` (instrumentation theo path); `orchestrator` **sau approval** (telemetry infra); `subagent/document` ghi catalog.
 
 ### Bước 11 — Harden user/admin web
@@ -291,7 +315,7 @@ Mọi mục tiêu định lượng (RPO/RTO, capacity/SLO budget, revoke SLA, dr
 - **Hành động:** Cấu hình CSP dựa trên inventory nguồn thật, HSTS sau khi domain/TLS sẵn sàng, `frame-ancestors`, MIME/referrer/permissions policy; BFF cookie `HttpOnly`/`Secure`/`SameSite` + CSRF; `image_url` allowlist với chặn loopback/private/link-local sau DNS resolution; logout/revoke xóa cookie và vô hiệu session server-side; admin re-auth/step-up/reason/confirmation/audit.
 - **Sản phẩm:** `apps/web/**` (headers/CSP, BFF session/revoke, image URL policy, admin protections).
 - **Phụ thuộc:** Bước 3 (domain/TLS contract); performance budget ‹cần chốt: mục 10›.
-- **Verify:** Test TLS/header/CSP/CSRF/cookie; SSRF qua image URL bị chặn; logout vô hiệu session server-side; accessibility (keyboard/focus/screen reader/contrast/reduced motion) và responsive desktop/mobile/tablet đạt tiêu chí đã duyệt; đo performance budget với ngưỡng đã phê duyệt.
+- **Verify:** Test TLS/header/CSP/CSRF/cookie; CSP giữ baseline DEC-T12 (`default-src 'self'`; `img-src 'self' data:`; `frame-ancestors 'none'`; `object-src 'none'`; `base-uri 'self'`) và `next.config` không khai báo `remotePatterns` mở; SSRF qua `launch_url`/image URL bị chặn cho RFC1918, `127.0.0.0/8`, `169.254.0.0/16`, `::1`, `fc00::/7` sau DNS resolution; logout vô hiệu session server-side. Accessibility (keyboard/focus/screen reader/contrast/reduced motion) và responsive desktop/mobile/tablet chạy qua `pnpm test:e2e` (Playwright, DEC-T05) đạt tiêu chí đã duyệt; đo performance budget với ngưỡng đã phê duyệt.
 - **Lane:** `subagent/frontend`.
 
 ### Bước 12 — Security, concurrency, capacity và Supavisor tests
@@ -299,15 +323,15 @@ Mọi mục tiêu định lượng (RPO/RTO, capacity/SLO budget, revoke SLA, dr
 - **Hành động:** Chạy security test (direct endpoint/admin bypass, private Supabase/Studio exposure, log/token/PII leakage, least-privilege, forged health/admin requests); concurrency (remaining=1 hard quota, duplicate reconciliation); capacity/connection storm; Supavisor saturation/recovery; DB unavailable fail-closed; xử lý finding theo severity gate.
 - **Sản phẩm:** `tests/**` (security/concurrency/capacity/Supavisor tests + evidence).
 - **Phụ thuộc:** Bước 7–11; capacity/SLO budget ‹cần chốt: mục 3›.
-- **Verify:** remaining=1 dưới tải chỉ cho tối đa một reserve thành công; connection/Supavisor test đáp ứng connection budget/SLO đã duyệt mà không phá fail-closed invariant; mọi test lưu command/version/environment/timestamp/expected/actual/artifact/người xác minh. Finding **Critical** phải đóng, không waiver.
+- **Verify:** `pnpm test:concurrency` (testcontainers trên PostgreSQL thật, DEC-T05) chứng minh remaining=1 dưới tải chỉ cho tối đa một reserve thành công — mock hay in-memory DB không tính là evidence vì invariant này phụ thuộc row lock và isolation level thật. `pnpm test` cho suite còn lại. Connection/Supavisor test đáp ứng connection budget/SLO đã duyệt mà không phá fail-closed invariant; mọi test lưu command/version/environment/timestamp/expected/actual/artifact/người xác minh. Finding **Critical** phải đóng, không waiver.
 - **Lane:** `subagent/tester`.
 
 ### Bước 13 — Deploy rollback drill, secret rotation, M2M revoke, retention procedure và DR game day
 
 - **Hành động:** Chạy deploy rollback/forward-fix drill; secret rotation drill (deploy/runtime/database/Auth0) xác nhận credential cũ bị vô hiệu trong revoke SLA; M2M identity/scope revoke test; append-only retention procedure test (không tắt trigger, không `TRUNCATE`/rewrite lịch sử); DR game day giả lập mất host/container/failure domain theo topology đã duyệt (gồm mất riêng app/data VPS nếu chọn hai VPS).
 - **Sản phẩm:** `tests/**` (rollback/DR/rotation/retention evidence); `infra/**`/`.github/workflows/**` phần drill script/gate; `docs/**` (DR game day report, gap list, remediation).
-- **Phụ thuộc:** Bước 9 (restore/backup), Bước 12; revoke SLA ‹cần chốt: mục 3›. Phần script/gate **cần user approval trước khi chạm `infra/**`/`.github/workflows/**`.**
-- **Verify:** DR game day dùng runbook, đo thời gian phát hiện/điều phối/recovery và data loss thực tế so với RPO/RTO; ghi gap và rerun sau sửa; secret rotation xác nhận request bằng credential cũ bị deny trong SLA; retention procedure không xóa/sửa lịch sử `usage_events`/`audit_events`. Mọi gap **Critical** phải đóng, không waiver/risk acceptance.
+- **Phụ thuộc:** Bước 9 (restore/backup), Bước 12; revoke SLA ‹cần chốt: DEC-B10›; retention ‹cần chốt: DEC-B11›. Phần script/gate **cần user approval trước khi chạm `infra/**`/`.github/workflows/**`.**
+- **Verify:** DR game day dùng runbook và **do chủ dự án tự chạy một mình** — không có điều phối viên, không có escalation, nên thứ được đo là thời gian phát hiện, thời gian recovery và data loss thực tế so với RPO/RTO của đúng một người cầm runbook. Ghi gap và rerun sau sửa; secret rotation xác nhận request bằng credential cũ bị deny trong SLA; retention procedure không xóa/sửa lịch sử `usage_events`/`audit_events`. Mọi gap **Critical** phải đóng, không waiver/risk acceptance.
 - **Lane:** `subagent/tester` (test/evidence); `orchestrator` **sau approval** (drill script/gate hạ tầng); `subagent/document` ghi report.
 
 ### Bước 14 — QA và reviewer độc lập
@@ -320,11 +344,11 @@ Mọi mục tiêu định lượng (RPO/RTO, capacity/SLO budget, revoke SLA, dr
 
 ### Bước 15 — Go-live review (không tự tuyên bố go-live)
 
-- **Hành động:** Hoàn tất go-live checklist (DNS/TLS, version, migration, smoke, owner, communications) và risk acceptance topology đã duyệt; trình hồ sơ readiness để người có thẩm quyền ký go/no-go.
+- **Hành động:** Hoàn tất go-live checklist (DNS/TLS, digest matrix, migration, smoke, kênh alert, kill-switch đã drill) và risk acceptance topology; trình hồ sơ readiness để chủ dự án ký go/no-go.
 - **Sản phẩm:** `docs/**` (go-live checklist, known risks, go/no-go record).
 - **Phụ thuộc:** Bước 14 (QA PASS + reviewer hết mục "phải sửa"); mọi exit gate mục 18 đạt.
-- **Verify:** Checklist hoàn chỉnh và đồng bộ cấu hình thật; nếu single primary thì ghi rõ không automatic failover; risk acceptance không override Critical gap/QA PASS/reviewer gate. **Kế hoạch này không tự tuyên bố production đã bật traffic**; go-live chỉ xảy ra sau chữ ký go/no-go của người có thẩm quyền.
-- **Lane:** `subagent/document` (ghi checklist/record). Quyết định go/no-go thuộc người có thẩm quyền, không phải agent.
+- **Verify:** Checklist hoàn chỉnh và đồng bộ cấu hình thật; nếu single primary thì ghi rõ không automatic failover; risk acceptance không override Critical gap/QA PASS/reviewer gate. **Kế hoạch này không tự tuyên bố production đã bật traffic**; go-live chỉ xảy ra sau chữ ký go/no-go của chủ dự án.
+- **Lane:** `subagent/document` (ghi checklist/record). Quyết định go/no-go thuộc chủ dự án, không phải agent.
 
 ## 16. Parallel lanes và ownership
 
@@ -344,13 +368,16 @@ Không có lane `Infrastructure` trong roster `AGENTS.md`; tên này không đư
 ## 17. Checklist
 
 ### Functional
-- [ ] Deploy order luôn là migration task → API → worker → web và có gate giữa từng bước.
+- [ ] Deploy order luôn là migration task (`pnpm db:migrate`) → API → worker → web và có gate giữa từng bước.
 - [ ] Health/readiness/drain phản ánh đúng trạng thái; migration không chạy ở startup.
-- [ ] Go-live checklist bao phủ DNS/TLS, version, migration, smoke, owner và communications.
-- [ ] Topology được human approval sau khi so sánh một VPS, hai VPS và HA tương lai; mọi task topology-specific chỉ áp dụng theo lựa chọn đó.
+- [ ] Go-live checklist bao phủ DNS/TLS, digest matrix, migration, smoke, kênh alert và kill-switch.
+- [ ] Topology được chủ dự án approve sau khi so sánh một VPS, hai VPS và HA tương lai; mọi task topology-specific chỉ áp dụng theo lựa chọn đó.
+- [ ] Compose production giữ đúng PostgreSQL + Supavisor + Studio; GoTrue/Realtime/Storage/Edge Functions/Kong không quay lại (DEC-T10).
+- [ ] Runbook service-down và kill-switch đã được drill bằng sự cố thật trên staging, không chỉ tồn tại trên giấy.
 
 ### Security
-- [ ] Supabase endpoints và Studio private; firewall/Caddy/headers/CSP/cookie/CSRF được kiểm thử.
+- [ ] Supabase endpoints và Studio private; chỉ Caddy publish port; firewall/Caddy/headers/CSP/cookie/CSRF được kiểm thử.
+- [ ] Mọi image production pin theo digest khớp `infra/compose/IMAGE-PINS.md`; không tag trôi.
 - [ ] Runtime/migration role và secret tách biệt; rotation cùng M2M revoke đáp ứng SLA.
 - [ ] Không PII/token/secret trong log, trace, image, artifact hoặc workflow output.
 
@@ -370,14 +397,15 @@ Không có lane `Infrastructure` trong roster `AGENTS.md`; tên này không đư
 - [ ] User/admin web được kiểm tra trên desktop, điện thoại, máy tính bảng; bảng/dialog/error state không mất chức năng.
 
 ### Observability
-- [ ] Log/metric/trace/correlation/redaction đúng contract; alert có owner và runbook đã được fire-test.
+- [ ] Log/metric/trace/correlation/redaction đúng contract; mỗi alert có runbook và đã fire-test **đến kênh chủ dự án thật sự đọc**, có bằng chứng nhận được.
 - [ ] Backup/WAL, connections, worker, revoke và SLO có tín hiệu đủ để điều tra.
+- [ ] Không còn alert không hành động được một mình hoặc không dẫn tới runbook nào.
 
 ### Rollback và DR
 - [ ] Image rollback và migration forward-fix được drill; không dùng xóa ledger để quay lại.
-- [ ] DR game day đo recovery/data loss và có remediation; risk của topology được ký chấp nhận, gồm single-primary/no-auto-failover nếu áp dụng.
+- [ ] Restore drill và DR game day do chủ dự án tự chạy bằng runbook, đo recovery/data loss thật và có remediation; risk của topology được chủ dự án ký chấp nhận, gồm single-primary/no-auto-failover nếu áp dụng.
 - [ ] Không còn gap **Critical**; Critical không được waiver/risk acceptance để qua exit gate.
-- [ ] Mọi gap **High** còn mở chỉ có exception khi loại rủi ro được policy cho phép waive, có named authority phê duyệt, compensating controls đã được kiểm chứng, expiry và remediation deadline, tracking owner, đồng thời reviewer xác nhận finding không còn là mục “phải sửa”.
+- [ ] Mọi gap **High** còn mở chỉ có exception khi chủ dự án ký, compensating controls đã được kiểm chứng, có expiry/remediation deadline, đồng thời reviewer xác nhận finding không còn là mục “phải sửa”. Chủ dự án tự ký waiver cho chính mình là điểm yếu cố hữu của mô hình solo — vì vậy reviewer gate không được bỏ qua ở đây.
 - [ ] Risk acceptance/exception không override QA PASS hoặc reviewer gate.
 
 ### Documentation
@@ -388,13 +416,15 @@ Không có lane `Infrastructure` trong roster `AGENTS.md`; tên này không đư
 
 Phase 8 chỉ đủ điều kiện kết thúc khi:
 
-- mọi quyết định mục 3 có owner/phê duyệt; toàn bộ mandatory roster P7 đã được verify và P7 vẫn PASS trên release candidate, không chấp nhận partial P7;
+- mọi quyết định mục 3 được chủ dự án ký, gồm DEC-B10/B11/B12 đã chuyển `approved` tại `./decision-register.md`; toàn bộ mandatory roster P7 đã được verify và P7 vẫn PASS trên release candidate, không chấp nhận partial P7;
 - staging deploy theo đúng order thành công, rollback/forward-fix drill đạt và production migration plan được review;
-- restore drill cùng DR game day đạt RPO/RTO đã duyệt; mọi gap **Critical** đã đóng, không chấp nhận waiver. Gap **High** phải đóng, trừ exception mà loại rủi ro được policy cho phép waive, có named authority, compensating controls đã được kiểm chứng, expiry/remediation deadline, tracking owner và reviewer xác nhận finding không còn là mục “phải sửa”;
+- restore drill cùng DR game day đạt RPO/RTO đã duyệt và được chạy bằng runbook bởi chính chủ dự án; mọi gap **Critical** đã đóng, không chấp nhận waiver. Gap **High** phải đóng, trừ exception có chữ ký chủ dự án, compensating controls đã kiểm chứng, expiry/remediation deadline và reviewer xác nhận finding không còn là mục “phải sửa”;
+- compose production đúng scope DEC-T10 (PostgreSQL + Supavisor + Studio), mọi image pin digest theo `infra/compose/IMAGE-PINS.md`, chỉ Caddy expose ra Internet;
+- alert đã fire-test tới kênh chủ dự án đọc; runbook service-down và kill-switch đã drill thật;
 - capacity/connection/Supavisor test đáp ứng capacity/SLO gate; fail-closed invariant không bị phá;
 - private network, role/secret, security headers/CSP/image URL, session/M2M revoke và admin protection đều có test evidence;
 - observability/alert/runbook được kiểm thử, không chứa PII/token/secret;
-- go-live checklist hoàn chỉnh và rủi ro topology đã duyệt được ký rõ; nếu dùng single primary phải ghi rõ không automatic failover. Risk acceptance không được dùng để bỏ qua Critical gap, QA PASS hoặc reviewer gate;
+- go-live checklist hoàn chỉnh và rủi ro topology được chủ dự án ký rõ; nếu dùng single primary phải ghi rõ không automatic failover. Risk acceptance không được dùng để bỏ qua Critical gap, QA PASS hoặc reviewer gate;
 - QA PASS và reviewer không còn mục “phải sửa”.
 
 Exit của phase là kết luận readiness theo bằng chứng, không tự động có nghĩa production đã được bật traffic.
@@ -404,12 +434,13 @@ Exit của phase là kết luận readiness theo bằng chứng, không tự đ�
 ### Dừng ngay khi
 
 - P7 không còn PASS, contract/schema/image không xác định được hoặc migration không tương thích.
-- Thiếu RPO/RTO, retention/privacy, revoke, outage, SLO/capacity, deployment-topology approval, domain/network, residency hoặc risk acceptance; P7 partial cũng phải dừng.
+- Thiếu RPO/RTO (DEC-B12), retention/privacy (DEC-B11), revoke SLA (DEC-B10), outage, SLO/capacity, kênh alert, kill-switch scope, deployment-topology approval, domain/network, residency hoặc risk acceptance; P7 partial cũng phải dừng.
 - Backup/WAL không xác minh được, restore vượt gate, data loss không đo được hoặc Studio/Supabase bị public.
+- Compose production xuất hiện service Supabase đã bị loại ở DEC-T10 (GoTrue/Realtime/Storage/Edge Functions/Kong), hoặc có container ngoài Caddy publish port ra Internet, hoặc image quay về tag trôi.
 - Phát hiện secret/PII/token trong artifact/log, quyền runtime quá rộng, bypass admin/auth/quota hoặc append-only bị phá.
 - Readiness/drain không đáng tin, Supavisor/connection test làm mất invariant, hoặc cùng lỗi lặp lại lần hai.
 - Còn bất kỳ gap Critical nào, hoặc có đề xuất waiver/risk acceptance cho Critical.
-- Còn gap High không đủ toàn bộ điều kiện exception: loại rủi ro được policy cho waive, named authority, compensating controls đã kiểm chứng, expiry/remediation deadline, tracking owner và reviewer xác nhận không còn là mục “phải sửa”.
+- Còn gap High không đủ toàn bộ điều kiện exception: chữ ký chủ dự án, compensating controls đã kiểm chứng, expiry/remediation deadline và reviewer xác nhận không còn là mục “phải sửa”.
 - Có ý định dùng risk acceptance/exception để override QA FAIL, thiếu QA PASS hoặc reviewer vẫn còn mục “phải sửa”.
 
 ### Quy tắc rollback/forward-fix
@@ -418,22 +449,24 @@ Exit của phase là kết luận readiness theo bằng chứng, không tự đ�
 - Migration thất bại trước khi nhận traffic/write: chạy rollback script **chỉ nếu** đã review/test và có checkpoint hợp lệ; nếu không, restore theo runbook.
 - Migration đã nhận write: không down-migrate bằng cách xóa lịch sử; cô lập traffic theo runbook và ưu tiên forward-fix tương thích.
 - Rollout ứng dụng lỗi nhưng schema backward-compatible: bỏ instance khỏi readiness, drain và quay image last-known-good đã pin.
-- Sự cố dữ liệu: đóng write theo incident authority, bảo toàn evidence, chọn PITR target được duyệt và ghi rõ data-loss/recovery thực tế.
+- Sự cố dữ liệu: chủ dự án đóng write, bảo toàn evidence, chọn PITR target và ghi rõ data-loss/recovery thực tế.
 
-Nếu rollback có thể vi phạm RPO/RTO hoặc invariant, incident commander phải dừng và xin quyết định; không ứng biến destructive action.
+Nếu rollback có thể vi phạm RPO/RTO hoặc invariant, **dừng và để chủ dự án quyết định** — không ứng biến destructive action. Không có incident commander riêng để leo thang: chủ dự án vừa là người phát hiện vừa là người quyết định, nên runbook phải nêu sẵn ngưỡng "dừng sửa, chuyển sang restore" thay vì trông chờ một người thứ hai gọi dừng. Agent không được tự chạy destructive action thay chủ dự án.
 
 ## 20. QA/reviewer sign-off
 
 ### QA bắt buộc
 
-- Xác minh command/path/config từ repo và môi trường thật; không chấp nhận output mô phỏng.
+- Xác minh command/path/config từ repo và môi trường thật; không chấp nhận output mô phỏng. Lệnh phải là tên canonical DEC-T15 và phải **đã tồn tại** (tạo ở P1.7/P1.10); tên lệnh trong kế hoạch không chứng minh nó chạy được.
 - Đối chiếu toàn bộ checklist, test evidence, staging/deploy/rollback, restore/DR, capacity/Supavisor, security/revoke/rotation và observability.
+- Kiểm chứng scope compose (PostgreSQL + Supavisor + Studio, không GoTrue/Realtime/Storage/Kong), digest pin khớp `infra/compose/IMAGE-PINS.md`, chỉ Caddy publish port, và alert fire-test thật sự đến kênh chủ dự án đọc.
 - Ghi kết quả verification theo quy trình (`PASS`, `FAIL`, hoặc `TẮC`/`CẠN LƯỢT` khi đúng điều kiện), finding, severity, evidence link và bước tái hiện. Đây không phải trường trạng thái phase; QA không sửa implementation.
 
 ### Reviewer bắt buộc
 
 - Review kiến trúc/topology, least privilege, migration compatibility, rollback/forward-fix, RPO/RTO evidence, privacy/redaction và topology risk statement, gồm single-primary/no-auto-failover nếu áp dụng.
-- Tìm thay đổi stack/tooling không được duyệt, claim HA sai, migration-on-startup, public Supabase/Studio, billing bị kéo vào P8 và đường bypass invariant.
+- Tìm thay đổi stack/tooling không được duyệt (đối chiếu bảng D của `./decision-register.md`), claim HA sai, migration-on-startup, public Supabase/Studio, service Supabase bị loại quay lại compose, tag trôi thay digest, billing bị kéo vào P8 và đường bypass invariant.
+- Vì chủ dự án vừa đề xuất vừa phê duyệt, reviewer là đối trọng duy nhất còn lại: một quyết định được ký không có nghĩa nó đúng. Nêu thẳng nếu risk acceptance đang được dùng để lách một gap đáng lẽ phải sửa.
 - Phân loại rõ “phải sửa” và “khuyến nghị”. Reviewer không sửa implementation.
 
 Chỉ báo Phase 8 đạt khi **QA PASS** và reviewer hết mục **phải sửa**. Tối đa ba vòng; `TẮC`/`CẠN LƯỢT` chỉ là kết quả verification theo `AGENTS.md`, không thay giá trị trạng thái phase.

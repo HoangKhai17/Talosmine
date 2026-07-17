@@ -6,7 +6,7 @@
 
 Đây là kế hoạch, chưa phải mô tả implementation. Phase bị chặn cho tới khi Phase 3 đạt cổng ra và các quyết định nghiệp vụ ở mục 3 được phê duyệt. Tên phase trong tài liệu này là thứ tự build plan của repo, không thay thế cách đánh số lộ trình kiến trúc trong `docs/index.md` hoặc `docs/modular.md`.
 
-Không được hiểu bất kỳ đường dẫn, endpoint, migration, bảng, màn hình hoặc test nào dưới đây là đã tồn tại. Repo hiện chưa có lệnh build/test/lint được xác nhận; khi bootstrap phải dùng script thật của repo, không tự ghi lệnh giả vào báo cáo QA.
+Không được hiểu bất kỳ đường dẫn, endpoint, migration, bảng, màn hình hoặc test nào dưới đây là đã tồn tại. Tên lệnh trong file này đã được chốt tại DEC-T15 (`./decision-register.md` mục E), nhưng script chỉ **được tạo ở bước P1.7** — repo hiện chưa có script nào chạy được. Không ghi lệnh giả hoặc output tưởng tượng vào báo cáo QA.
 
 ## 2. Mục tiêu
 
@@ -19,18 +19,20 @@ Không được hiểu bất kỳ đường dẫn, endpoint, migration, bảng, 
 
 ## 3. Prerequisites và human decisions
 
+**Approver duy nhất cho mọi quyết định nghiệp vụ dưới đây là chủ dự án** (`./decision-register.md`, DEC-G01). Dự án là solo dev + AI agents; không có product owner/security/operations tách biệt ký duyệt chéo. Agent không tự approve thay con người, kể cả khi đề xuất do agent soạn.
+
 - [ ] Phase 3 đã được QA và reviewer ký đạt; các port Account, Identity, Catalog, Service Identity tối thiểu và Audit đã có contract ổn định.
 - [ ] Xác nhận migration Phase 3 đã tạo baseline `service_identities` và `audit_events`, gồm các FK actor cần thiết. Phase 4 phụ thuộc trực tiếp vào baseline này, không tạo lại hai bảng hoặc audit FK.
-- [ ] Chủ sản phẩm phê duyệt **có hay không default plan/subscription khi account được tạo**. Nếu có, phải chốt chính xác Plan Version, thời điểm `starts_at`, trusted source, idempotency namespace và quy tắc migration khi có version mới.
-- [ ] Chủ sản phẩm phê duyệt **account activation policy**: điều kiện `pending -> active`, quan hệ thứ tự giữa activation và tạo subscription, cách retry và hành vi nếu một bước thất bại.
-- [ ] Chủ sản phẩm phê duyệt subscription lifecycle: create/change, suspend/resume, immediate cancel hay cuối kỳ, undo cancel nếu có, terminal state cuối kỳ là `canceled` hay `expired`, và effective time của từng transition.
+- [ ] Chủ dự án phê duyệt **có hay không default plan/subscription khi account được tạo** (DEC-B04). Nếu có, phải chốt chính xác Plan Version, thời điểm `starts_at`, trusted source, idempotency namespace và quy tắc migration khi có version mới.
+- [ ] Chủ dự án phê duyệt **account activation policy** (DEC-B04): điều kiện `pending -> active`, quan hệ thứ tự giữa activation và tạo subscription, cách retry và hành vi nếu một bước thất bại.
+- [ ] Chủ dự án phê duyệt subscription lifecycle (DEC-B09): create/change, suspend/resume, immediate cancel hay cuối kỳ, undo cancel nếu có, terminal state cuối kỳ là `canceled` hay `expired`, và effective time của từng transition.
 - [ ] Chốt hành vi upgrade/downgrade không liên quan billing: version đích, thời điểm hiệu lực, cách tạo timeline mới, và dữ liệu feature bị mất quyền. Không tự chọn immediate hoặc end-of-period.
 - [ ] Chốt trusted source/operation allowlist, retention/retry window của `subscription_idempotency_records`, revoke SLA, entitlement cache/outage policy và last-known-good theo mức rủi ro feature.
 - [ ] Chốt danh sách admin permissions và separation of duties cho plan, subscription, override, service identity và audit read.
 - [ ] Chốt retention/privacy cho subscription, override, idempotency response, audit và log; không tạo purge job trước quyết định.
 - [ ] Xác nhận quota schema/API/data được hoãn toàn bộ sang Phase 5; Phase 4 không tạo fixture, seed hoặc endpoint quota để thay cho quyết định metric/window/TTL còn mở.
 - [ ] Trước implementation, `docs/database-schema.md` phải được cập nhật với staged contract Phase 4 -> Phase 5 cho `service_identity_scopes`; migration Phase 4 đối chiếu contract staged đó sau source update, không suy diễn từ final schema hiện tại.
-- [ ] Kiểm chứng PostgreSQL/Supavisor thực tế và isolation level khi bootstrap trước khi chốt transaction implementation.
+- [ ] Kiểm chứng PostgreSQL/Supavisor thực tế và isolation level trước khi chốt transaction implementation. Driver đã chốt tại DEC-T09: `postgres@3.4.9` (postgres.js) + `drizzle-orm@0.45.2`, **bắt buộc `prepare: false`** vì runtime đi qua Supavisor ở transaction pooling mode — prepared statement có tên sẽ vỡ khi connection bị trả về pool giữa các statement. Kéo theo: cấm mọi thứ phụ thuộc session state (session-level advisory lock, temp table, `SET` ngoài transaction); lock order của subscription chỉ dùng row lock trong **một** transaction.
 
 Thiếu bất kỳ quyết định bắt buộc nào cho một luồng thì **dừng riêng luồng đó**, ghi blocker và không điền default tạm. Phase này không chọn payment provider.
 
@@ -207,7 +209,9 @@ Không sửa test để hợp thức hóa hành vi trái contract. Test dùng da
 
 ## 15. Ordered steps
 
-Runbook thực thi tuần tự theo mạch **decisions → contract freeze → migration tuần tự → parallel impl → integration → QA/reviewer**. Mỗi bước ghi năm thành phần: **Hành động**, **Sản phẩm**, **Phụ thuộc**, **Verify**, **Lane** (khớp mục 16). Repo greenfield chưa có script build/test/lint/migrate; mọi câu lệnh cụ thể trong Verify đánh dấu `‹cần chốt: script thật sau bootstrap›` cho phần wrapper npm/CI, nhưng tên bảng, constraint, trigger, index, lock order và tên test suite là cụ thể và bắt buộc. Không đánh dấu bước nào là “đã chạy”.
+Runbook thực thi tuần tự theo mạch **decisions → contract freeze → migration tuần tự → parallel impl → integration → QA/reviewer**. Mỗi bước ghi năm thành phần: **Hành động**, **Sản phẩm**, **Phụ thuộc**, **Verify**, **Lane** (khớp mục 16).
+
+**Tooling đã chốt.** Tên lệnh trong ô Verify lấy từ bảng script canonical DEC-T15 (`./decision-register.md` mục E); không tự đặt tên khác. Script được **tạo ở bước P1.7** — repo greenfield hiện chưa có script nào chạy được, nên mọi lệnh dưới đây chỉ chạy được sau P1.7. Tên bảng, constraint, trigger, index, lock order và tên test suite là cụ thể và bắt buộc. **Không đánh dấu bước nào là “đã chạy”.**
 
 ### Nhóm A — Decisions
 
@@ -231,7 +235,7 @@ Runbook thực thi tuần tự theo mạch **decisions → contract freeze → m
    - **Hành động:** Backend (contract writer duy nhất) ghi path/method/operation ID, request/response schema, full `issuer + subject` shape cho service decision, entitlement reason/cache directive, subscription interval semantics, `Idempotency-Key`/fingerprint inputs/replay-conflict, `X-Correlation-Id`, admin permission matrix, error envelope và examples không chứa quota/plan giả. Architect review read-only rồi xác nhận freeze revision.
    - **Sản phẩm:** `contracts/openapi/control-plane.v1.yaml` (revision freeze, ghi commit cụ thể).
    - **Phụ thuộc:** Bước 2.
-   - **Verify:** Validate OpenAPI 3.1 bằng `‹cần chốt: openapi lint/validate script thật sau bootstrap›`; kỳ vọng 0 lỗi schema và không có operation quota/billing trong document.
+   - **Verify:** `pnpm openapi:lint` (redocly lint `contracts/openapi/control-plane.v1.yaml`, DEC-T07/T15) kỳ vọng 0 lỗi schema OpenAPI 3.1; `pnpm openapi:drift` kỳ vọng type sinh lại khớp bản đã commit; không có operation quota/billing trong document.
    - **Lane:** Backend (contract writer) + Architect (review/freeze).
 
 ### Nhóm C — Migration tuần tự (root `apps/control-plane/drizzle/migrations/`, forward-only)
@@ -240,7 +244,7 @@ Runbook thực thi tuần tự theo mạch **decisions → contract freeze → m
    - **Hành động:** Tạo `plans` → `plan_versions` → `plan_feature_grants` bằng Drizzle Kit forward migration, gồm unique `plan_versions_plan_version_key (plan_id, version)`, `plan_versions_id_status_key`, named checks `plan_versions_status_check`/`plan_versions_published_state_check`/`plan_versions_version_check` và `plan_feature_grants_version_feature_key`. Giữ FK `ON DELETE RESTRICT`.
    - **Sản phẩm:** Migration `*_p4_plan.sql` dưới `apps/control-plane/drizzle/migrations/`.
    - **Phụ thuộc:** Bước 3; baseline Phase 3 (`service_identities`, `audit_events`, actor FK).
-   - **Verify:** Áp migration bằng `‹cần chốt: drizzle-kit migrate script thật sau bootstrap›`; kiểm bằng psql `SELECT conname FROM pg_constraint WHERE conrelid = 'control_plane.plan_versions'::regclass` chứa `plan_versions_status_check` và `plan_versions_published_state_check`; `SELECT count(*) FROM information_schema.tables WHERE table_schema='control_plane' AND table_name IN ('plans','plan_versions','plan_feature_grants')` trả 3.
+   - **Verify:** `pnpm db:generate` sinh migration từ schema, rồi `pnpm db:migrate` (drizzle-kit 0.31.10, role migration nối **trực tiếp PostgreSQL, không qua Supavisor** — DEC-T09/T15); kiểm bằng psql `SELECT conname FROM pg_constraint WHERE conrelid = 'control_plane.plan_versions'::regclass` chứa `plan_versions_status_check` và `plan_versions_published_state_check`; `SELECT count(*) FROM information_schema.tables WHERE table_schema='control_plane' AND table_name IN ('plans','plan_versions','plan_feature_grants')` trả 3.
    - **Lane:** Backend (owner migration root).
 
 5. **Bước 5 — Trigger immutable published snapshot**
@@ -275,7 +279,7 @@ Runbook thực thi tuần tự theo mạch **decisions → contract freeze → m
    - **Hành động:** Viết migration test đối chiếu staged contract Phase 4 của `docs/database-schema.md`: canonical columns, tên staging checks/indexes, từ chối `quota:*`/metric row, immutable snapshot, overlap race, terminal finite `ends_at`, replay bound, runtime role không DDL/disable-trigger.
    - **Sản phẩm:** `tests/control-plane/migration/p4-schema.spec.ts`, `tests/control-plane/migration/plan-immutable-trigger.spec.ts`.
    - **Phụ thuộc:** Bước 4–8.
-   - **Verify:** Chạy suite bằng `‹cần chốt: test runner thật sau bootstrap›` trên PostgreSQL thật; kỳ vọng toàn bộ assertion pass, đặc biệt case reject `quota:*` scope và block mutation snapshot published.
+   - **Verify:** `pnpm test` (Vitest 4.1.10, DEC-T05/T15) chạy suite trên **PostgreSQL thật qua testcontainers 12.0.4 + @testcontainers/postgresql 12.0.4** — trigger, constraint và overlap race là hành vi của PostgreSQL nên không mock/in-memory được. Kỳ vọng toàn bộ assertion pass, đặc biệt case reject `quota:*` scope và block mutation snapshot published.
    - **Lane:** Backend (migration owner) + Tester (assertion độc lập).
 
 ### Nhóm D — Parallel implementation (sau freeze)
@@ -328,7 +332,7 @@ Runbook thực thi tuần tự theo mạch **decisions → contract freeze → m
     - **Hành động:** Chạy migration/contract/unit/integration PostgreSQL/temporal/concurrency/idempotency/security/audit/web suites; lưu output thật; lỗi thuộc code owner (Frontend/Backend) sửa, không bẻ test.
     - **Sản phẩm:** Log output test (đính kèm evidence checklist mục 17).
     - **Phụ thuộc:** Bước 9–15.
-    - **Verify:** `‹cần chốt: lệnh test tổng thật sau bootstrap›` trên PostgreSQL thật; kỳ vọng toàn bộ required suite pass, dán output thật (không output tưởng tượng).
+    - **Verify:** chạy theo thứ tự và dán output thật: `pnpm install --frozen-lockfile` → `pnpm typecheck` → `pnpm lint` → `pnpm openapi:lint` + `pnpm openapi:drift` → `pnpm db:migrate` (DB sạch từ Phase 3, role migration nối trực tiếp) → `pnpm test` (trên PostgreSQL thật qua testcontainers) → `pnpm test:e2e` (Playwright 1.61.1) → `pnpm build`. Kỳ vọng tất cả exit 0 và toàn bộ required suite pass. Lệnh chỉ chạy được sau P1.7; dán output thật, không output tưởng tượng.
     - **Lane:** Backend + Frontend + Tester (tự kiểm trước gate).
 
 17. **Bước 17 — QA + reviewer song song**

@@ -17,9 +17,10 @@ Exit của phase này chỉ xác nhận auth/account/admin security của **Hub*
 
 ## 3. Prerequisites và human decisions
 
-Phải chốt và ghi lại trước bước contract freeze:
+Phải chốt và ghi lại trước bước contract freeze. **Approver duy nhất cho mọi quyết định nghiệp vụ/bảo mật/vận hành dưới đây là chủ dự án** (`./decision-register.md`, DEC-G01); dự án là solo dev + AI agents, không có hội đồng ký duyệt chéo. Agent không tự approve thay con người, kể cả khi đề xuất do agent soạn.
 
-- Auth0 tenant/domain, issuer canonical, audience, Hub Application và SDK Auth0 cụ thể được phê duyệt; không tự chọn package.
+- SDK Auth0 **đã chốt** tại DEC-T08: `@auth0/nextjs-auth0@4.25.0` cho Hub BFF (`apps/web`) và `jose@6.2.3` cho Control Plane verify JWT qua JWKS. Không tự chọn package khác; đổi version phải tạo record superseding.
+- Auth0 tenant/domain, issuer canonical, audience và Hub Application thật vẫn `open` (DEC-B03); cấu trúc topology đề xuất tại DEC-T14 giữ `proposed`. Đây là quyết định của chủ dự án, không phải lựa chọn tooling.
 - Exact callback URL, post-logout URL và tập return URL của Hub theo từng môi trường; không wildcard, prefix-match hoặc fallback mở.
 - Lifetime tuyệt đối/nhàn rỗi, rotation policy, hash algorithm và revoke SLA của web session; tên cookie và policy CSRF tương thích BFF.
 - Provisioning policy chuyển account `pending -> active`; callback không được tự mặc định kích hoạt nếu policy chưa duyệt.
@@ -28,7 +29,7 @@ Phải chốt và ghi lại trước bước contract freeze:
 - Danh mục permission tối thiểu cho account read, disable, enable, session read/revoke, role read/manage và audit read.
 - Google social connection có được bật hay không, Google OAuth credential owner, secret store, callback do Auth0 cung cấp và danh sách môi trường được phép.
 - Recovery access mặc định là capability bắt buộc của P2. Chốt Auth0 approved recovery flow/entry URL, exact return URL, anti-enumeration response, yêu cầu re-authentication và hành vi revoke/rotate Hub sessions sau recovery.
-- Chỉ được loại recovery khỏi MVP khi đồng thời có: (1) scope decision được owner/approver ký; (2) `docs/index.md` và `docs/modular.md` đã được cập nhật để không còn yêu cầu hành vi cũ; (3) OpenAPI/browser contract và build plan liên quan đã được cập nhật; (4) toàn bộ change set đã qua review. Thiếu bất kỳ điều kiện nào thì recovery vẫn bắt buộc và P2 giữ `blocked`.
+- Chỉ được loại recovery khỏi MVP khi đồng thời có: (1) scope decision được **chủ dự án** ký (DEC-G01); (2) `docs/index.md` và `docs/modular.md` đã được cập nhật để không còn yêu cầu hành vi cũ; (3) OpenAPI/browser contract và build plan liên quan đã được cập nhật; (4) toàn bộ change set đã qua review. Thiếu bất kỳ điều kiện nào thì recovery vẫn bắt buộc và P2 giữ `blocked`.
 - Phân biệt account dùng database/password connection do Auth0 sở hữu với Google/social account: Talosmine không hứa reset Google credential; UX phải dẫn tới cơ chế recovery của đúng provider mà không tiết lộ account/provider có tồn tại.
 - Chính sách audit/PII retention, redaction, correlation ID và rate limit cho auth/admin endpoints.
 - P2 không tạo `applications`, `service_identities` hoặc service scope; toàn bộ baseline này thuộc P3.
@@ -182,14 +183,18 @@ Sau freeze, thay đổi breaking phải quay lại architect, version/ghi rõ im
 
 ## 15. Ordered steps
 
-Runbook dưới đây là **kế hoạch thực thi**, không khẳng định artifact đã tồn tại hoặc lệnh đã chạy. Mạch logic: decisions → contract freeze → parallel impl (backend/frontend/tester) → integration → QA/reviewer. Mỗi bước ghi năm thành phần: **Hành động** / **Sản phẩm** / **Phụ thuộc** / **Verify** / **Lane**. Các quyết định/tooling chưa được phê duyệt ghi `‹cần chốt: ...›` và là blocker của bước liên quan.
+Runbook dưới đây là **kế hoạch thực thi**, không khẳng định artifact đã tồn tại hoặc lệnh đã chạy. Mạch logic: decisions → contract freeze → parallel impl (backend/frontend/tester) → integration → QA/reviewer. Mỗi bước ghi năm thành phần: **Hành động** / **Sản phẩm** / **Phụ thuộc** / **Verify** / **Lane**.
+
+**Tooling đã chốt.** Tên lệnh trong ô Verify lấy từ bảng script canonical DEC-T15 (`./decision-register.md` mục E); không tự đặt tên khác. Các script này được **tạo ở bước P1.7** — trước P1.7 chúng tồn tại trên giấy và chưa chạy được. Không ô Verify nào dưới đây khẳng định lệnh đã chạy; chỉ QA chạy thật từ clean clone mới tạo evidence.
+
+**Quyết định nghiệp vụ chưa chốt** vẫn ghi `‹cần chốt: ...›` và là blocker cứng của bước liên quan; approver duy nhất là chủ dự án (DEC-G01).
 
 **A. Decisions và contract freeze (tuần tự, chặn mọi bước sau)**
 
 1. Xác nhận exit gate Phase 1 và toàn bộ human decision ở mục 3. Recovery mặc định bắt buộc; chỉ được coi N/A khi scope decision đã cập nhật/review đủ bốn nguồn ở mục 3.
    - **Hành động:** đối chiếu từng mục 3 (Auth0 tenant/issuer/audience/SDK, callback/return URL từng môi trường, session lifetime/rotation/cookie/CSRF policy, provisioning policy, profile-sync policy, bootstrap admin, permission catalog tối thiểu, Google connection, recovery flow/return/anti-enumeration, retention/PII); đánh dấu mục nào còn thiếu.
    - **Sản phẩm:** bản xác nhận decision (do orchestrator/architect giữ), không phải file trong 2 file thuộc lane này.
-   - **Phụ thuộc:** Phase 1 exit gate; `‹cần chốt: Auth0 SDK package được phê duyệt›`; `‹cần chốt: session/cookie/CSRF/rotation policy›`; `‹cần chốt: bootstrap admin one-time process›`; `‹cần chốt: permission catalog tối thiểu›`; `‹cần chốt: recovery flow + exact return URL›`.
+   - **Phụ thuộc:** Phase 1 exit gate (gồm P1.7 tạo script và P1.12/P1.13 evidence); SDK Auth0 đã chốt tại DEC-T08 nên không còn là blocker; `‹cần chốt: Auth0 tenant/issuer/audience thật (DEC-B03)›`; `‹cần chốt: session/cookie/CSRF/rotation policy›`; `‹cần chốt: bootstrap admin one-time process›`; `‹cần chốt: permission catalog tối thiểu›`; `‹cần chốt: recovery flow + exact return URL›`.
    - **Verify:** mọi mục 3 có giá trị chốt hoặc được ghi `‹cần chốt›`; nếu thiếu decision bắt buộc thì DỪNG tại đây (TẮC), không điền giá trị giả.
    - **Lane:** orchestrator/architect.
 
@@ -197,7 +202,7 @@ Runbook dưới đây là **kế hoạch thực thi**, không khẳng định ar
    - **Hành động:** viết `contracts/openapi/control-plane.v1.yaml` cho `/v1/me/account`, `/v1/me/account/sessions`, admin account/session/role endpoints và machine error codes ở mục 9/18; tài liệu hóa browser-flow `/auth/login|callback|logout` (status, cookie attributes, CSRF exchange, exact return URL normalization) và recovery entry.
    - **Sản phẩm:** `contracts/openapi/control-plane.v1.yaml` (frozen), browser-flow contract, permission matrix, audit action/target schema, `operationId + sequence` rules.
    - **Phụ thuộc:** bước 1.
-   - **Verify:** OpenAPI 3.1 lint pass (`‹cần chốt: openapi lint command sau bootstrap›`); mọi route/method/status/error code có định nghĩa; ba làn xác nhận đủ để implement; breaking change sau freeze phải quay lại architect.
+   - **Verify:** `pnpm openapi:lint` (redocly lint `contracts/openapi/control-plane.v1.yaml`, DEC-T07/T15) kỳ vọng 0 lỗi schema OpenAPI 3.1; `pnpm openapi:types` + `pnpm openapi:drift` kỳ vọng type sinh lại khớp bản đã commit; mọi route/method/status/error code có định nghĩa; ba làn xác nhận đủ để implement; breaking change sau freeze phải quay lại architect.
    - **Lane:** architect (OpenAPI owner do orchestrator chỉ định để tránh ghi đồng thời).
 
 **B. Backend — migrations theo thứ tự phụ thuộc (lane backend, chỉ sau freeze)**
@@ -206,7 +211,7 @@ Runbook dưới đây là **kế hoạch thực thi**, không khẳng định ar
    - **Hành động:** viết forward migration tạo schema `control_plane`; tạo migration/owner role và runtime role tách biệt; cấp runtime role chỉ `SELECT`/`INSERT` theo ownership, cấm `UPDATE`/`DELETE`/`TRUNCATE` trên `audit_events`.
    - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration 0001 nền schema/roles/grants).
    - **Phụ thuộc:** bước 2.
-   - **Verify:** chạy Drizzle Kit forward migration trên database rỗng (`‹cần chốt: tên script migrate sau bootstrap›`, tool: Drizzle Kit); `\dn` cho thấy schema `control_plane`; runtime role không phải owner/migration role.
+   - **Verify:** `pnpm db:generate` sinh migration từ schema, rồi `pnpm db:migrate` (drizzle-kit 0.31.10, DEC-T09/T15) apply forward trên database rỗng bằng **role migration nối trực tiếp PostgreSQL, không qua Supavisor**; `\dn` cho thấy schema `control_plane`; `SELECT current_user` trong runtime connection khác migration/owner role.
    - **Lane:** backend.
 
 4. Tạo migration `accounts`.
@@ -248,7 +253,7 @@ Runbook dưới đây là **kế hoạch thực thi**, không khẳng định ar
    - **Hành động:** viết test khẳng định constraint existence/name, `csrf_token_hash` không unique, `auth0_sid` partial index không unique, audit chưa có service FK và từ chối service actor/value; mô phỏng nâng cấp P3 (thêm FK + đổi actor check) và khẳng định trigger/grants vẫn còn hiệu lực.
    - **Sản phẩm:** migration tests trong `tests/**` (owner tester phối hợp; backend cung cấp fixture SQL).
    - **Phụ thuộc:** bước 8.
-   - **Verify:** chạy test suite (`‹cần chốt: test runner + script sau bootstrap›`); nếu lệnh chưa tồn tại thì báo đúng sự thật, không bịa script.
+   - **Verify:** `pnpm test` (Vitest 4.1.10, DEC-T05/T15) chạy migration/compatibility suite trên **PostgreSQL thật qua testcontainers 12.0.4 + @testcontainers/postgresql 12.0.4** — constraint/index/trigger là hành vi của PostgreSQL nên không mock được. Script có sau P1.7; nếu chưa tồn tại thì báo đúng sự thật, không tạo config giả để lệnh chạy được.
    - **Lane:** tester (fixture do backend cấp).
 
 **C. Backend — ports, use cases, controllers (lane backend)**
@@ -263,8 +268,8 @@ Runbook dưới đây là **kế hoạch thực thi**, không khẳng định ar
 11. Tích hợp Auth0 SDK, exact redirect validator, session hash/CSRF/revoke, recovery redirect và Google config gate.
     - **Hành động:** wiring Auth0 SDK trong module identity/BFF boundary: verify code flow (PKCE, `state`, `nonce`, issuer, audience, signature, expiry) trước provisioning/session; canonicalize + exact-match allowlist cho return/callback/logout; sinh session token/CSRF token, chỉ lưu hash; revoke server-side; recovery redirect tới approved Auth0 flow với anti-enumeration; Google connection gate không secret.
     - **Sản phẩm:** identity/session integration code trong `apps/control-plane/src/modules/identity` và BFF boundary.
-    - **Phụ thuộc:** bước 10; `‹cần chốt: Auth0 SDK package›`; `‹cần chốt: recovery flow/entry/return URL›`; `‹cần chốt: cookie/CSRF/rotation policy›`.
-    - **Verify:** OIDC/redirect/CSRF/recovery tests (bước 15) pass; không secret/token trong log/DB/URL; nếu SDK chưa được phê duyệt thì DỪNG (TẮC).
+    - **Phụ thuộc:** bước 10; SDK đã chốt (DEC-T08: `@auth0/nextjs-auth0@4.25.0` ở BFF, `jose@6.2.3` verify JWT ở Control Plane — Control Plane **không** lưu client secret); `‹cần chốt: Auth0 tenant/issuer/audience thật (DEC-B03)›`; `‹cần chốt: recovery flow/entry/return URL›`; `‹cần chốt: cookie/CSRF/rotation policy›`.
+    - **Verify:** `pnpm test` chạy OIDC/redirect/CSRF/recovery tests (bước 15) pass; `pnpm typecheck` sạch; không secret/token trong log/DB/URL. Wiring chỉ dùng SDK đã chốt; nếu thiếu tenant thật thì test chạy trên mock contract (mục 13.6) và DỪNG (TẮC) trước khi wiring tenant.
     - **Lane:** backend.
 
 12. Viết controllers theo frozen contract cho account, session và admin, với RBAC guard server-side.
@@ -296,7 +301,7 @@ Runbook dưới đây là **kế hoạch thực thi**, không khẳng định ar
     - **Hành động:** viết OIDC/redirect/CSRF/session/provisioning-race/identity/Google-gate/recovery/RBAC-audit tests và schema/append-only/P3-upgrade tests theo mục 14; không sửa test để che lỗi code.
     - **Sản phẩm:** `tests/**`.
     - **Phụ thuộc:** bước 2 (contract); fixture backend bước 9; không sửa sản phẩm.
-    - **Verify:** chạy test suite (`‹cần chốt: test runner + script sau bootstrap›`); test fail thì trả về backend/frontend sửa code, cấm nới assertion; nếu lệnh chưa tồn tại thì báo đúng sự thật.
+    - **Verify:** `pnpm test` (Vitest, unit + integration trên PostgreSQL thật qua testcontainers) và `pnpm test:e2e` (Playwright 1.61.1 — keyboard/focus, responsive viewport, không rò token trong DOM/URL). Test fail thì trả về backend/frontend sửa code, cấm nới assertion; script có sau P1.7, chưa tồn tại thì báo đúng sự thật.
     - **Lane:** tester.
 
 **F. Integration**
@@ -305,7 +310,7 @@ Runbook dưới đây là **kế hoạch thực thi**, không khẳng định ar
     - **Hành động:** hợp nhất ba làn trên path rời nhau; chạy migration dry-run trên DB rỗng; lưu evidence SQL trực tiếp cho `audit_events_append_only_trg`, runtime grants và mô phỏng P3 FK/check upgrade; chạy build/test/lint/typecheck.
     - **Sản phẩm:** evidence run (log/output thật), không tạo config giả để lệnh tồn tại.
     - **Phụ thuộc:** bước 12, 14, 15.
-    - **Verify:** dán output thật; `‹cần chốt: build/test/lint/typecheck commands sau bootstrap›` — nếu lệnh chưa tồn tại thì báo đúng sự thật theo AGENTS.md, không bịa script.
+    - **Verify:** chạy theo thứ tự và dán output thật: `pnpm install --frozen-lockfile` → `pnpm typecheck` → `pnpm lint` → `pnpm openapi:lint` + `pnpm openapi:drift` → `pnpm db:migrate` (DB rỗng, role migration nối trực tiếp) → `pnpm test` → `pnpm test:e2e` → `pnpm build`. Kỳ vọng tất cả exit 0, lockfile không lệch, drift test không báo khác biệt. Lệnh chỉ chạy được sau P1.7; chưa tồn tại thì báo đúng sự thật theo AGENTS.md, không tạo config giả để lệnh tồn tại.
     - **Lane:** orchestrator/integration.
 
 **G. QA và reviewer**

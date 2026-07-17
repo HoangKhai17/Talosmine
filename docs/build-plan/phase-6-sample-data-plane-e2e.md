@@ -19,8 +19,12 @@
 
 ## 3. Prerequisites và human decisions
 
+**Approver duy nhất cho mọi quyết định nghiệp vụ/bảo mật/vận hành dưới đây là chủ dự án** (`./decision-register.md`, DEC-G01). Dự án là solo dev + AI agents; không có product owner, app owner, security owner hay operations team tách biệt ký duyệt chéo. Agent không tự approve thay con người, kể cả khi đề xuất do agent soạn.
+
+Việc gộp vai **không** làm giảm yêu cầu kiểm chứng: `qa` và `reviewer` vẫn tách khỏi lane viết code và giữ `edit: deny` theo `../../AGENTS.md` mục 4b, vì agent viết code không được tự tuyên bố code mình đạt chuẩn.
+
 - [ ] Có biên bản Phase 5 QA PASS và reviewer không còn mục phải sửa.
-- [ ] Chủ sản phẩm và chủ ứng dụng phê duyệt sample app dựa trên mức đại diện, mức rủi ro và khả năng dựng môi trường; ghi rõ app repo nằm trong hay ngoài monorepo.
+- [ ] Chủ dự án phê duyệt sample app dựa trên mức đại diện, mức rủi ro và khả năng dựng môi trường; ghi rõ app repo nằm trong hay ngoài monorepo.
 - [ ] Runtime/framework của sample app được phê duyệt. Việc phê duyệt stack Control Plane không mặc nhiên phê duyệt stack cho Data Plane mẫu.
 - [ ] Chốt cơ chế phân phối tích hợp: adapter trong app repo, package qua registry đã duyệt, hoặc generated client từ OpenAPI. Không tạo package/registry tạm thời nếu chưa có quyết định.
 - [ ] Chốt Auth0 tenant/environment, application loại phù hợp cho user flow, API audience, exact callback/logout URL và M2M client riêng của backend.
@@ -165,33 +169,207 @@ Sau freeze, thay đổi breaking phải quay lại architect, cập nhật consu
 
 ## 15. Ordered steps
 
-1. Xác minh Phase 5 PASS; lập danh sách blocker và owners.
-2. Tổ chức decision gate, phê duyệt sample app/runtime/framework/repo và distribution mechanism.
-3. Hoàn tất inventory route/action/worker/domain auth/direct URL và threat model.
-4. Chốt feature/metric/counting/quota semantics bằng ví dụ; không đi tiếp nếu còn “tùy trường hợp” chưa định nghĩa.
-5. Provision Auth0 objects và secret-store references ngoài repo; lập rotation/revoke record.
-6. Freeze OpenAPI/integration/security/UI contract cùng durable operation/crash-recovery protocol; sinh consumer/provider và concurrent crash-injection test skeleton theo cơ chế đã duyệt.
-7. Cấu hình catalog, redirects, scopes, plan/version/subscription bằng controlled commands với dữ liệu đã duyệt.
-8. Tích hợp local SSO/session validation và backend protection cho toàn inventory.
-9. Tích hợp entitlement, domain authorization, reserve/commit/cancel/status; hiện thực atomic durable operation claim/state, reservation binding, side-effect idempotency và recovery cho async flow trong app repo đã chọn.
-10. Hoàn thiện Hub launch/error/quota UX và admin readiness chỉ trong contract.
-11. Chạy contract, E2E, security, bypass, revoke, concurrency, timeout, outage và accessibility/responsive checks; lưu evidence.
-12. Chạy canary nội bộ, kill-switch/rollback drill, đối soát usage/audit; QA và reviewer sign-off trước khi mở rộng.
+Runbook thực thi tuần tự theo mạch **cổng vào P5 → decisions → Auth0 → contract freeze → cấu hình dữ liệu → tích hợp → test → canary/rollback → QA/reviewer**. Mỗi bước có ID `P6.n` và ghi đủ năm thành phần: **Hành động**, **Sản phẩm**, **Phụ thuộc**, **Verify**, **Lane** (khớp mục 16).
+
+Tên lệnh lấy từ **DEC-T15** của `./decision-register.md`; version/package lấy từ **bảng D** cùng file. Script chỉ tồn tại thật sau `P1.7`, nên trước đó lệnh có tên nhưng chưa chạy được — không bước nào dưới đây được đánh dấu “đã chạy”.
+
+**Ràng buộc chi phối toàn phase:** `DEC-B01` (danh sách ứng dụng của Hub) và `DEC-B02` (sample app) đang `open`. Không có tên app, metric key, quota number hay owner nào tồn tại trong repo. Cấu trúc và cơ chế của runbook là bắt buộc và cụ thể; **giá trị nghiệp vụ để trống có chủ đích** dưới dạng `‹cần chốt: …›` và là blocker cứng của bước tương ứng. Không điền default, không suy ra từ ví dụ, không dùng fixture giả để vượt gate. Approver duy nhất cho mọi quyết định nghiệp vụ/bảo mật/vận hành là **chủ dự án** (`DEC-G01`).
+
+### Nhóm A — Cổng vào và decisions
+
+1. **P6.1 — Xác nhận cổng vào Phase 5**
+   - **Hành động:** Đối chiếu bảng gate mục 20 của `./phase-5-hard-quota-reconciliation.md`: mọi QA gate PASS, reviewer không còn mục “phải sửa”, mọi mục phải sửa của P5 đã đóng. Lập danh sách blocker còn lại của P6 kèm decision ID tương ứng ở `./decision-register.md`.
+   - **Sản phẩm:** Danh sách blocker P6 (ghi vào mục 3 của file này, dạng checkbox có decision ID).
+   - **Phụ thuộc:** Phase 5 `verified`.
+   - **Verify:** Mọi dòng “Kết quả” trong bảng mục 20 của P5 là PASS và trạng thái P5 tại `./README.md` là `verified`. Còn bất kỳ dòng “Chưa đánh giá” nào → P6 giữ `blocked`, dừng tại đây.
+   - **Lane:** `orchestrator`.
+
+2. **P6.2 — Decision gate sample app (blocker lớn nhất)**
+   - **Hành động:** Trình chủ dự án chốt: danh sách ứng dụng của Hub; sample app nào được chọn và nó đại diện cho path/loại rủi ro nào; runtime/language/framework của sample app (phê duyệt stack Control Plane **không** mặc nhiên phê duyệt stack Data Plane); app repo nằm trong hay ngoài monorepo kèm URL/revision/owner; cơ chế phân phối tích hợp (adapter trong app repo, package qua registry đã duyệt, hay generated client từ OpenAPI). Ghi kết quả thành record mới trong `./decision-register.md`, không sửa tại chỗ record `open`.
+   - **Sản phẩm:** Record `DEC-B01`/`DEC-B02` chuyển `approved` tại `./decision-register.md`; worksheet sample app (owner, repo, revision, topology).
+   - **Phụ thuộc:** P6.1. **Blocker:** `‹cần chốt: DEC-B01 danh sách ứng dụng của Hub + owner từng app›`; `‹cần chốt: DEC-B02 sample app và path nó đại diện›`; `‹cần chốt: runtime/language/framework của sample app›`; `‹cần chốt: repo sample app trong hay ngoài monorepo (URL/revision/owner)›`; `‹cần chốt: cơ chế phân phối tích hợp›`.
+   - **Verify:** `./decision-register.md` mục B: `DEC-B01` và `DEC-B02` có trạng thái `approved` kèm ngày và approver là chủ dự án; bảng mục C dòng P6 đọc “Đủ”. Còn `open` → không tạo `integrations/sample-data-plane/`, không đi tiếp P6.3.
+   - **Lane:** `orchestrator` điều phối; chủ dự án approve; `architect` review read-only mức đại diện/rủi ro.
+
+3. **P6.3 — Inventory protected surface + threat model**
+   - **Hành động:** Liệt kê **đầy đủ** của sample app: từng protected route, endpoint, server action, mutation, worker/job, webhook/internal trigger, domain authorization rule và đường truy cập trực tiếp (direct URL). Mỗi dòng ghi: surface ID, loại, có side effect hay không, có tính lượt hay không, feature/metric dự kiến, đường bypass giả định. Architect dựng threat model trên inventory này.
+   - **Sản phẩm:** Bảng inventory trong worksheet sample app (một dòng cho mỗi surface); ghi chú threat model read-only.
+   - **Phụ thuộc:** P6.2 (`approved`). **Blocker:** `‹cần chốt: domain authorization mapping của sample app›`.
+   - **Verify:** Đếm số surface trong inventory bằng số route/action/worker liệt kê được từ source thật của sample app repo tại revision đã ghi; mỗi dòng có cột feature/metric và cột test ID không để trống. Inventory thiếu một loại surface (đặc biệt worker/webhook) → dừng, không freeze contract.
+   - **Lane:** `architect` (read-only) + `orchestrator`.
+
+4. **P6.4 — Chốt feature/metric/counting/quota semantics bằng ví dụ**
+   - **Hành động:** Với **từng** surface tính lượt trong inventory P6.3, chốt: stable `applicationKey`/`featureKey`/`metricKey`, unit, `amount` cho mỗi logical operation, counting point (`start`/`milestone`/`success`), failure treatment cho lỗi user/app/dependency/timeout-cancel, window type + IANA timezone + DST, reservation TTL + late-success behavior, retry/retention semantics, revoke SLA + outage policy + kill-switch owner, và semantics durable operation phía app (state machine, atomic claim/transition, lease/recovery, bằng chứng xác nhận side effect, quy tắc reconciliation cho từng crash window). Mỗi mục phải có **ví dụ đếm cụ thể**; không còn “tùy trường hợp”.
+   - **Sản phẩm:** Bảng counting example trong worksheet (một dòng cho mỗi cặp surface × outcome); các checkbox tương ứng ở mục 3 được tick kèm decision ID.
+   - **Phụ thuộc:** P6.3. **Blocker:** `‹cần chốt: DEC-B05 metric/unit/amount cho từng action›`; `‹cần chốt: DEC-B06 counting point + failure treatment›`; `‹cần chốt: DEC-B07 quota window/timezone/DST›`; `‹cần chốt: DEC-B08 reservation TTL + late-success›`; `‹cần chốt: DEC-B10 revoke SLA + outage policy + kill-switch owner›`; `‹cần chốt: state machine durable operation + evidence source cho ba crash window›`.
+   - **Verify:** Rà mục 3 — không còn checkbox trống áp dụng cho sample app; mỗi surface tính lượt trong inventory P6.3 có đúng một dòng counting example cho mỗi outcome (success / domain failure / user cancel / dependency failure / timeout / duplicate / late result). Thiếu metric/unit/amount, counting/failure, window/timezone/DST, TTL/late-success hoặc outage → **không được bật reserve** cho metric đó; P6 giữ `blocked`.
+   - **Lane:** `orchestrator` điều phối; chủ dự án approve; `architect` review read-only.
+
+5. **P6.5 — Provision Auth0 cho sample app**
+   - **Hành động:** Theo topology `DEC-T14`: tạo trong tenant đã chốt một API resource audience của Control Plane, một Regular Web Application cho Hub BFF (nếu chưa có từ P2) và **một M2M application riêng cho backend sample app** — không dùng chung credential (`../modular.md` mục 10.4). Khai callback/logout URL **exact match**, không wildcard, riêng theo environment. Secret chỉ nằm ở Auth0/secret manager/CI protected environment; đưa vào repo dưới dạng **tên biến env rỗng**, không giá trị. Lập record rotation/revoke: ai xoay, chu kỳ, cách revoke.
+   - **Sản phẩm:** Config register không chứa secret (client ID metadata, audience, exact redirects, scopes, rotation owner); biến env khai báo trong `apps/web/` và `apps/control-plane/` boundary config.
+   - **Phụ thuộc:** P6.2, P6.4. **Blocker:** `‹cần chốt: DEC-B03 Auth0 tenant/environment thật, issuer, audience›` (`DEC-T14` mới là `proposed`, chưa mở gate).
+   - **Verify:** `grep` toàn repo không trả về client secret, token hay cookie value nào (bao gồm fixture, log, screenshot, tài liệu); config register liệt kê đúng **một** M2M client ID cho backend sample app và client ID đó khác mọi client ID khác trong register; mọi callback/logout URI là exact string, không ký tự `*`.
+   - **Lane:** `orchestrator` (sở hữu có điều kiện `infra/**` và secret reference, cần chủ dự án phê duyệt cụ thể ở đầu phase).
+
+### Nhóm B — Contract freeze
+
+6. **P6.6 — Architect thiết kế read-only**
+   - **Hành động:** Thiết kế thứ tự enforcement (authentication → domain authorization → entitlement → reserve → business effect → commit/cancel), durable operation protocol phía app, ba crash window và evidence source cho từng window, mapping surface → feature/metric, error/reason mapping, kill-switch semantics. Đối chiếu `../modular.md` mục 9.4 (lock order, re-authorize trước identity resolution, fail-closed) và mục 10.4 (identity riêng, scope bind exact metric, không generic scope).
+   - **Sản phẩm:** Ghi chú thiết kế + threat model (read-only).
+   - **Phụ thuộc:** P6.3, P6.4, P6.5.
+   - **Verify:** Design đối chiếu 1-1 với `../modular.md` mục 9.4 và 10.4: architect xác nhận không lệch tên port/capability/state và xác nhận thiết kế **không** coi quota idempotency là bằng chứng business effect exactly once. Lệch → không freeze.
+   - **Lane:** `architect` (read-only).
+
+7. **P6.7 — Backend ghi và freeze contract**
+   - **Hành động:** Backend ghi vào `contracts/openapi/control-plane.v1.yaml` phần service API sample app dùng: entitlement decision và `reserve`/`commit`/`cancel`/`status`, kèm auth scheme + issuer/audience, `issuer + subject` binding, decimal-string quantity, machine reason, idempotency namespace + fingerprint inputs + operation reference, reservation state transitions, conflict/status. Cùng lúc freeze **integration annex** (không thuộc OpenAPI): stable application/feature/metric keys, exact capability scopes, counting example từ P6.4, durable operation state + atomic claim + reservation persistence + lease/recovery + side-effect idempotency, quy tắc và evidence source cho từng crash window, correlation fields + log redaction, revoke SLA + outage/fail-closed + kill-switch semantics, UI reason-code mapping. Architect review read-only rồi freeze; ghi revision/commit.
+   - **Sản phẩm:** `contracts/openapi/control-plane.v1.yaml` (revision freeze); annex tích hợp trong worksheet sample app.
+   - **Phụ thuộc:** P6.6.
+   - **Verify:** `pnpm openapi:lint` trả 0 lỗi; `pnpm openapi:drift` pass (type đã commit khớp spec); rà spec: mọi quantity là decimal string (không JSON number), không có billing operation, không có endpoint proxy business traffic của app. Annex: mỗi surface trong inventory P6.3 có đúng một dòng mapping feature/metric; ba crash window đều có evidence source ghi rõ. Thiếu một crash window → không freeze.
+   - **Lane:** `backend` (writer duy nhất của `contracts/openapi/**`) + `architect` (review/freeze).
+
+### Nhóm C — Cấu hình dữ liệu (không thêm Control Plane table)
+
+8. **P6.8 — Cấu hình catalog, redirect, feature, metric, service scope**
+   - **Hành động:** Nạp bằng **controlled command quản trị đã có từ P3/P4/P5** (có permission, reason, correlation, audit), không INSERT SQL ad hoc: application record + `launch_url` (https, host trong allowlist, chặn private/link-local theo `DEC-T12`), exact redirects, feature, approved metric với semantics đầy đủ từ P6.4, service identity của sample app và scope `entitlement:decide` gắn đúng feature + `quota:reserve|commit|cancel|read` gắn đúng metric. Dữ liệu chưa duyệt giữ `draft`/inactive và không nhận traffic.
+   - **Sản phẩm:** Bản ghi config trong Control Plane DB + audit rows; config inventory trong worksheet.
+   - **Phụ thuộc:** P6.5, P6.7. **Blocker:** `‹cần chốt: DEC-B01/DEC-B02 applicationKey, featureKey, metricKey thật›`.
+   - **Verify:** psql: mỗi mutation ở trên có đúng một audit row tương ứng (`SELECT count(*)` audit khớp số command đã chạy); `SELECT capability, feature_id, usage_metric_id FROM control_plane.service_identity_scopes WHERE service_identity_id = ‹sample app identity›` cho thấy `entitlement:decide` có feature non-null + metric null, mọi `quota:*` có metric non-null + feature null; không có row capability wildcard hay `quota:*` không gắn metric. Thử grant scope trỏ metric của application khác kỳ vọng bị composite FK reject.
+   - **Lane:** `backend`.
+
+9. **P6.9 — Cấu hình plan/version/subscription và test account**
+   - **Hành động:** Tạo plan version chứa quota policy cho metric của sample app (limit, window, TTL đúng giá trị đã duyệt ở P6.4) và subscription cho các test account bằng controlled command; publish snapshot theo semantics P4. Test account/subscription dùng dữ liệu **được kiểm soát**; không đặt fake quota, fake reset window, fake TTL hay plan mặc định.
+   - **Sản phẩm:** Plan version + subscription + `plan_quota_policies` rows; danh sách test account trong worksheet.
+   - **Phụ thuộc:** P6.8. **Blocker:** `‹cần chốt: DEC-B04 account activation policy + default plan›`; `‹cần chốt: DEC-B05 quota limit thật cho metric sample app›`; `‹cần chốt: DEC-B09 subscription lifecycle nếu test cần upgrade/downgrade/cancel›`.
+   - **Verify:** psql `SELECT limit_quantity, window_type, reservation_ttl_seconds FROM control_plane.plan_quota_policies WHERE usage_metric_id = ‹metric sample app›` trả đúng giá trị đã duyệt tại P6.4 (đối chiếu từng ô với worksheet, không có ô null); test account resolve ra đúng subscription active. Bất kỳ giá trị nào không truy được về một dòng worksheet đã duyệt → xóa config, dừng.
+   - **Lane:** `backend`.
+
+### Nhóm D — Tích hợp (song song sau freeze P6.7)
+
+10. **P6.10 — SSO và local session validation**
+    - **Hành động:** Trong sample app repo: nhận launch từ Hub **và** direct URL vào cùng đường enforcement; tạo/kiểm phiên cục bộ theo thiết kế đã duyệt; xác minh local user token/session (`issuer`, `audience`, `exp`, subject) bằng `jose@6.2.3` hoặc SDK tương đương của runtime đã chốt; bảo toàn return URL đã allowlist, chống open redirect/replay; không để token/secret trong URL hay browser storage chưa duyệt.
+    - **Sản phẩm:** Thay đổi trong sample app repo (ghi external commit/revision); nếu adapter dùng chung: `integrations/data-plane/`.
+    - **Phụ thuộc:** P6.7 (freeze), P6.5. **Blocker:** `‹cần chốt: runtime/framework sample app (P6.2) — quyết định thư viện verify token›`.
+    - **Verify:** `tests/e2e/` — launch từ Hub và mở direct URL cùng dẫn tới backend enforcement giống nhau; `tests/security/` — token thiếu/hết hạn/sai issuer/sai audience đều deny; callback gần giống và open redirect bị chặn; không có query/header “đến từ Hub” nào làm thay đổi kết quả. Chạy bằng `pnpm test:e2e` (Playwright `1.61.1`).
+    - **Lane:** `backend` (làn code sample app repo), chạy song song với P6.13/P6.14.
+
+11. **P6.11 — Entitlement và domain authorization**
+    - **Hành động:** Sau authentication, gọi entitlement decision qua contract đã freeze bằng M2M identity riêng, gửi full verified `issuer + subject` — **không** gửi/tin internal `accountId`. Độc lập với entitlement, thực thi domain authorization của app cho từng resource **trước** business effect; entitlement không thay thế ownership/role. Không cache entitlement để tự approve; không đưa plan name/policy vào app.
+    - **Sản phẩm:** Thay đổi trong sample app repo (external revision).
+    - **Phụ thuộc:** P6.10, P6.8.
+    - **Verify:** `tests/security/` — browser-forged claim (`accountId` bịa trong payload/cookie) không đổi quyết định; caller thiếu `entitlement:decide` cho đúng feature bị deny **trước** identity resolution và không lộ user state; wrong owner/role bị domain auth deny dù entitlement allow. `grep` sample app source: không xuất hiện plan name, limit số hay quota ledger cục bộ.
+    - **Lane:** `backend` (làn code sample app repo).
+
+12. **P6.12 — Reserve / commit / cancel / status + idempotency**
+    - **Hành động:** Hiện thực đúng thứ tự: reserve **trước** business effect; chỉ chạy nghiệp vụ sau reserve thành công; commit/cancel theo counting point và failure treatment đã duyệt ở P6.4. Dùng operation reference ổn định + `Idempotency-Key` theo namespace `service + operation + key`; retry cùng key/fingerprint replay outcome, khác fingerprint conflict. Timeout/unknown outcome: hỏi `status` hoặc retry **cùng key** — tuyệt đối không sinh reservation mới. Control Plane/entitlement/quota không xác minh được → **fail-closed**, không dùng remaining cũ để cho phép action.
+    - **Sản phẩm:** Thay đổi trong sample app repo (external revision); adapter tại `integrations/data-plane/` nếu cơ chế phân phối đã duyệt là adapter dùng chung.
+    - **Phụ thuộc:** P6.11, P6.9.
+    - **Verify:** `tests/e2e/` — reserve→commit và reserve→cancel cho usage đúng semantics; thử gọi business action khi reserve fail kỳ vọng action **không** chạy. `tests/security/` — thiếu từng exact scope (`quota:reserve`/`commit`/`cancel`/`read`) đều deny; cross-binding app/feature/metric deny. Timeout mô phỏng: status/retry cùng key phục hồi, psql `SELECT count(*) FROM control_plane.usage_reservations WHERE operation_reference = ‹ref›` vẫn trả 1.
+    - **Lane:** `backend` (làn code sample app repo).
+
+13. **P6.13 — Durable operation state và crash recovery phía app**
+    - **Hành động:** Trong datastore của **chính sample app** (không phải bảng Control Plane): lưu durable operation state keyed bằng unique logical operation/idempotency key; **atomic** claim và transition `pending → processing → succeeded|failed` (hoặc state machine tương đương đã duyệt); persist reservation ID + lease/recovery metadata + bằng chứng side effect trước khi retry/reconcile. Side effect bất khả nghịch phải idempotent hoặc có uniqueness guard theo logical operation. Xử lý tường minh ba crash window: **sau reserve/trước effect**, **sau effect/trước durable success**, **sau durable success/trước commit**; recovery chỉ transition/retry khi evidence đã duyệt chứng minh trạng thái business effect — **không** suy luận thành công từ quota state. Worker không nhận job thiếu verified subject, operation reference hoặc reservation ID.
+    - **Sản phẩm:** Thay đổi trong sample app repo (external revision); schema/migration của app nằm trong repo app, không phải `apps/control-plane/drizzle/migrations/`.
+    - **Phụ thuộc:** P6.12. **Blocker:** `‹cần chốt: state machine + evidence source cho từng crash window (P6.4)›`; `‹cần chốt: datastore/framework của sample app (P6.2)›`.
+    - **Verify:** Xem P6.18 (crash injection + concurrent barrier) — bước này không tự tuyên bố đạt. Kiểm tra tĩnh trước: mỗi surface có side effect trong inventory P6.3 có đúng một durable operation key và một uniqueness guard; review xác nhận claim là một câu lệnh atomic (conditional update/insert), không phải read-then-write. Thiếu durable state cho một side-effect path → P6 giữ `blocked`.
+    - **Lane:** `backend` (làn code sample app repo).
+
+14. **P6.14 — Hub UX và admin readiness**
+    - **Hành động:** Trong `apps/web/`: catalog hiển thị sample app theo metadata/status đã cho phép và launch tới exact `launch_url` (hiện card **không** cấp quyền); phân biệt rõ các trạng thái cần đăng nhập / không entitlement / hết quota / request đang xử lý / dependency unavailable-fail-closed / lỗi domain; copy **không đoán** reset time; sau timeout UI không tự submit ý định mới mà dùng operation state/status để phục hồi. Trang admin integration status/readiness **chỉ** làm nếu OpenAPI/admin contract và RBAC đã cho phép ở P6.7; nếu chưa có contract thì deliverable là worksheet/runbook, không tự thêm API.
+    - **Sản phẩm:** `apps/web/` (một frontend owner cho cả user và admin).
+    - **Phụ thuộc:** P6.7 (freeze). Chạy **song song** với P6.10–P6.13.
+    - **Verify:** `pnpm test:e2e` — mỗi trạng thái ở trên render đúng reason code từ contract, không có chuỗi reset time hard-code; `tests/web/` a11y: keyboard order, focus, label, status/error announcement và contrast không có automated critical violation; responsive: mobile/tablet/desktop không mất hành động chính. Readiness view: `grep` output render không chứa client secret/token.
+    - **Lane:** `frontend`.
+
+15. **P6.15 — Tester dựng test matrix**
+    - **Hành động:** Song song sau freeze: viết suite contract/E2E/security/bypass/revoke/concurrency/crash-injection/timeout/outage. **Test matrix phải có một dòng cho mọi protected route/action/worker** trong inventory P6.3 — một happy-path test không đại diện cho toàn inventory. Dựng barrier harness (thả đồng thời nhiều duplicate request/worker cho cùng logical operation) và crash-injection harness (cưỡng bức dừng process ở đủ ba cửa sổ, restart/redeliver **đồng thời**).
+    - **Sản phẩm:** `tests/e2e/`, `tests/security/`, `tests/integration/`.
+    - **Phụ thuộc:** P6.7 (freeze); P6.3 (inventory).
+    - **Verify:** Đối chiếu số dòng test matrix với số surface trong inventory P6.3 — hai số phải bằng nhau và không surface nào thiếu test ID. Harness crash-injection chứng minh được nó dừng process ở đúng cửa sổ (assert bằng durable state trước/sau), không chỉ redelivery tuần tự.
+    - **Lane:** `tester`.
+
+### Nhóm E — Chạy test bằng lệnh thật
+
+16. **P6.16 — Contract + E2E**
+    - **Hành động:** Chạy contract test (OpenAPI validate, request/response, auth, reason code, idempotency replay/conflict, adapter compatibility) và E2E (launch từ Hub, direct URL, local session bootstrap, entitlement allow/deny, reserve→commit, reserve→cancel). Lỗi thuộc code — chủ lane sửa, **không** bẻ test.
+    - **Sản phẩm:** Output test thật (evidence cho checklist mục 17).
+    - **Phụ thuộc:** P6.10–P6.15.
+    - **Verify:** `pnpm openapi:lint`, `pnpm openapi:drift`, `pnpm test`, `pnpm test:e2e` — required suite pass; dán **output thật**. Adapter/generated client khớp spec đã freeze ở revision ghi tại P6.7.
+    - **Lane:** `backend` + `frontend` + `tester` (tự kiểm trước gate).
+
+17. **P6.17 — Security, bypass, revoke**
+    - **Hành động:** Chạy: token missing/expired/wrong issuer/wrong audience; callback gần giống; open redirect; cross-binding app/feature/metric; thiếu từng exact scope; browser-forged claim. **Bypass:** gọi trực tiếp **mọi** protected route/action/API và inject/trigger **mọi** protected worker path trong inventory. **Revoke:** revoke user session, account, entitlement, service identity và **từng** scope theo SLA đã duyệt; kiểm request mới deny và không lộ reservation state.
+    - **Sản phẩm:** Output security/bypass/revoke thật + evidence map surface → test.
+    - **Phụ thuộc:** P6.16. **Blocker:** `‹cần chốt: DEC-B10 revoke SLA›` (chưa chốt thì mặc định fail-closed).
+    - **Verify:** `pnpm test`, `pnpm test:e2e` với suite `tests/security/` — mọi dòng inventory P6.3 có kết quả pass; frontend hiding chứng minh **không** phải enforcement (gọi thẳng backend khi UI ẩn nút vẫn bị deny). Một surface bypass được → dừng theo mục 19.
+    - **Lane:** `tester` chạy suite; `qa` đối chiếu độc lập ở P6.21.
+
+18. **P6.18 — Concurrency, crash injection, timeout**
+    - **Hành động:** Chạy: tại remaining = 1, tổng reserve thành công tối đa 1; duplicate worker không tạo business effect/usage thứ hai; **concurrent side-effect barrier** thả đồng thời nhiều duplicate request/worker cho cùng logical operation; **crash injection** ở đủ ba cửa sổ (sau reserve/trước effect, sau effect/trước durable success, sau durable success/trước commit) với restart/redeliver **đồng thời**; timeout trước/sau response, status recovery, retry cùng key, fingerprint conflict, commit/cancel lặp và terminal conflict.
+    - **Sản phẩm:** Output concurrency/crash/timeout thật + đối soát ledger.
+    - **Phụ thuộc:** P6.16, P6.13.
+    - **Verify:** `pnpm test:concurrency` trên PostgreSQL thật qua testcontainers (`DEC-T05`) — remaining = 1 không double-spend; barrier chứng minh **nhiều nhất một** irreversible business effect và quota cuối cùng đúng; crash injection ở cả ba cửa sổ phục hồi theo approved evidence, psql đối soát `usage_events` cho thấy không có count lần hai và không có event bị rewrite. **Sequential redelivery không đạt** — nếu harness chỉ chạy tuần tự, kết quả không tính là evidence.
+    - **Lane:** `tester` chạy suite; `backend` sửa nếu fail.
+
+19. **P6.19 — Outage và fail-closed**
+    - **Hành động:** Mô phỏng Auth0 / Control Plane / database / network unavailable; kiểm hành vi fail-closed cho mọi hành động tính lượt; kiểm UX dependency-unavailable; kiểm credential rotation không làm gián đoạn ngoài cửa sổ đã duyệt.
+    - **Sản phẩm:** Output outage test + ghi chú runbook outage.
+    - **Phụ thuộc:** P6.17, P6.18. **Blocker:** `‹cần chốt: DEC-B10 outage policy›`.
+    - **Verify:** `pnpm test:e2e` suite outage — khi dependency down, business action tính lượt **không** chạy và không có `usage_events` mới; UI hiện trạng thái fail-closed, không nói user còn quota. Bất kỳ đường fail-open nào → dừng theo mục 19.
+    - **Lane:** `tester` chạy suite; `backend` sửa nếu fail.
+
+### Nhóm F — Canary, rollback drill và gate
+
+20. **P6.20 — Canary nội bộ + kill-switch/rollback drill**
+    - **Hành động:** Bật canary nội bộ theo cohort đã duyệt trong thời gian quan sát đã duyệt. Diễn tập theo đúng thứ tự mục 19: kill switch tắt integration → ngừng nhận business action mới → bảo toàn reservation/ledger → revoke/rotate credential → rollback app/config → đối soát reservation và audit. Không rollback bằng xóa usage/audit, sửa published snapshot hay chèn quota bù không audit.
+    - **Sản phẩm:** Runbook enable/disable, credential rotation/revoke, outage, reservation recovery, rollback — viết từ drill đã chạy.
+    - **Phụ thuộc:** P6.19. **Blocker:** `‹cần chốt: canary cohort + thời gian quan sát›`; `‹cần chốt: DEC-B10 kill-switch owner›`.
+    - **Verify:** Bật kill switch → request tính lượt mới bị deny fail-closed trong khi psql cho thấy `usage_events` count **không đổi** (không mất history) và reservation đang treo vẫn đọc được qua `status`. Sau rollback + re-enable, đối soát bucket ↔ reservation ↔ event khớp; không có double count. Correlation ID truy được xuyên Hub → app → Control Plane → worker cho một request mẫu.
+    - **Lane:** `orchestrator` (canary/rollback, cần chủ dự án phê duyệt cụ thể) + `backend`.
+
+21. **P6.21 — QA + reviewer song song**
+    - **Hành động:** QA **độc lập** chạy/đối chiếu contract, E2E, security, bypass, revoke, concurrency, timeout, outage, accessibility, responsive và rollback evidence từ clean state; lệnh nào chưa tồn tại thì **báo đúng sự thật**, không bịa lệnh. Reviewer kiểm inventory coverage, boundary Control/Data Plane, OpenAPI compatibility, thứ tự token/scope check (scope trước identity resolution), **phân biệt quota idempotency với side-effect idempotency**, durable operation atomicity, ba crash window, fail-closed, data minimization và external repo reference. Lặp tối đa **ba vòng**.
+    - **Sản phẩm:** Kết quả gate mục 20.
+    - **Phụ thuộc:** P6.20.
+    - **Verify:** QA gate PASS với evidence thật; reviewer hết mục “phải sửa”. Cùng một lỗi lặp lần thứ hai, thiếu quyết định của chủ dự án, hoặc thiếu credential/service → khai báo **TẮC**. Hết ba vòng chưa đạt → **CẠN LƯỢT**, ghi metadata `verification_outcome: exhausted`; phase status vẫn là một trong bốn giá trị canonical. “Happy path chạy một lần” không đủ điều kiện thoát.
+    - **Lane:** `qa` + `reviewer` (edit deny — đây là cơ chế chống tự lừa theo `../../AGENTS.md` mục 4b; hai lane này không nằm trong lane code và không được sửa file).
+
+22. **P6.22 — Cập nhật tài liệu sau sign-off**
+    - **Hành động:** Chỉ khi **cả hai** gate đạt: cập nhật worksheet, contract version, config inventory, test evidence, runbook và external repo revision theo behavior **đã xác minh**, không theo dự định. Đề nghị exit và mở P7.
+    - **Sản phẩm:** Worksheet + runbook + `./README.md` (trạng thái P6).
+    - **Phụ thuộc:** P6.21 (cả hai gate đạt).
+    - **Verify:** Đối chiếu docs ↔ OpenAPI ↔ config ↔ output thật; không tài liệu nào tuyên bố có billing, gateway proxy business traffic, hay local quota ledger; mọi lệnh/path khớp repo thật; external repo reference có revision immutable.
+    - **Lane:** `document`.
 
 ## 16. Parallel lanes và ownership
 
-Chỉ bắt đầu sau contract freeze; mỗi làn có owner và file/repo boundary rõ:
+**Mô hình phê duyệt.** Dự án là solo dev + AI agents (`DEC-G01`). **Chủ dự án là approver duy nhất** cho mọi quyết định nghiệp vụ, bảo mật, vận hành và ngân sách của phase này — không có “Product owner”, “App owner” hay “Operations” tách biệt. Agent không tự approve thay con người, kể cả khi đề xuất do agent soạn.
 
-| Làn | Công việc | Phụ thuộc/kết quả |
-|---|---|---|
-| OpenAPI/shared integration | Một owner duy nhất cho `contracts/openapi/`, shared adapter/client và compatibility | Không đổi contract hoặc generated artifact đơn phương |
-| Control Plane | Config/command, scope, observability, provider contract tests và `apps/control-plane/src/main-worker.*` nếu cần | Không sở hữu OpenAPI/shared artifact |
-| Sample app repo | SSO/session, domain auth, adapter, async persistence, kill switch | Repo ngoài phải có owner/revision rõ |
-| Frontend Hub | Một frontend owner cho toàn bộ `apps/web/**`, gồm catalog/user UX và readiness/config/audit admin | Không tách user/admin thành owner song song; chỉ dùng contract đã freeze |
-| Tester | Contract/E2E/security/concurrency matrix | Độc lập với code lanes; không sửa test để hợp thức lỗi |
-| Ops/Security | Auth0, secret store, rotation/revoke, canary/rollback | Không đưa secret vào repo |
+Điều đó **không** làm gộp `qa`/`reviewer` vào lane code. Hai lane này giữ `edit: deny` và độc lập với mọi lane viết code — đó là cơ chế chống tự lừa theo `../../AGENTS.md` mục 4b: không agent nào vừa viết code vừa tự tuyên bố code mình đạt chuẩn. Luật **3 vòng / TẮC / CẠN LƯỢT** áp dụng nguyên vẹn.
 
-Không song song hóa các bước selection, metric semantics, contract freeze và production enablement.
+Manifest ownership cho shared path:
+
+| Shared path | Writer duy nhất | Architect | Consumers |
+|---|---|---|---|
+| `contracts/openapi/control-plane.v1.yaml` | `backend` do orchestrator chỉ định | Read-only: thiết kế/review/freeze revision | `frontend`, `tester`: read-only |
+| `integrations/data-plane/` | `backend` (adapter dùng chung), chỉ sau quyết định phân phối ở P6.2 | Read-only | `tester`: read-only |
+
+Chỉ bắt đầu song song sau contract freeze (P6.7); mỗi làn có owner và file/repo boundary rõ:
+
+| Làn | Owner/path duy nhất | Điều kiện bắt đầu | Không được làm |
+|---|---|---|---|
+| `architect` | Không write. Threat model, review/freeze contract (P6.6, P6.7) | Sau P6.4 | Không write file; không tự chọn sample app, metric hay quota thay chủ dự án. |
+| `backend` | `contracts/openapi/**` (writer duy nhất), `apps/control-plane/**`, `integrations/data-plane/**`, và làn code trong sample app repo đã duyệt | Sau P6.7 | Không sở hữu `apps/web/**` hay `tests/**`; không đưa plan name/limit/local quota ledger vào app; không proxy business traffic qua Hub. |
+| `frontend` | `apps/web/**` — **một** owner cho cả user catalog/launch và admin readiness/config/audit | Sau P6.7 | Không tách user/admin thành hai owner song song; không đổi API shape; không coi việc ẩn nút là enforcement. |
+| `tester` | `tests/**` | Sau P6.7 (contract) và P6.3 (inventory) | Không sửa test để hợp thức lỗi code; không triển khai product logic. |
+| `orchestrator` | Có điều kiện: `infra/**`, `.github/workflows/**`, root config; Auth0/secret-store reference, canary và rollback drill (P6.5, P6.20) | Chỉ sau khi **chủ dự án phê duyệt cụ thể** ở đầu phase | Không đưa secret vào repo/log/evidence; không bulk-enable; không bỏ qua blocker. |
+| `qa` | Không write. Chạy gate thật từ clean state, lưu evidence (P6.21) | Sau khi các lane code tự kiểm xong (P6.16–P6.20) | Không sửa file; không tuyên bố pass khi lệnh chưa tồn tại hoặc chưa chạy. |
+| `reviewer` | Không write. Review độc lập (P6.21) | Cùng P6.21 | Không sửa implementation rồi tự sign-off. |
+| `document` | Markdown/docs (P6.22) | Sau khi cả hai gate đạt | Không sửa logic sản phẩm; không viết “đã chạy” khi chưa chạy. |
+
+App repo ngoài monorepo: ghi URL/revision/owner làm external reference; thay đổi thực hiện tại repo đó, không giả vờ source nằm trong Talosmine.
+
+Không song song hóa các bước selection (P6.2), metric semantics (P6.4), contract freeze (P6.7) và production enablement (P6.20).
 
 ## 17. Checklist
 
