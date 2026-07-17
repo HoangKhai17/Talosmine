@@ -19,7 +19,8 @@ Phase này hiện thực hard quota trong **cùng Control Plane NestJS modular m
 
 ## 3. Prerequisites và human decisions
 
-- [ ] Phase 4 đã được QA/reviewer ký đạt; Plan Version, Subscription, Entitlement, exact-feature scope và audit UoW ổn định.
+- [ ] Phase 4 đã được QA/reviewer ký đạt; Plan Version, Subscription, Entitlement, exact-feature scope và audit UoW ổn định; `service_identity_scopes` staging có canonical columns và chỉ chứa entitlement rows hợp lệ.
+- [ ] Trước implementation, `docs/database-schema.md` đã được source update để mô tả staged contract Phase 4 -> Phase 5, gồm validation và replacement của named checks/indexes; migration Phase 5 phải đối chiếu đúng contract đó.
 - [ ] Chọn **một metric mẫu** và phê duyệt stable application/feature/metric key, unit, `amount` cho từng logical operation và giới hạn plan/override dùng trong test.
 - [ ] Phê duyệt counting point (`start`, `milestone` hoặc `success`) và failure treatment cho lỗi user, app, dependency, timeout/cancel; không dùng một rule chung nếu metric cần phân loại.
 - [ ] Phê duyệt window type và thuật toán: calendar hoặc rolling; window boundaries, IANA timezone, DST gap/fold, anchor và reset display. Nếu rolling là exact sliding window, phải review/mở rộng bucket model trước implementation.
@@ -34,11 +35,11 @@ Nếu thiếu metric/unit/amount/counting/failure, window/timezone/DST, TTL/late
 
 ## 4. Phạm vi
 
-- Hoàn thiện semantics `plan_quota_policies` và `quota_limit_overrides` theo quyết định đã duyệt.
+- Tạo `plan_quota_policies` canonical và `quota_limit_overrides` theo semantics đã duyệt; đây là quota tables đầu tiên sau Phase 4 không có quota data.
 - Tạo `usage_buckets`, `usage_reservations`, `usage_events`, `idempotency_records`, constraints, composite FKs, indexes và append-only trigger.
 - Quota module cung cấp `reserve`, `commit`, `cancel`, `status`, usage summary, admin adjustment/ledger query và `QuotaReconciliationPort`.
 - Background worker main entrypoint trong cùng codebase chỉ điều phối port system-only.
-- Exact metric scopes `quota:reserve`, `quota:commit`, `quota:cancel`, `quota:read`; issuer + subject user identity và per-operation re-authorization.
+- Expand tại chỗ `service_identity_scopes`: giữ entitlement behavior/history, thay named capability/shape checks và bổ sung metric indexes để hỗ trợ exact `quota:reserve`, `quota:commit`, `quota:cancel`, `quota:read`; issuer + subject user identity và per-operation re-authorization.
 - User Web usage summary/remaining chỉ để hiển thị; Admin Web cho bucket/reservation/event/override/adjustment.
 - OpenAPI quantities dưới dạng decimal string, idempotency/correlation/error contract.
 - Test PostgreSQL thật cho concurrency, terminal transitions, migration, append-only, revoke race, worker duplicates và load.
@@ -57,7 +58,7 @@ Nếu thiếu metric/unit/amount/counting/failure, window/timezone/DST, TTL/late
 ## 6. Deliverables
 
 1. OpenAPI 3.1 frozen cho reserve/commit/cancel/status, own usage summary và admin quota operations.
-2. Forward migrations cho quota policy/override/ledger/idempotency cùng composite FK, named checks, indexes và append-only trigger.
+2. Forward migrations cho quota policy/override/ledger/idempotency; validate staged entitlement rows rồi replace/expand named checks/indexes của `service_identity_scopes` mà không mất entitlement history; thêm composite FK và append-only trigger.
 3. Quota domain/application/persistence với transaction SQL ngắn, atomic conditional update và DB clock.
 4. Exact metric-specific Service Identity authorization cho từng operation.
 5. `QuotaReservationPort` và system-only `QuotaReconciliationPort` có contract/test rõ ràng.
@@ -87,18 +88,21 @@ Tên file chi tiết phải theo convention bootstrap thật. Không chuyển wo
 
 ## 8. DB/migration
 
-1. Hoàn thiện `plan_quota_policies` chỉ với semantics đã duyệt: metric/application composite binding, `limit_quantity >= 0`, window shape, IANA timezone/rolling interval/anchor và positive `reservation_ttl_seconds`.
+1. Tạo `plan_quota_policies` canonical với semantics đã duyệt: metric/application composite binding, `limit_quantity >= 0`, window shape, IANA timezone/rolling interval/anchor và positive `reservation_ttl_seconds`.
 2. Tạo `quota_limit_overrides` có account/policy FK, decimal-string API quantity -> checked `bigint`, validity, reason và revoke triple. Khóa account để ngăn effective override overlap cho cùng policy.
-3. Tạo `usage_buckets` unique `(account_id, plan_quota_policy_id, window_start, window_end)`, composite FK tới subscription/account và policy/application/metric; snapshot effective limit, committed và reserved counters.
-4. Thêm named checks: end > start, counters/limit không âm và `(committed::numeric + reserved::numeric) <= limit::numeric` để tránh overflow trước comparison.
-5. Tạo `usage_reservations` với composite FK buộc bucket/account/application/metric và service/application khớp; unique service + operation reference; positive quantity; bounded committed; state `reserved|committed|canceled|expired`; terminal shape.
-6. Tạo `usage_events` append-only, signed deltas, after-values, actor shape và composite FK bảo đảm reservation thuộc đúng bucket. Lifecycle event cần reservation; adjustment/reconciliation event không có reservation.
-7. Tạo `idempotency_records` chỉ cho service operations `reserve|commit|cancel`, unique `(service_identity_id, operation, idempotency_key)`, fingerprint, processing/completed shape, bounded sanitized replay <= 64 KiB và retention expiry.
-8. Tạo custom SQL `usage_events_append_only_trg`; runtime role không có `TRUNCATE`, DDL hay disable-trigger permission. Adjustment sửa bucket và append event/audit trong cùng transaction, không update/delete event cũ.
-9. Bổ sung/kiểm chứng exact metric scopes với composite FK và shape: capability quota có đúng `usage_metric_id`, feature null, application khớp service/resource.
-10. Dùng DB clock cho window, expiry, terminal/event time; không tin client `now`. Mọi timestamp là `timestamptz` UTC và quantity là PostgreSQL `bigint`.
-11. Thứ tự migration: final policy/override -> bucket -> reservation -> event -> idempotency -> custom indexes/triggers/grants -> validation.
-12. Migration tests kiểm tra schema từ Phase 4, dirty/representative data theo fixture đã duyệt, trigger, composite FK, no-cascade history, role grants và forward-fix path.
+3. Trước khi thay constraint/index, validate toàn bộ row `service_identity_scopes` từ Phase 4: đủ canonical columns, capability chỉ `entitlement:decide`, exact feature non-null, metric null, application/service/feature binding hợp lệ và lifecycle/revoke shape đúng. Bất kỳ row lỗi nào phải dừng migration để forward-fix dữ liệu có review; không drop constraint trước validation.
+4. Replace named `service_identity_scopes_capability_check` bằng final check cho `entitlement:decide|quota:reserve|quota:commit|quota:cancel|quota:read`; replace named `service_identity_scopes_shape_check` để entitlement có đúng feature/non-metric, còn mọi `quota:*` có đúng metric/non-feature. Giữ nguyên row entitlement và lịch sử revoke.
+5. Giữ/validate `service_identity_scopes_active_feature_key` và feature lookup index, rồi tạo final `service_identity_scopes_active_metric_key` cùng metric lookup index cho service/application/capability/metric theo staged source contract. Composite FK tiếp tục buộc service, feature hoặc metric thuộc đúng application; không rebuild bảng làm mất ID/history.
+6. Tạo `usage_buckets` unique `(account_id, plan_quota_policy_id, window_start, window_end)`, composite FK tới subscription/account và policy/application/metric; snapshot effective limit, committed và reserved counters.
+7. Thêm named checks: end > start, counters/limit không âm và `(committed::numeric + reserved::numeric) <= limit::numeric` để tránh overflow trước comparison.
+8. Tạo `usage_reservations` với composite FK buộc bucket/account/application/metric và service/application khớp; unique service + operation reference; positive quantity; bounded committed; state `reserved|committed|canceled|expired`; terminal shape.
+9. Tạo `usage_events` append-only, signed deltas, after-values, actor shape và composite FK bảo đảm reservation thuộc đúng bucket. Lifecycle event cần reservation; adjustment/reconciliation event không có reservation.
+10. Tạo `idempotency_records` chỉ cho service operations `reserve|commit|cancel`, unique `(service_identity_id, operation, idempotency_key)`, fingerprint, processing/completed shape, bounded sanitized replay <= 64 KiB và retention expiry.
+11. Tạo custom SQL `usage_events_append_only_trg`; runtime role không có `TRUNCATE`, DDL hay disable-trigger permission. Adjustment sửa bucket và append event/audit trong cùng transaction, không update/delete event cũ.
+12. Dùng DB clock cho window, expiry, terminal/event time; không tin client `now`. Mọi timestamp là `timestamptz` UTC và quantity là PostgreSQL `bigint`.
+13. Thứ tự migration bắt buộc: `plan_quota_policies` -> `quota_limit_overrides` -> preflight validate P4 scope rows -> replace `service_identity_scopes_capability_check`/`service_identity_scopes_shape_check` -> retain `service_identity_scopes_active_feature_key` và add `service_identity_scopes_active_metric_key`/metric lookup -> bucket -> reservation -> event -> idempotency -> custom triggers/grants -> final validation. Chỉ sau final validation mới được expose quota API.
+14. Có gate trước replacement: nếu preflight hoặc rehearsal fail, giữ nguyên P4 constraints và không mở quota API. Sau replacement nhưng trước traffic, rollback chỉ dùng script đã review để trả checks/indexes về staged P4 khi chưa có quota rows. Sau quota write/traffic, không down-migrate; dừng exposure và dùng forward-fix bảo toàn entitlement/quota history.
+15. Migration tests kiểm tra staged-to-final schema theo `docs/database-schema.md` sau source update, dirty/representative P4 rows, constraint replacement, entitlement-history preservation, trigger, composite FK, no-cascade history, role grants và forward-fix/rollback gate.
 
 Không destructive rollback sau khi ledger nhận write. Không xóa event/idempotency/reservation để làm counter “khớp”; dùng event điều chỉnh được phê duyệt và audit.
 
@@ -187,7 +191,7 @@ Backend ghi revision/commit. Breaking change sau freeze dừng frontend/backend/
 - **Revoke race:** reserve/commit/cancel/status cạnh tranh revoke theo lock order; request sau revoke deny; không lộ reservation state.
 - **Scope/privacy:** sai issuer/audience/app/metric/capability deny trước identity resolution; forged account/resource mismatch không lộ existence.
 - **Append-only/audit:** UPDATE/DELETE/TRUNCATE runtime bị chặn; adjustment thêm event; audit failure rollback adjustment; no secret/token/PII thừa.
-- **Migration:** clean upgrade từ Phase 4, constraints/composite FKs/indexes/triggers/grants tồn tại, representative invalid rows bị reject và forward-fix được rehearsal.
+- **Migration:** clean upgrade từ staged Phase 4; invalid existing entitlement row chặn replacement; final named checks chấp nhận đúng feature/metric shapes; `service_identity_scopes_active_feature_key` và entitlement history vẫn hoạt động; `service_identity_scopes_active_metric_key`/metric lookup tồn tại; forward-fix và pre-traffic rollback gate được rehearsal.
 - **Supavisor/SQLSTATE:** transaction pinning được kiểm chứng; chỉ retry bounded `40001`/`40P01` với backoff+jitter; business/constraint denial không retry như transient.
 - **Load/contention:** load target đã duyệt đo latency/error/deadlock/retry/lock wait, worker batch contention và database saturation; không chỉ test throughput happy-path.
 - **Web/admin:** decimal precision display, own-data isolation, error/conflict, ledger read-only, adjustment RBAC/audit, accessibility và responsive viewport.
@@ -198,7 +202,7 @@ Backend ghi revision/commit. Breaking change sau freeze dừng frontend/backend/
 1. Xác nhận Phase 4 sign-off và phê duyệt đầy đủ sample metric cùng mọi decision ở mục 3.
 2. Architect thiết kế window algorithm, transaction/state machine, exact scopes, adjustment/reconciliation policy và threat model ở chế độ read-only; review và xác nhận revision đủ điều kiện freeze.
 3. Backend, với vai trò contract writer duy nhất do orchestrator giao, ghi OpenAPI cùng hai port contracts, reason registry, idempotency canonicalization và examples vào `contracts/openapi/control-plane.v1.yaml`; architect review read-only trước khi freeze revision.
-4. Viết migration final policy/override/ledger/idempotency theo dependency; thêm trigger, grants và migration tests.
+4. Viết migration theo staged order: tạo policy và `quota_limit_overrides`, validate P4 rows, replace/expand named scope checks/indexes, rồi tạo ledger/idempotency; thêm trigger, grants, preservation assertions và forward-fix/rollback tests.
 5. Hiện thực policy/window calculator bằng DB-time inputs và test DST/boundaries trước reserve transaction.
 6. Hiện thực exact metric authorization/revoke locking; chứng minh scope check xảy ra trước identity resolution.
 7. Hiện thực reserve theo canonical transaction và atomic conditional update; sau đó commit, cancel và status theo cùng lock discipline.
@@ -230,7 +234,7 @@ Trong backend, migration phải có trước integration persistence; exact scop
 
 - **Functional:** [ ] Reserve/commit/cancel/status/summary/admin endpoints có happy/deny/timeout tests; [ ] terminal transition và partial commit đúng policy; [ ] worker xử lý due/anomaly đúng approved rules; [ ] remaining được đánh dấu display-only.
 - **Security:** [ ] 100% operation re-authorize exact metric scope trước identity resolution/read; [ ] issuer+subject và resource mismatch tests đạt; [ ] revoke race không cho request mới qua; [ ] worker endpoint không public và không có secret/token trong persistence/log.
-- **DB:** [ ] Migration Phase 4 -> 5 đạt; [ ] mọi composite FK/check/index/trigger/grant tồn tại; [ ] event append-only được DB chặn; [ ] runtime role không DDL/TRUNCATE/disable trigger; [ ] quantities lưu `bigint`, API decimal string.
+- **DB:** [ ] Migration Phase 4 -> 5 validate existing staged rows trước replacement; [ ] `quota_limit_overrides` được tạo trước scope expansion; [ ] final named capability/shape checks hỗ trợ đúng entitlement feature và bốn quota metric capabilities; [ ] active-feature rows/history/indexes được giữ, active-metric indexes tồn tại; [ ] mọi composite FK/trigger/grant đạt; [ ] event append-only; [ ] runtime role không DDL/TRUNCATE/disable trigger; [ ] forward-fix/pre-traffic rollback gate có evidence.
 - **Concurrency:** [ ] Last-unit stress không double-spend; [ ] duplicate idempotency không duplicate mutation; [ ] duplicate reconciliation chỉ một terminal effect; [ ] SQLSTATE retry chỉ `40001|40P01`, bounded và có metric; [ ] lock order assertion/review hoàn tất.
 - **Accessibility:** [ ] Usage/admin pages không có automated critical violation; [ ] progress có text equivalent; [ ] forms/dialogs/ledger keyboard-operable; [ ] focus/error/labels có assertions.
 - **Responsive:** [ ] Viewport mobile/tablet/desktop đã freeze không làm mất action/filter/data cốt lõi; [ ] bảng ledger có overflow/card strategy có thể dùng bằng keyboard; [ ] decimal quantity không bị cắt nghĩa.
@@ -243,13 +247,13 @@ Mỗi mục phải gắn evidence định lượng hoặc output thật. “Đã
 ## 18. Exit gate
 
 1. Sample metric và mọi decision bắt buộc đã được phê duyệt, biểu diễn thành contract/test; không còn default ngầm.
-2. Migration, OpenAPI, backend, worker và Web cùng frozen revision; required test pass trên PostgreSQL/Supavisor setup mục tiêu bằng output thật.
+2. Migration, OpenAPI, backend, worker và Web cùng frozen revision; staged-to-final schema khớp `docs/database-schema.md` sau source update; required test pass trên PostgreSQL/Supavisor setup mục tiêu bằng output thật.
 3. Last-unit concurrency chứng minh không double-spend; counters/reservations/events luôn thỏa invariant.
 4. Replay/conflict, timeout/status, terminal/expiry và duplicate reconciliation đạt acceptance tests.
-5. Exact per-operation metric scope, issuer+subject, scope-before-resolution, revoke race và fail-closed đạt security gate.
+5. Exact per-operation metric scope, issuer+subject, scope-before-resolution, revoke race và fail-closed đạt security gate; entitlement scope behavior/history từ Phase 4 vẫn đạt regression tests sau constraint/index expansion.
 6. Worker chỉ gọi `QuotaReconciliationPort`, cùng Control Plane codebase, không direct SQL/repository và không microservice ownership.
 7. User/Admin Web đạt functional/accessibility/responsive/server-RBAC; remaining chỉ là display.
-8. Observability/load/runbook/rollback gates có evidence; append-only/audit/forward-fix được kiểm chứng.
+8. Observability/load/runbook/rollback gates có evidence; preflight-before-replacement, entitlement-history preservation, append-only/audit, forward-fix và pre-traffic rollback được kiểm chứng.
 9. Không có Data Plane business integration ngoài mocks và không có billing.
 10. QA PASS và reviewer không còn mục “phải sửa”.
 

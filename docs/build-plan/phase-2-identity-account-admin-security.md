@@ -94,6 +94,8 @@ Không tạo cấu trúc thay thế nếu bootstrap repository chốt path khác
 - Tạo `web_sessions` với **unique duy nhất trên `session_token_hash`**. `csrf_token_hash` bắt buộc nhưng **không unique**. `auth0_sid` nullable và chỉ có non-unique partial index `WHERE auth0_sid IS NOT NULL`; thêm DB-clock timestamps, expiry/revoke checks và active-session index. Không lưu token/cookie/CSRF thô.
 - Tạo `admin_roles`, `admin_role_permissions`, `admin_role_assignments` và append-only `audit_events`; permission deny-by-default, assignment không cấp vượt quyền actor.
 - **Schema delta P2:** `audit_events.actor_service_identity_id` được tạo nullable để tránh migration phá vỡ về sau nhưng **chưa có FK**, vì `service_identities` phụ thuộc `applications` của P3. P2 actor check/runtime chỉ chấp nhận `actor_type = account|system`, yêu cầu `actor_service_identity_id IS NULL`, và test phải từ chối mọi service actor/value. P3 mới tạo `service_identities`, thêm FK và mở actor shape cho `service` để đạt canonical final schema.
+- P2 bắt buộc tạo trigger `audit_events_append_only_trg` trên `audit_events` để PostgreSQL trực tiếp từ chối mọi `UPDATE` và `DELETE`; append-only không được chỉ dựa vào repository/application layer. Trigger được tạo sau table và P2 actor check staging, nhưng không phụ thuộc danh sách actor/FK nên vẫn giữ nguyên khi P3 thay actor check và thêm service-identity FK.
+- Runtime database role chỉ nhận quyền tối thiểu cần cho `SELECT`/`INSERT` theo ownership và bị cấm `UPDATE`, `DELETE`, `TRUNCATE` trên `audit_events`. Migration/owner role tách riêng, không được dùng trong API/worker/runtime connection string. P3 không được drop, disable, replace yếu hơn trigger hoặc nới runtime grants khi upgrade FK/check.
 - Audit dùng identity idempotent `operation_id + sequence`. Mutation nhạy cảm và append audit phải cùng PostgreSQL transaction/shared Unit of Work; audit lỗi thì rollback mutation.
 - Provisioning mở một transaction, gọi Account provisioning port tạo account `pending`, rồi insert external identity. Nếu unique race thua, rollback toàn transaction—including account vừa tạo—sau đó mở transaction mới đọc mapping thắng; không để account orphan.
 - Cập nhật `email` cùng `email_verified` trong một statement/transaction: email đổi thì mặc định `false`; chỉ `true` khi đúng email đó có boolean claim đã được SDK/Auth0 xác minh.
@@ -174,19 +176,21 @@ Sau freeze, thay đổi breaking phải quay lại architect, version/ghi rõ im
 - Nếu recovery được loại bằng change set hợp lệ, contract/docs consistency test phải chứng minh `docs/index.md`, `docs/modular.md`, OpenAPI/browser contract và build plan không còn mô tả recovery là capability P2; nếu chưa đạt, recovery test suite vẫn bắt buộc và phase vẫn blocked.
 - RBAC/audit: mọi permission thiếu đều `403`; hidden-menu bypass không thành công; reason bắt buộc; audit lỗi rollback mutation; replay operation/sequence tương đương không nhân đôi, khác nội dung conflict.
 - P2 schema test xác nhận `csrf_token_hash` không unique, `auth0_sid` partial index không unique, audit chưa có service FK và insert/runtime service actor/value bị từ chối.
+- Audit append-only DB tests chạy SQL trực tiếp: dùng migration-test role có quyền mutation để xác nhận `UPDATE` và `DELETE` bị `audit_events_append_only_trg` từ chối, bản ghi không đổi/mất; dùng đúng runtime role để xác nhận `TRUNCATE audit_events` bị PostgreSQL từ chối bởi grants. Đồng thời kiểm tra runtime role không phải owner/migration role và không có `UPDATE`/`DELETE` privilege.
+- Migration compatibility test áp dụng P2 actor staging rồi mô phỏng P3 thay actor check/thêm FK; sau upgrade, `audit_events_append_only_trg` vẫn enabled, direct `UPDATE`/`DELETE` vẫn bị chặn và runtime `TRUNCATE` vẫn bị deny.
 - UI: keyboard, focus, labels, errors, loading/empty, viewport mobile/tablet/desktop; kiểm tra không rò token trong DOM/URL/log fixture.
 
 ## 15. Ordered steps
 
 1. Xác nhận prerequisites. Recovery được coi là bắt buộc trừ khi scope decision và toàn bộ source/contract/build-plan updates đã được review; dừng nếu thiếu SDK/config/bootstrap/revoke/recovery decision bắt buộc.
 2. Architect lập threat model, permission matrix, login/logout/recovery browser sequences và OpenAPI; review rồi contract freeze.
-3. Backend tạo migration Account/Identity/Admin/Audit với P2 phased audit constraint, constraints/indexes và migration tests trước repository/use case; không tạo service identity/application.
+3. Backend tạo migration Account/Identity/Admin/Audit với P2 phased audit constraint, `audit_events_append_only_trg`, runtime grants cấm `UPDATE`/`DELETE`/`TRUNCATE`, constraints/indexes và migration tests trước repository/use case; không tạo service identity/application và không cấp owner/migration role cho runtime.
 4. Backend hiện thực public ports, shared Unit of Work provisioning và transactional audit; sau đó controllers theo contract.
 5. Backend tích hợp Auth0 SDK đã duyệt, exact redirect validator, session hash/CSRF/revoke, recovery redirect/config và Google config gate không secret.
 6. Frontend xây BFF auth feature và user flows chỉ dựa trên frozen contract.
 7. Frontend xây protected admin shell và account/session/RBAC foundation; không dựa vào menu để cấp quyền.
 8. Tester viết/chạy contract, integration, concurrency, security và accessibility/responsive tests trên lane riêng; không sửa test để che lỗi code.
-9. Tích hợp ba làn, chạy migration dry-run, test/lint/typecheck/build bằng lệnh thật sau khi repo bootstrap; nếu lệnh chưa tồn tại thì báo đúng sự thật.
+9. Tích hợp ba làn, chạy migration dry-run và lưu evidence SQL trực tiếp cho trigger/grants/P3-upgrade compatibility, rồi chạy test/lint/typecheck/build bằng lệnh thật sau khi repo bootstrap; nếu lệnh chưa tồn tại thì báo đúng sự thật.
 10. QA và reviewer kiểm độc lập; owner sửa mục bắt buộc tối đa theo vòng lặp dự án. Chỉ qua exit gate khi cả hai sign-off.
 
 ## 16. Parallel lanes và ownership
@@ -205,30 +209,31 @@ OpenAPI có một owner tích hợp do orchestrator chỉ định trước freez
 
 - [ ] **functional:** login/callback/logout/recovery, account/profile/session và admin search/detail/disable/enable/revoke đạt acceptance cases bằng test; chỉ được đánh dấu recovery N/A khi approved scope change đã cập nhật/review đủ bốn nguồn bắt buộc.
 - [ ] **security:** PKCE/`state`/`nonce`, exact redirect, recovery anti-enumeration/provider distinction, CSRF, secure cookie, fixation/revoke, deny-by-default RBAC và no-email-link đều có negative test; nếu recovery bị loại hợp lệ, có evidence review thay cho recovery runtime tests.
-- [ ] **db:** migration rỗng thành công; chỉ session hash unique, CSRF hash không unique, `auth0_sid` non-unique partial index; audit actor service nullable nhưng chưa FK và bị runtime/check từ chối; không raw password/reset/session/token/secret.
+- [ ] **db:** migration rỗng thành công; chỉ session hash unique, CSRF hash không unique, `auth0_sid` non-unique partial index; audit actor service nullable nhưng chưa FK và bị runtime/check từ chối; có evidence DB trực tiếp rằng `audit_events_append_only_trg` chặn `UPDATE`/`DELETE`, runtime grants chặn `TRUNCATE` và runtime không dùng owner/migration role; mô phỏng P3 FK/check upgrade không làm mất trigger/grants; không raw password/reset/session/token/secret.
 - [ ] **concurrency:** test barrier với ít nhất hai callback cùng identity chỉ tạo một account/mapping và không orphan; concurrent revoke/rotate không hồi sinh session.
 - [ ] **accessibility:** login/recovery/account/admin chỉ bàn phím hoàn tất; focus/error announcement và accessible name được test.
 - [ ] **responsive:** login/recovery/account/session/admin hoạt động tại viewport mobile, tablet, desktop đã chốt, không mất action hoặc tràn ngang ngoài vùng table chủ đích.
 - [ ] **observability:** correlation ID xuyên BFF/API/audit; metric cho callback/recovery outcome, session revoke và RBAC deny; recovery logs không tạo existence signal và không chứa secret/PII thừa.
-- [ ] **rollback:** migration/application rollback rehearsal có kết quả; release cũ không đọc schema không tương thích; Google/recovery connection và bootstrap endpoint có cách disable an toàn.
+- [ ] **rollback:** migration/application rollback rehearsal có kết quả; rollback/forward-fix không vô hiệu hóa `audit_events_append_only_trg` hoặc cấp lại quyền mutation audit cho runtime; release cũ không đọc schema không tương thích; Google/recovery connection và bootstrap endpoint có cách disable an toàn.
 - [ ] **docs:** OpenAPI, login/logout/recovery browser-flow, permission matrix, env placeholders và runbook đồng bộ; nếu loại recovery, `docs/index.md`, `docs/modular.md`, OpenAPI/browser contract và build plan đều đã cập nhật/review, không còn mô tả scope cũ.
 
 ## 18. Exit gate
 
-Phase 2 chỉ đạt khi: contract không còn breaking mismatch; migrations/tests bắt buộc pass; Hub login/account/session/admin security hoạt động theo môi trường kiểm chứng; recovery flow đạt approved behavior với anti-enumeration và hậu recovery session tests, **hoặc** approved scope decision loại recovery đã được phản ánh và review đồng bộ trong `docs/index.md`, `docs/modular.md`, OpenAPI/browser contract và build plan. Chỉ có scope decision nhưng chưa cập nhật/review đủ nguồn thì không qua exit gate và P2 vẫn `blocked`. Ngoài ra, mọi admin mutation phải được server authorize và audit atomically; provisioning race không orphan/duplicate; P2 chưa chấp nhận service audit actor; không có password/reset/session/token/secret thô; QA **PASS** và reviewer không còn mục “phải sửa”. Cross-domain sample app full E2E không phải gate này và vẫn chờ Phase 6.
+Phase 2 chỉ đạt khi: contract không còn breaking mismatch; migrations/tests bắt buộc pass; Hub login/account/session/admin security hoạt động theo môi trường kiểm chứng; recovery flow đạt approved behavior với anti-enumeration và hậu recovery session tests, **hoặc** approved scope decision loại recovery đã được phản ánh và review đồng bộ trong `docs/index.md`, `docs/modular.md`, OpenAPI/browser contract và build plan. Chỉ có scope decision nhưng chưa cập nhật/review đủ nguồn thì không qua exit gate và P2 vẫn `blocked`. Ngoài ra, mọi admin mutation phải được server authorize và audit atomically; provisioning race không orphan/duplicate; P2 chưa chấp nhận service audit actor; evidence SQL trực tiếp phải chứng minh `audit_events_append_only_trg` chặn `UPDATE`/`DELETE`, runtime grants chặn `TRUNCATE`, runtime không dùng migration/owner role và P3 FK/check upgrade không làm mất các bảo vệ này; không có password/reset/session/token/secret thô; QA **PASS** và reviewer không còn mục “phải sửa”. Cross-domain sample app full E2E không phải gate này và vẫn chờ Phase 6.
 
 ## 19. Stop/rollback
 
 - Dừng ngay nếu thiếu Auth0 credential/quyền tenant, SDK chưa được phê duyệt, callback URL/bootstrap admin/session/recovery policy chưa chốt, hoặc contract giữa lanes mâu thuẫn.
 - Dừng tại contract/exit gate nếu có đề xuất loại recovery nhưng `docs/index.md`, `docs/modular.md`, OpenAPI/browser contract hoặc build plan chưa được cập nhật và review; không dùng scope decision đơn lẻ để bỏ capability.
 - Dừng release nếu phát hiện open redirect, CSRF bypass, session fixation/revival, account auto-link theo email, admin API không enforce server-side, audit có thể commit thiếu hoặc secret bị log/lưu.
-- Khi migration chưa phát hành: sửa forward migration theo quy trình review. Khi đã có dữ liệu: không drop/hard-delete tự động; rollback application/config trước, vô hiệu hóa route/Google connection nếu cần và dùng migration bù đã review.
+- Dừng migration/release nếu `audit_events_append_only_trg` thiếu/disabled, direct SQL có thể `UPDATE`/`DELETE`, runtime role có thể `TRUNCATE` hoặc đang dùng owner/migration credential, hay thử nghiệm P3 FK/check upgrade làm mất append-only trigger/grants.
+- Khi migration chưa phát hành: sửa forward migration theo quy trình review. Khi đã có dữ liệu: không drop/hard-delete tự động, không tắt trigger hoặc nới grant để rollback; rollback application/config trước, vô hiệu hóa route/Google connection nếu cần và dùng migration bù đã review nhưng vẫn giữ append-only protection.
 - Nếu provisioning/audit transaction lỗi, rollback toàn Unit of Work; không “sửa” bằng tạo mapping/account/audit rời sau commit.
 - Tuân thủ tối đa ba vòng kiểm chứng; cùng lỗi lặp lần hai thì khai báo TẮC với việc đã thử và quyết định cần người dùng.
 
 ## 20. QA/reviewer sign-off
 
-- **QA:** xác minh output thật của migration/test/lint/typecheck/build hiện có, login/recovery browser security, phased audit schema, race tests, responsive/accessibility và kiểm tra secret; không suy diễn lệnh chưa tồn tại.
-- **Reviewer:** kiểm ownership module, transaction boundaries, exact redirect, recovery anti-enumeration/provider behavior, identity key, profile scope, deny-by-default RBAC, P2 account/system-only audit actor, audit atomicity và mức khớp OpenAPI/UI/test.
+- **QA:** xác minh output thật của migration/test/lint/typecheck/build hiện có, gồm evidence SQL trực tiếp cho `audit_events_append_only_trg`, runtime grants và mô phỏng P3 FK/check upgrade; đồng thời kiểm login/recovery browser security, phased audit schema, race tests, responsive/accessibility và secret. Không suy diễn lệnh chưa tồn tại.
+- **Reviewer:** kiểm ownership module, transaction boundaries, exact redirect, recovery anti-enumeration/provider behavior, identity key, profile scope, deny-by-default RBAC, P2 account/system-only audit actor, audit atomicity, tách runtime khỏi migration/owner role và việc P3 upgrade không làm yếu append-only protection; đối chiếu OpenAPI/UI/test.
 - Ghi sign-off bằng bằng chứng run/commit/environment đã kiểm; không dùng người viết implementation tự tuyên bố đạt.
 - Kết quả vòng kiểm chứng: **ĐẠT** khi QA PASS và reviewer hết mục bắt buộc; **TẮC** khi cần quyết định/phụ thuộc ngoài; **CẠN LƯỢT** sau ba vòng chưa đạt. Các kết quả này không tự đổi phase status.

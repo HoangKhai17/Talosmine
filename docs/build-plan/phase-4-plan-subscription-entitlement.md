@@ -28,7 +28,8 @@ Không được hiểu bất kỳ đường dẫn, endpoint, migration, bảng, 
 - [ ] Chốt trusted source/operation allowlist, retention/retry window của `subscription_idempotency_records`, revoke SLA, entitlement cache/outage policy và last-known-good theo mức rủi ro feature.
 - [ ] Chốt danh sách admin permissions và separation of duties cho plan, subscription, override, service identity và audit read.
 - [ ] Chốt retention/privacy cho subscription, override, idempotency response, audit và log; không tạo purge job trước quyết định.
-- [ ] Nếu tạo draft `plan_quota_policies`, metric/unit/counting, window/timezone/DST, TTL và amount liên quan phải được phê duyệt đủ. Nếu chưa đủ, chỉ chuẩn bị ranh giới/schema được migration review chấp thuận, không cho nhập/publish quota policy.
+- [ ] Xác nhận quota schema/API/data được hoãn toàn bộ sang Phase 5; Phase 4 không tạo fixture, seed hoặc endpoint quota để thay cho quyết định metric/window/TTL còn mở.
+- [ ] Trước implementation, `docs/database-schema.md` phải được cập nhật với staged contract Phase 4 -> Phase 5 cho `service_identity_scopes`; migration Phase 4 đối chiếu contract staged đó sau source update, không suy diễn từ final schema hiện tại.
 - [ ] Kiểm chứng PostgreSQL/Supavisor thực tế và isolation level khi bootstrap trước khi chốt transaction implementation.
 
 Thiếu bất kỳ quyết định bắt buộc nào cho một luồng thì **dừng riêng luồng đó**, ghi blocker và không điền default tạm. Phase này không chọn payment provider.
@@ -37,7 +38,7 @@ Thiếu bất kỳ quyết định bắt buộc nào cho một luồng thì **d�
 
 - Các module Plan/Plan Version, Subscription, Entitlement và phần exact-feature scope của Service Identity trong cùng NestJS Control Plane modular monolith.
 - Các bảng `plans`, `plan_versions`, `plan_feature_grants`, `subscriptions`, `subscription_idempotency_records`, `entitlement_overrides`; Phase 4 tạo `service_identity_scopes` exact feature dựa trên `service_identities` và audit FK do Phase 3 tạo.
-- `plan_quota_policies` chỉ ở dạng cấu trúc draft nếu toàn bộ semantics đầu vào cần thiết đã được duyệt; không vận hành quota.
+- `service_identity_scopes` staging dùng đủ canonical columns để Phase 5 expand tại chỗ, nhưng capability/shape chỉ chấp nhận `entitlement:decide` với exact feature.
 - REST JSON versioned và OpenAPI 3.1 cho user, service và admin.
 - Next.js Web/BFF cho trang user và admin, responsive trên desktop/điện thoại/máy tính bảng.
 - Admin RBAC server-side, audit bắt buộc, temporal/concurrency/idempotency/security tests và migration/trigger tests.
@@ -47,6 +48,7 @@ Thiếu bất kỳ quyết định bắt buộc nào cho một luồng thì **d�
 
 - Payment provider, checkout, invoice, webhook, refund, pricing, proration và Billing Adapter thật.
 - Reserve/commit/cancel/status quota, usage bucket/reservation/event, reconciliation và mọi phép trừ quota.
+- Mọi quota API/data/table trong Phase 4, gồm `plan_quota_policies`, `quota_limit_overrides`, quota scope theo metric, usage ledger và quota seed/fixture.
 - Organization, team, shared subscription, pooled quota hoặc owner ngoài account cá nhân.
 - Data Plane business integration, gateway bắt buộc hoặc proxy business traffic qua Hub.
 - Materialized `effective_entitlements`, Redis/cache làm nguồn quyền, tên plan/`isPremium` trong app logic hoặc token.
@@ -56,11 +58,11 @@ Thiếu bất kỳ quyết định bắt buộc nào cho một luồng thì **d�
 ## 6. Deliverables
 
 1. OpenAPI 3.1 đã freeze cho toàn bộ endpoint trong phase, gồm auth scheme, reason code, idempotency và correlation.
-2. Migration forward-only cùng custom SQL trigger cho immutable Plan Version và append-only audit liên quan.
+2. Migration forward-only cùng custom SQL trigger cho immutable Plan Version, append-only audit liên quan và `service_identity_scopes` staging exact-feature.
 3. Plan module với draft builder, validation, publish và retire.
 4. Subscription module với timeline canonical, overlap prevention, lock order và replay semantics.
 5. Entitlement module tính quyết định dẫn xuất và quản lý override có precedence.
-6. Service Identity exact-feature scopes và re-authorization trước identity resolution.
+6. Service Identity scope staging có canonical columns nhưng named capability/shape checks chỉ cho `entitlement:decide`, `feature_id` non-null và `usage_metric_id` null; re-authorization diễn ra trước identity resolution.
 7. API/UI quản lý exact feature scope dựa trên baseline `service_identities` của Phase 3.
 8. User Web hiển thị plan/subscription/entitlement và Admin Web cho các use case quản trị được duyệt.
 9. Bộ test contract, unit, integration PostgreSQL, temporal boundary, concurrency, idempotency, security, audit, accessibility và responsive.
@@ -76,7 +78,7 @@ Các path dưới đây là **ranh giới mục tiêu**; tên file cụ thể ph
 | Plan backend | `apps/control-plane/src/modules/plan/` | Domain, application ports/use cases, controller và persistence Plan. |
 | Subscription backend | `apps/control-plane/src/modules/subscription/` | Timeline, lifecycle, idempotency và persistence Subscription. |
 | Entitlement backend | `apps/control-plane/src/modules/entitlement/` | Decision/override; không có effective-entitlement repository. |
-| Integration backend | `apps/control-plane/src/modules/service-identity/` | Exact feature scopes và authorization port. |
+| Integration backend | `apps/control-plane/src/modules/service-identity/` | Exact feature scopes trên staged schema; không có quota capability/API. |
 | Admin/Audit | `apps/control-plane/src/modules/admin/`, `apps/control-plane/src/modules/audit/` | Admin orchestration qua public ports và audit append. |
 | Migration | `apps/control-plane/drizzle/migrations/` | Drizzle forward migration và custom SQL trigger/constraint. |
 | User Web | `apps/web/` | Route/component/BFF client cho plan, subscription, entitlement của chính user. |
@@ -88,19 +90,21 @@ Không tạo HTTP loopback giữa các module. Module consumer gọi public appl
 
 ## 8. DB/migration
 
-1. Migration Phase 4 trong `apps/control-plane/drizzle/migrations/` phải chạy sau migration Phase 3 đã tạo `service_identities`, `audit_events` và actor FK. Không tạo lại baseline đó; chuỗi tạo mới là `plans` -> `plan_versions` -> `plan_feature_grants` -> `plan_quota_policies` nếu đủ quyết định -> `subscriptions` -> `subscription_idempotency_records` -> `entitlement_overrides` -> `service_identity_scopes`; giữ FK `ON DELETE RESTRICT` mặc định.
-2. Dùng `uuid` do application sinh, `timestamptz` UTC, DB clock cho thời gian quyết định, `text` + named `CHECK` cho state, `bigint` và decimal string ở API cho quantity nếu quota draft được phép.
+1. Migration Phase 4 trong `apps/control-plane/drizzle/migrations/` phải chạy sau migration Phase 3 đã tạo `service_identities`, `audit_events` và actor FK. Không tạo lại baseline đó; chuỗi tạo mới là `plans` -> `plan_versions` -> `plan_feature_grants` -> `subscriptions` -> `subscription_idempotency_records` -> `entitlement_overrides` -> `service_identity_scopes`; giữ FK `ON DELETE RESTRICT` mặc định. Phase 4 không tạo `plan_quota_policies` hoặc `quota_limit_overrides`.
+2. Dùng `uuid` do application sinh, `timestamptz` UTC, DB clock cho thời gian quyết định và `text` + named `CHECK` cho state; Phase 4 không có quota quantity/API data.
 3. `plan_versions` có unique `(plan_id, version)`, state shape và vòng đời duy nhất `draft -> published -> retired`; publish gán `published_at` bằng DB clock.
-4. Custom SQL tạo `plan_versions_immutable_snapshot_trg`, `plan_feature_grants_immutable_trg` và `plan_quota_policies_immutable_trg`. Trigger phải khóa/đọc parent và chặn insert/update/delete cấu hình khi parent đã published/retired.
+4. Custom SQL tạo `plan_versions_immutable_snapshot_trg` và `plan_feature_grants_immutable_trg`. Trigger phải khóa/đọc parent và chặn insert/update/delete grant khi parent đã published/retired; trigger quota policy chỉ được bổ sung khi Phase 5 tạo bảng đó.
 5. `subscriptions` giữ `account_id`, `plan_version_id`, status, `starts_at`, `ends_at`, `cancel_at`, trusted `source`, optional `source_reference` và supersession reference; không có organization/team columns.
 6. Định nghĩa `effective_end = LEAST(cancel_at, ends_at)` theo PostgreSQL NULL semantics. Predicate hiệu lực tại database time `t` là `starts_at <= t AND t < COALESCE(effective_end, infinity)` với status `pending|active|cancel_at_period_end`.
 7. Overlap dùng interval `[starts_at,effective_end)` của **mọi row và mọi status**, kể cả suspended/canceled/expired. Mutation khóa account để serialize; start mới đúng prior effective end phải được chấp nhận.
 8. Terminal transition sang `canceled`/`expired` phải ghi `ends_at` hữu hạn trong cùng transaction. `cancel_at_period_end` phải có `cancel_at > starts_at` và không sau `ends_at` nếu end tồn tại.
 9. `subscription_idempotency_records` unique theo `(trusted_source, operation, idempotency_key)`, lưu fingerprint, state, bounded sanitized replay và expiry. Lock order: idempotency record -> account -> subscription.
 10. `entitlement_overrides` lưu effect `allow|deny`, validity `[valid_from,valid_until)`, creator/revoker và reason; không update nội dung lịch sử, chỉ revoke theo shape constraint và audit.
-11. `service_identity_scopes` dùng composite FK để feature, application và service binding khớp nhau; `entitlement:decide` bắt buộc đúng một `feature_id`, `usage_metric_id` null, lifecycle active/revoked.
-12. Sensitive mutation append `audit_events` bằng `operationId + sequence` trong cùng Unit of Work; lỗi audit rollback domain mutation.
-13. Migration validation phải kiểm tra tên constraint/index/trigger, quyền runtime không được DDL/disable trigger, immutable snapshot, overlap race, terminal finite end, scope shape và replay bound.
+11. Phase 4 tạo `service_identity_scopes` staging với canonical columns: `id`, `service_identity_id`, `application_id`, `capability`, `feature_id`, `usage_metric_id`, `status`, `revoked_at`, `revocation_reason`, `created_at`, `updated_at`. Composite FK bảo đảm service/feature/application binding; cột metric tồn tại để expand forward ở Phase 5 nhưng mọi row Phase 4 phải có metric null.
+12. Named `service_identity_scopes_capability_check` ở Phase 4 chỉ cho `entitlement:decide`; named `service_identity_scopes_shape_check` yêu cầu đúng một `feature_id` non-null và `usage_metric_id IS NULL`. Chỉ tạo `service_identity_scopes_active_feature_key` cùng feature lookup index theo staged source contract; không tạo `service_identity_scopes_active_metric_key`, metric lookup index hoặc quota capability.
+13. Sensitive mutation append `audit_events` bằng `operationId + sequence` trong cùng Unit of Work; lỗi audit rollback domain mutation.
+14. Migration validation phải kiểm tra canonical columns, tên staging checks/indexes, từ chối mọi `quota:*`/metric row, quyền runtime không được DDL/disable trigger, immutable snapshot, overlap race, terminal finite end và replay bound.
+15. Staged migration contract phải khớp phần Phase 4 của `docs/database-schema.md` sau source update; sai khác cột/check/index là blocker, không tự tạo biến thể thứ ba.
 
 Không rollback production bằng cách sửa snapshot published hoặc xóa history. Sau khi migration nhận write, ưu tiên forward-fix; rollback DDL chỉ được dùng trước traffic theo mục 19.
 
@@ -187,15 +191,15 @@ Backend ghi revision/commit cụ thể. Sau freeze, thay đổi breaking phải 
 ## 14. Tests
 
 - **Plan immutable:** mọi update/delete snapshot published/retired và insert/update/delete grant con đều bị custom SQL trigger chặn; chỉ `published -> retired` hợp lệ; concurrent publish chỉ có một kết quả canonical.
-- **Publish validation:** draft thiếu grant bắt buộc, feature sai app, quota draft chưa đủ semantics hoặc state không hợp lệ bị từ chối và không có audit “thành công”.
+- **Publish validation:** draft thiếu grant bắt buộc, feature sai app hoặc state không hợp lệ bị từ chối và không có audit “thành công”; không có quota policy input/API trong Phase 4.
 - **Temporal:** test đúng trước/tại/sau `starts_at`, `cancel_at`, `ends_at`; cả hai end null; một end null; end bằng start mới; pending tự effective; terminal không effective.
 - **Overlap:** mọi cặp status, interval nested/equal/touching/infinite; two concurrent creates/changes cùng account không tạo overlap; terminal row vẫn tham gia check.
 - **Lifecycle:** mọi transition cho phép và mọi transition cấm; terminal luôn có finite `ends_at`; undo scheduled cancel chỉ khi policy cho phép và clear shape đúng.
 - **Subscription idempotency:** cùng source/operation/key + fingerprint replay đúng response; fingerprint khác conflict; concurrent same-key có một mutation/audit outcome; source từ authentication, không từ body.
 - **Entitlement precedence:** disabled/pending account deny; deny override thắng allow/grant; expired/revoked override không ảnh hưởng; thiếu subscription/grant deny; rename plan không đổi decision.
-- **Scope/security:** wrong app/feature/scope deny trước identity resolution; forged account ID bị từ chối; revoked identity/scope deny request mới; response không lộ existence/secret/plan name.
+- **Scope/security:** wrong app/feature/scope deny trước identity resolution; forged account ID bị từ chối; revoked identity/scope deny request mới; response không lộ existence/secret/plan name; staging DB từ chối `quota:*`, metric-bound scope và feature-null row.
 - **Audit:** mutation thành công có đúng audit sequence; audit append failure rollback mutation; equivalent retry không duplicate; conflicting audit replay rollback.
-- **Database:** named constraints, composite FK, partial unique, role grants, trigger SQLSTATE/application error và forward migration từ schema trước được kiểm tra trên PostgreSQL thật.
+- **Database:** canonical staged columns, entitlement-only named checks, `service_identity_scopes_active_feature_key`/feature lookup index, composite FK, role grants, trigger SQLSTATE/application error và forward migration từ Phase 3 được kiểm tra trên PostgreSQL thật; xác nhận không có metric index và không tồn tại `plan_quota_policies`/`quota_limit_overrides` do Phase 4 tạo.
 - **API contract:** OpenAPI validation, error envelope, auth audience, idempotency/correlation headers và examples.
 - **Web:** own-data isolation, loading/error/empty/conflict, keyboard/focus/label/contrast, mobile/tablet/desktop layout và server RBAC bypass attempts.
 
@@ -206,7 +210,7 @@ Không sửa test để hợp thức hóa hành vi trái contract. Test dùng da
 1. Xác nhận Phase 3 sign-off và ghi đầy đủ quyết định mục 3; blocker nào chưa chốt thì không lập fixture/default cho blocker đó.
 2. Architect thiết kế state machine, permission matrix, port input/output và threat model ở chế độ read-only; đối chiếu `docs/modular.md` và `docs/database-schema.md`, review và xác nhận revision đủ điều kiện freeze.
 3. Backend, với vai trò contract writer duy nhất do orchestrator giao, ghi OpenAPI, error/reason registry, idempotency fingerprint inputs và ví dụ vào `contracts/openapi/control-plane.v1.yaml`; architect review read-only trước khi freeze revision.
-4. Viết migration Plan/Subscription/Entitlement/feature scope theo dependency; thêm custom SQL triggers và migration tests trước repository.
+4. Viết migration Plan/Subscription/Entitlement và staged exact-feature scope theo dependency; tạo canonical scope columns nhưng entitlement-only checks/indexes, thêm custom SQL triggers và migration tests trước repository; không tạo quota table/API/data.
 5. Hiện thực Plan domain/application/persistence; khóa invariant draft/publish/retire ở service và DB.
 6. Hiện thực Subscription timeline, canonical predicate, overlap transaction, trusted source, idempotency và audit UoW.
 7. Hiện thực Service Scope Authorization exact feature và Entitlement decision theo đúng thứ tự security.
@@ -240,9 +244,9 @@ Migration dependency và custom trigger được backend thực hiện tuần t�
 
 ## 17. Checklist
 
-- **Functional:** [ ] Tất cả endpoint frozen có ít nhất một happy-path và một denial test; [ ] plan version chỉ đi đúng ba state; [ ] subscription boundary tests đạt; [ ] entitlement đổi theo grant/subscription/override mà không deploy app.
+- **Functional:** [ ] Tất cả endpoint frozen có ít nhất một happy-path và một denial test; [ ] plan version chỉ đi đúng ba state; [ ] subscription boundary tests đạt; [ ] entitlement đổi theo grant/subscription/override mà không deploy app; [ ] OpenAPI/router không có quota operation.
 - **Security:** [ ] 100% service-decision negative cases sai issuer/audience/app/feature/scope bị deny; [ ] exact scope được chứng minh chạy trước identity resolution; [ ] account disabled và deny override luôn deny; [ ] không response/log/audit nào chứa secret/token/plan authorization flag.
-- **DB:** [ ] Migration sạch từ baseline đạt; [ ] mọi named constraint/index/trigger dự kiến tồn tại; [ ] custom trigger test chặn đủ INSERT/UPDATE/DELETE bất hợp lệ; [ ] runtime role không DDL/disable trigger.
+- **DB:** [ ] Migration sạch từ Phase 3 đạt; [ ] `service_identity_scopes` có đủ canonical columns nhưng entitlement-only named checks/indexes; [ ] `quota:*`, metric scope và invalid feature shape bị DB từ chối; [ ] không có `plan_quota_policies`/`quota_limit_overrides`/usage ledger do Phase 4 tạo; [ ] custom trigger test chặn đủ mutation bất hợp lệ; [ ] runtime role không DDL/disable trigger.
 - **Concurrency:** [ ] Test đồng thời publish chỉ có một transition; [ ] same-key subscription mutation chỉ có một domain/audit outcome; [ ] concurrent timeline mutation không tạo overlap; [ ] không có deadlock lặp lại ngoài retry policy đã duyệt.
 - **Accessibility:** [ ] User/admin pages qua automated scan không có lỗi nghiêm trọng; [ ] toàn bộ form/dialog/table dùng được bằng keyboard; [ ] focus/error association và accessible name có assertion.
 - **Responsive:** [ ] Các viewport mobile/tablet/desktop đã freeze không có horizontal overflow ngoài container bảng chủ ý; [ ] action quan trọng và timeline đọc/thao tác được ở từng viewport.
@@ -257,13 +261,13 @@ Mỗi ô phải có evidence: test case/output, migration inspection, screenshot
 Phase chỉ đủ điều kiện thoát khi:
 
 1. Mọi prerequisite áp dụng đã có quyết định được lưu và không còn default ngầm.
-2. Migration/trigger, backend, Web và OpenAPI cùng một contract revision; toàn bộ required test pass bằng output thật.
+2. Migration/trigger, backend, Web và OpenAPI cùng một contract revision; staged scope schema khớp `docs/database-schema.md` sau source update; toàn bộ required test pass bằng output thật.
 3. Published Plan Version được chứng minh bất biến ở API và database.
 4. Subscription canonical predicate, effective end, overlap, account lock, trusted source và idempotency đạt temporal/concurrency tests.
-5. Entitlement được tính, không có bảng effective entitlement; exact scope-before-resolution, disabled deny và deny precedence đạt security tests.
+5. Entitlement được tính, không có bảng effective entitlement; exact scope-before-resolution, disabled deny và deny precedence đạt security tests. `service_identity_scopes` có canonical columns nhưng chỉ lưu/authorize entitlement feature scope.
 6. User/Admin Web đạt functional, accessibility và responsive gates; server RBAC không bypass được.
 7. Audit failure rollback mutation và log/metric/correlation đáp ứng observability gate.
-8. Không có quota reserve hay billing capability được đưa vào phase.
+8. Không có quota API/data/table được đưa vào phase, gồm `plan_quota_policies`, `quota_limit_overrides`, metric scope và usage ledger; không có billing capability.
 9. QA ký **PASS** và reviewer không còn mục “phải sửa”.
 
 ## 19. Stop/rollback
