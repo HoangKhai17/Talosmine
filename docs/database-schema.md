@@ -655,6 +655,15 @@ Nếu response nghiệp vụ không vừa bound 64 KiB, API phải lưu represen
 
 Mọi sensitive domain mutation gọi `AuditAppendPort` trong cùng shared PostgreSQL transaction/Unit of Work với mutation. `operation_id` ổn định qua retry và `sequence` xác định từng event. Port dùng conflict-safe insert; khi `(operation_id, sequence)` đã tồn tại, nó đọc và so sánh các immutable audit fields, chỉ coi là replay nếu nội dung tương đương, còn khác nội dung là conflict và rollback UoW. Async event phát sau commit chỉ phục vụ integration/observability, **không thay thế** transactional audit append.
 
+#### Phased migration P2 -> P3
+
+Phân kỳ này chỉ là **deployment staging** để migration không tạo FK trước bảng đích; định nghĩa `audit_events` ở trên vẫn là canonical final schema và không thay đổi cột, nullability, FK hay actor shape cuối cùng.
+
+- **P2 — Admin/Audit foundation:** sau khi có Account/Identity, tạo `admin_roles`, `admin_role_permissions`, `admin_role_assignments` và nền `audit_events`. Cột `actor_service_identity_id` đã tồn tại và nullable nhưng chưa có FK vì `service_identities` chưa được tạo. Actor check P2 chỉ chấp nhận `account` hoặc `system`: `account` bắt buộc có `actor_account_id` và không có service actor; `system` không có cả hai actor ID. Runtime P2 phải từ chối mọi service actor và luôn yêu cầu `actor_service_identity_id IS NULL`.
+- **P3 — Canonical upgrade:** tạo Catalog với `applications` trước, sau đó mới tạo `service_identities`. Khi bảng đích đã tồn tại, thêm FK của `audit_events.actor_service_identity_id` tới `service_identities(id) ON DELETE RESTRICT`, rồi thay actor check P2 bằng canonical check cho `account`, `service`, `system`: đúng một actor ID tương ứng cho `account`/`service`, và cả hai ID đều null cho `system`.
+
+P2 không phải một biến thể schema được hỗ trợ lâu dài và không được dùng để nhận service audit actor. Sau bước nâng cấp P3, bảng phải khớp chính xác định nghĩa canonical tại mục 10.4.
+
 ## 11. State machines
 
 State transition được service kiểm tra trong transaction; DB `CHECK` chỉ khóa tập trạng thái và tính nhất quán cột.
@@ -849,25 +858,27 @@ Trigger không tự điền quota, metric hoặc business policy còn thiếu.
 
 ### 17.1. Thứ tự tạo
 
-1. Tạo schema `control_plane`, runtime/migration roles và grants tối thiểu.
-2. `accounts`.
-3. Identity: `external_identities`, `web_sessions`.
-4. Catalog: `applications`, redirect URIs, `features`, `usage_metrics`.
-5. Plan: `plans`, `plan_versions`, grants, quota policies.
-6. `subscriptions`, rồi `subscription_idempotency_records`.
-7. Entitlement overrides.
-8. Service identities và resource-specific scopes.
-9. Quota theo thứ tự buckets → reservations (gồm composite unique ID/bucket) → events (gồm composite FK reservation/bucket) → idempotency.
-10. Admin roles, permissions, assignments, rồi `audit_events` với unique operation sequence.
-11. Custom SQL cho composite/partial indexes chưa được Drizzle DSL hỗ trợ, immutable/append-only triggers và role grants.
-12. Chạy migration validation: constraint existence/name; subscription temporal/state shapes và overlap `[starts_at, effective_end)` gồm terminal rows; scope shape/partial unique; `usage_events_reservation_shape_check` cùng event/bucket binding; audit operation idempotency; trigger behavior; published mutation rejection; append-only rejection; duplicate expiration candidates chỉ tạo một transition/event; và concurrent quota tests trước khi nhận traffic.
+Migration triển khai theo phase; thiết kế canonical gồm 25 domain tables nhưng **không** tạo cả 25 bảng trong một lần. Trong mỗi phase, chỉ tạo FK sau khi target table hoặc composite target key đã tồn tại.
+
+1. **Schema:** tạo schema `control_plane`, migration/runtime roles và grants nền tối thiểu.
+2. **P2 — Account + Identity:** tạo `accounts`, sau đó `external_identities` và `web_sessions`.
+3. **P2 — Admin/Audit staging:** tạo admin roles, permissions, assignments, rồi `audit_events` theo actor constraint P2 tại mục 10.4; `actor_service_identity_id` nullable, chưa có FK và runtime chưa chấp nhận service actor.
+4. **P3 — Catalog:** tạo `applications` trước redirect URIs, `features` và `usage_metrics`, theo dependency của các FK/composite key.
+5. **P3 — Service Identity:** sau khi `applications` tồn tại, tạo `service_identities`; chưa tạo resource-specific scopes thuộc P4.
+6. **P3 — Upgrade Audit:** kiểm tra dữ liệu staging tương thích, thêm FK service actor `ON DELETE RESTRICT`, rồi thay actor check P2 bằng canonical account/service/system check.
+7. **P4 — Plan, Subscription, Entitlement và scopes:** tạo `plans`, `plan_versions`, plan grants/quota policies; tiếp theo `subscriptions`, `subscription_idempotency_records`, entitlement/quota overrides và `service_identity_scopes` theo dependency.
+8. **P5 — Quota:** tạo buckets → reservations (gồm composite unique ID/bucket) → events (gồm composite FK reservation/bucket) → idempotency records.
+9. **Theo từng phase:** tạo custom composite/partial indexes, trigger và role grants ngay khi các bảng phụ thuộc của phase đó đã tồn tại; không trì hoãn bảo vệ append-only của P2 và không cấp quyền cho object chưa được tạo.
+10. Chạy validation của từng phase trước khi phase đó nhận traffic: constraint existence/name; P2/P3 audit actor behavior; subscription temporal/state shapes và overlap `[starts_at, effective_end)` gồm terminal rows; scope shape/partial unique; `usage_events_reservation_shape_check` cùng event/bucket binding; audit operation idempotency; trigger behavior; published mutation rejection; append-only rejection; duplicate expiration candidates chỉ tạo một transition/event; và concurrent quota tests khi các thành phần tương ứng được tạo.
 
 ### 17.2. Forward-only và rollback
 
 - Production dùng Drizzle Kit forward migrations đã review; mỗi migration có ID bất biến và không sửa file đã apply.
 - DDL destructive, rewrite bảng lớn và `NOT NULL` mới dùng expand → backfill có kiểm chứng → validate constraint → contract ở migration sau. Dùng `NOT VALID`/`VALIDATE CONSTRAINT` khi phù hợp và được kiểm thử trên PostgreSQL version thực tế.
+- Migration test P2 phải chứng minh DB constraint và runtime đều từ chối `actor_type = 'service'` hoặc mọi giá trị non-null của `actor_service_identity_id`; account/system actor hợp lệ vẫn được chấp nhận đúng shape P2.
+- Trước khi nâng cấp audit ở P3, migration phải kiểm tra không có row không tương thích với canonical actor shape hoặc FK mới. Chỉ thêm/validate FK và thay check sau khi validation này thành công; test phải bao phủ dữ liệu hợp lệ, service identity không tồn tại và các tổ hợp actor ID sai shape.
 - Không rollback bằng cách xóa usage/audit/history hoặc sửa published snapshot. Sau khi migration đã nhận write, ưu tiên forward-fix.
-- Rollback chỉ dành cho migration chưa nhận dữ liệu/traffic và phải có script được review, backup/PITR checkpoint cùng tiêu chí dừng rõ ràng. Supabase self-hosted yêu cầu dự án tự vận hành backup, WAL/PITR và restore drill.
+- Trước khi phase nhận traffic/write, rollback rehearsal có thể đảo ngược migration staging bằng script đã review. Sau khi đã có write, không đảo constraint/FK bằng rollback phá hủy dữ liệu; dùng forward-fix đã review và giữ nguyên lịch sử. Mọi rollback cần backup/PITR checkpoint cùng tiêu chí dừng rõ ràng. Supabase self-hosted yêu cầu dự án tự vận hành backup, WAL/PITR và restore drill.
 - Migration chạy bằng role riêng; runtime role không được `CREATE`, `ALTER`, `DROP`, disable trigger hay truy cập schema ngoài nhu cầu.
 
 ## 18. Quyết định còn mở
