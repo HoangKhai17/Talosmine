@@ -144,7 +144,7 @@ Có hai tầng freeze:
 1. **Phase contract:** OpenAPI version, auth schemes, reason codes, idempotency/status semantics, compatibility/deprecation và distribution mechanism.
 2. **Per-app annex:** exact identity/audience/redirect/scopes, stable feature/metric keys, domain auth mapping, counting examples, async workflow, outage/revoke/rollback và UI mapping.
 
-Không freeze Phase 7 khi mandatory onboarding roster chưa được phê duyệt đủ app và required environments. Mỗi annex phải được app owner, Control Plane owner, security, tester và product owner ký trước implementation. Breaking change phải cập nhật OpenAPI/annex, regenerate hoặc nâng adapter/client, chạy lại provider/consumer contract tests và rollout theo version; không ép mọi app nâng đồng thời nếu compatibility policy chưa cho phép.
+Không freeze Phase 7 khi mandatory onboarding roster chưa được phê duyệt đủ app và required environments. Mỗi annex phải được **chủ dự án** ký trước implementation (DEC-G01) — đây là một người ký, không phải chuỗi phê duyệt nhiều vai. `architect` review read-only trước khi ký và `tester` xác nhận annex đủ để viết test; cả hai là lane kỹ thuật, **không phải** approver, và không thay thế chữ ký của chủ dự án. Breaking change phải cập nhật OpenAPI/annex, regenerate hoặc nâng adapter/client, chạy lại provider/consumer contract tests và rollout theo version; không ép mọi app nâng đồng thời nếu compatibility policy chưa cho phép.
 
 Với app có side effect hoặc worker/redelivery, annex phải kế thừa requirement Phase 6 về durable logical operation state trong datastore app, atomic claim/transition, reservation persistence, lease/recovery, side-effect idempotency và approved crash-window evidence; Quota idempotency không bảo đảm business effect exactly once.
 

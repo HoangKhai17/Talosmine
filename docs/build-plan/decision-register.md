@@ -101,9 +101,16 @@ Mọi version dưới đây được đọc từ registry thật ngày 2026-07-1
 ### DEC-T10 — Supabase self-hosted
 
 - **Quyết định:** dùng `docker/docker-compose.yml` của repo chính thức `supabase/supabase` tại tag **`v1.26.07`**.
-- **Pin:** tại P1.10, mọi image tag trong compose được thay bằng **digest** (`image: ...@sha256:...`) và ghi vào `infra/compose/IMAGE-PINS.md`. Không dùng tag trôi (`latest`, `nightly`).
-- **Cắt giảm scope:** dự án chỉ cần **PostgreSQL + Supavisor + Studio**. Các service khác của Supabase (Auth/GoTrue, Realtime, Storage, Edge Functions, Kong) **bị loại khỏi compose** — dự án dùng Auth0 cho identity nên GoTrue là thừa và là bề mặt tấn công không cần thiết.
-- **Network:** toàn bộ service Supabase nằm trên internal network, không publish port ra host. Chỉ Caddy expose ra ngoài.
+- **Bằng chứng (đọc thật ngày 2026-07-17):** compose tại tag này có **13 service** — `db`, `supavisor`, `studio`, `meta`, `kong`, `auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`, `db-config`, `deno-cache`. Image gốc: `supabase/postgres:17.6.1.136`, `supabase/supavisor:2.9.5`, `supabase/studio:2026.07.07-sha-a6a04f2`, `supabase/postgres-meta:v0.96.6`, `kong/kong:3.9.1`, `supabase/gotrue:v2.189.0`, `postgrest/postgrest:v14.12`, `supabase/realtime:v2.102.3`, `supabase/storage-api:v1.60.4`, `darthsim/imgproxy:v3.30.1`, `supabase/edge-runtime:v1.74.0`.
+- **Lưu ý tên service:** PostgreSQL tên là **`db`**, không phải `postgres`. Mọi hostname, healthcheck và connection string phải dùng `db`.
+- **Cắt giảm scope — bắt buộc giữ:** `db` và `supavisor`. Đây là hai service duy nhất mà runtime nghiệp vụ cần.
+- **Cắt giảm scope — loại bỏ:** `auth` (GoTrue), `rest` (PostgREST), `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache`. Dự án dùng **Auth0** cho identity nên GoTrue là thừa; Control Plane là API duy nhất nên PostgREST sẽ tạo một đường truy cập DB thứ hai vòng qua toàn bộ enforcement của Control Plane — loại nó là quyết định **bảo mật**, không phải tối ưu dung lượng.
+- **Studio — câu hỏi mở, P1.10 phải trả lời bằng thực nghiệm:** `studio` phụ thuộc `meta` (`STUDIO_PG_META_URL: http://meta:8080`) **và** `kong` (`SUPABASE_URL: http://kong:8000`); bản thân `meta` cũng `depends_on: kong`. Nghĩa là **không thể** giữ Studio mà bỏ Kong một cách trọn vẹn. P1.10 phải chọn một trong hai và ghi lại kết quả quan sát được:
+  - **(a)** giữ `db + supavisor + studio + meta + kong` — Studio đầy đủ, đổi lại kéo theo Kong.
+  - **(b)** giữ `db + supavisor` — bỏ Studio, dùng `pnpm db:studio` (Drizzle Studio, DEC-T15) cho nhu cầu quản trị.
+  Không chọn trước ở đây vì lựa chọn phụ thuộc việc Studio có thực sự dùng được ở chế độ thiếu Kong hay không — đó là điều phải quan sát, không phải suy đoán. `../stack-tech.md` có nhắc "Supabase Studio chỉ dùng cho quản trị riêng tư"; nếu P1.10 chọn (b) thì phải cập nhật lại dòng đó tại stack-tech và ghi record superseding, **không** âm thầm lệch khỏi stack đã duyệt.
+- **Pin:** tại P1.10, mọi image được thay bằng **digest** (`image: ...@sha256:...`) và ghi vào `infra/compose/IMAGE-PINS.md`. Không dùng tag trôi (`latest`, `nightly`).
+- **Network:** toàn bộ service nằm trên internal network, không publish port ra host. Chỉ Caddy expose ra ngoài.
 - **Affected phase:** P1, P8.
 
 ### DEC-T11 — Reverse proxy

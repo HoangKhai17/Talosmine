@@ -57,7 +57,7 @@ Máy dev hiện chạy **Node v25.2.1**, không phải LTS. Bước P1.3 phải 
 - `apps/web`: Next.js 16 responsive, route group `(user)`, `admin`, `auth`, BFF boundary.
 - `apps/control-plane`: NestJS 11 + Fastify adapter, entrypoint `main-api` và `main-worker` dùng chung code.
 - Module-boundary convention theo `../modular.md`; không repository/query xuyên module, không HTTP loopback nội bộ.
-- Supabase self-hosted compose **rút gọn**: chỉ PostgreSQL + Supavisor + Studio, private network, pin digest.
+- Supabase self-hosted compose **rút gọn**: bắt buộc `db` + `supavisor`; Studio theo nhánh (a)/(b) do P1.10 quyết bằng thực nghiệm (DEC-T10). Private network, pin digest.
 - Caddy skeleton; không public Supabase/Studio/Supavisor.
 - `.env.example` + env schema validate bằng zod; không secret.
 - Tách role migration và role runtime, least privilege.
@@ -130,7 +130,8 @@ Canonical path không đổi xuyên plan: `apps/control-plane/drizzle/migrations
 
 ## 8. DB/migration
 
-- Compose Supabase **rút gọn theo DEC-T10**: chỉ `postgres`, `supavisor`, `studio`. Loại GoTrue/Realtime/Storage/Kong/Edge Functions — dự án dùng Auth0 nên GoTrue là thừa và là bề mặt tấn công không cần thiết.
+- Compose Supabase **rút gọn theo DEC-T10**. Bắt buộc giữ `db` (tên service của PostgreSQL — **không phải** `postgres`) và `supavisor`. Loại `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions`/`deno-cache`: dự án dùng Auth0 nên GoTrue thừa, và PostgREST sẽ mở một đường vào DB thứ hai vòng qua toàn bộ enforcement của Control Plane — loại nó là quyết định bảo mật.
+- **Studio là câu hỏi mở P1.10 phải trả lời bằng thực nghiệm** (DEC-T10): `studio` phụ thuộc `meta` *và* `kong`, nên không thể giữ Studio mà bỏ Kong trọn vẹn. Chọn (a) `db+supavisor+studio+meta+kong` hoặc (b) `db+supavisor` rồi dùng `pnpm db:studio`. Nếu chọn (b) thì phải cập nhật `../stack-tech.md` và ghi record superseding, không âm thầm lệch khỏi stack đã duyệt.
 - Mọi image pin **digest**, ghi ở `infra/compose/IMAGE-PINS.md`. Không tag trôi.
 - Không service nào publish port ra host. Chỉ Caddy expose.
 - **Runtime** nối PostgreSQL qua **Supavisor**, driver `postgres.js` với `prepare: false` (DEC-T09).
@@ -294,10 +295,11 @@ Thứ tự: approval path điều kiện → contract freeze → bootstrap works
 - Lane: `backend`.
 
 **P1.10 — Compose Supabase rút gọn, Caddy, env và CI/GHCR**
-- Hành động: lấy `docker/docker-compose.yml` từ `supabase/supabase` tag `v1.26.07`; **cắt còn `postgres` + `supavisor` + `studio`** (loại GoTrue/Realtime/Storage/Kong/Edge Functions theo DEC-T10); thay mọi tag bằng **digest** và ghi `infra/compose/IMAGE-PINS.md`; bỏ mọi `ports:` publish ra host; viết `infra/caddy/Caddyfile` chỉ route web/API; viết `.env.example` không secret; viết 4 workflow `quality`/`test`/`db`/`build` với GHCR push có điều kiện.
+- Hành động: lấy `docker/docker-compose.yml` từ `supabase/supabase` tag `v1.26.07` (13 service — xem bằng chứng tại DEC-T10); **giữ `db` + `supavisor`**, loại `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions`/`deno-cache`; **quyết định Studio bằng thực nghiệm** theo hai phương án (a)/(b) tại DEC-T10 rồi ghi lại kết quả; thay mọi image bằng **digest** và ghi `infra/compose/IMAGE-PINS.md`; bỏ mọi `ports:` publish ra host; viết `infra/caddy/Caddyfile` chỉ route web/API; viết `.env.example` không secret; viết 4 workflow `quality`/`test`/`db`/`build` với GHCR push có điều kiện.
 - Sản phẩm: `infra/compose/docker-compose.yml`, `infra/compose/IMAGE-PINS.md`, `infra/caddy/Caddyfile`, `.env.example`, `.github/workflows/`.
 - Phụ thuộc: approval P1.2; spike P1.5; topology P1.6; manifest P1.4.
-- Verify: `docker compose -f infra/compose/docker-compose.yml config` validate không lỗi; `docker compose ... up -d` rồi `docker compose ... ps` cho thấy container healthy; **`docker compose ... port postgres 5432` không trả gì** và `netstat`/`ss` xác nhận không có port Supabase nào bind ra host; chỉ Caddy expose; `IMAGE-PINS.md` không còn tag trôi; grep `.env.example` không thấy secret thật; CI chạy đủ 4 job; step GHCR khi thiếu credential thì **skip và báo skip**, không log như thành công.
+- Verify: `docker compose -f infra/compose/docker-compose.yml config` validate không lỗi; `docker compose ... up -d` rồi `docker compose ... ps` cho thấy container healthy; **`docker compose ... port db 5432` không trả gì** và `ss -ltnp` xác nhận không port Supabase nào bind ra host — chỉ Caddy expose; `IMAGE-PINS.md` không còn tag trôi; grep `.env.example` không thấy secret thật; CI chạy đủ 4 job; step GHCR khi thiếu credential thì **skip và báo skip**, không log như thành công.
+  Riêng Studio: nếu chọn (a), chứng minh Studio **thật sự mở được** và liệt kê chính xác service kéo theo; nếu chọn (b), chứng minh `pnpm db:studio` đáp ứng nhu cầu quản trị và **cập nhật `../stack-tech.md`** cùng record superseding. Không ghi "Studio hoạt động" nếu chưa mở thử.
 - Lane: `orchestrator` (hoặc agent được manifest giao path chính xác).
 
 **P1.11 — Viết baseline/smoke/migration/contract tests** *(song song với P1.8, P1.9)*
@@ -359,7 +361,8 @@ Mỗi shared/root file và `contracts/openapi/**` có **đúng một** writer. A
 - [ ] Supabase/Studio/Supavisor không publish port; chỉ Caddy expose.
 - [ ] BFF/client boundary không đưa server secret/M2M config vào browser bundle.
 - [ ] CSP/image/admin guard đúng DEC-T12; không wildcard, không dev bypass.
-- [ ] Compose đã loại GoTrue/Realtime/Storage/Kong theo DEC-T10.
+- [ ] Compose đã loại `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions` theo DEC-T10; đặc biệt **PostgREST không chạy** (nó sẽ là đường vào DB thứ hai vòng qua enforcement của Control Plane).
+- [ ] Quyết định Studio (a)/(b) được ghi kèm bằng chứng quan sát được, không phải suy đoán.
 
 ### DB
 - [ ] Mọi image pin digest ở `IMAGE-PINS.md`; không tag trôi.

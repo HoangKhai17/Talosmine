@@ -132,7 +132,7 @@ Không freeze path/payload cụ thể trước khi chọn provider. Sau approval
 - browser/BFF operation để server tạo checkout/manage intent theo user session đã xác thực;
 - provider ingress xác minh trên raw request/official mechanism trước parse/trust, có kích thước/rate/time/replay controls;
 - user query chỉ trả billing/subscription status được phép, không trả provider secret hoặc dữ liệu payment nhạy cảm;
-- admin operations có permission riêng, reason, idempotency, audit và separation of duties cho refund/cancel/replay/reconcile;
+- admin operations có permission riêng, reason, idempotency và audit cho refund/cancel/replay/reconcile; với một admin duy nhất, audit trail append-only là chốt chặn thay cho separation of duties;
 - internal handler nhận **verified event envelope**, deduplicate, áp dụng ordering policy và chỉ gọi `SubscriptionMutationPort`;
 - reconciliation query provider theo credential tối thiểu, so sánh nguồn đã duyệt và đưa mismatch không suy ra được vào manual path.
 
@@ -322,7 +322,7 @@ Runbook này là **chuẩn bị deferred**, không phải lệnh khởi công. P
 - **Sản phẩm:** `docs/**` (QA report, reviewer report, go/no-go record billing).
 - **Phụ thuộc:** Bước 1–12.
 - **Verify:** QA PASS và reviewer hết mục "phải sửa"; ADR approval chỉ mở phase, không tự đáp ứng exit gate; kết quả `PASS`/`FAIL`/`TẮC`/`CẠN LƯỢT` là verification metadata, không thay canonical status `blocked`/`deferred` trong tài liệu kế hoạch.
-- **Lane:** `subagent/qa` và `subagent/reviewer` (read-only, `edit: deny`); go/no-go thuộc người có thẩm quyền.
+- **Lane:** `subagent/qa` và `subagent/reviewer` (read-only, `edit: deny`); go/no-go thuộc chủ dự án.
 
 ## 16. Parallel lanes và ownership
 
@@ -388,7 +388,7 @@ Phase 9 chỉ có thể chuyển từ deferred sang hoàn tất khi:
 - schema/migration/privacy/PCI/outbox review đạt và staging rollout/rollback/restore evidence đầy đủ;
 - user/admin UI đạt security, accessibility, responsive và lifecycle messaging;
 - refund/cancel/payment failure/entitlement timing/concurrency tests đạt đúng decision table;
-- audit/observability/runbook/support ownership sẵn sàng;
+- audit/observability/runbook sẵn sàng, và chủ dự án chấp nhận rõ việc tự gánh support/refund/đối soát liên tục sau go-live;
 - `docs/index.md`, `docs/modular.md`, `docs/database-schema.md` và OpenAPI đã được cập nhật, review và không còn mô tả billing là deferred sai với trạng thái thực;
 - QA PASS và reviewer hết mục “phải sửa”.
 
@@ -401,7 +401,7 @@ ADR approval chỉ mở phase, không tự đáp ứng exit gate hay chứng min
 Dừng implementation và giữ trạng thái `blocked` cùng metadata `deferred: true` nếu:
 
 - chưa chọn/duyệt provider hoặc bất kỳ price/currency/tax/checkout/signature/mapping/lifecycle/proration/failure/timing/retention decision nào còn mở;
-- chưa có PII/PCI scope owner hoặc provider contract/sandbox/credential/quyền truy cập cần thiết;
+- chưa chốt PII/PCI scope hoặc chưa có provider contract/sandbox/credential/quyền truy cập cần thiết;
 - có yêu cầu cấp entitlement từ client success, webhook chưa xác minh hoặc Billing ghi trực tiếp domain table;
 - schema review yêu cầu bịa exact column, dùng email làm identity, dùng generic quota idempotency hoặc thêm outbox không ADR;
 - P1–P8 phải thay đổi provider-specific để billing hoạt động, hoặc security/DR/revoke invariant bị suy giảm;
@@ -409,8 +409,8 @@ Dừng implementation và giữ trạng thái `blocked` cùng metadata `deferred
 
 ### Re-entry checklist
 
-- [ ] Business case và owner được xác nhận.
-- [ ] Provider cùng sandbox/official contract được duyệt.
+- [ ] Business case được xác nhận, gồm chi phí vận hành liên tục (support/refund/đối soát/thuế) mà chủ dự án tự gánh.
+- [ ] Provider cùng sandbox/official contract được duyệt (DEC-B13 chuyển `approved`).
 - [ ] Toàn bộ decision gates mục 3 có quyết định và timeline examples.
 - [ ] ADR, threat model, data flow, privacy/PCI và schema review đã ký.
 - [ ] Adapter/Subscription/OpenAPI/UX/test contract freeze hoàn tất.

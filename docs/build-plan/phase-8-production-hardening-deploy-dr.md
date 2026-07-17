@@ -13,7 +13,8 @@ Billing không thuộc Phase 8. Không thêm provider, checkout, webhook, bảng
 ## 2. Mục tiêu
 
 - Đưa baseline Next.js BFF, NestJS/Fastify Control Plane, worker và Supabase self-hosted tới trạng thái sẵn sàng vận hành production có thể kiểm chứng.
-- Thiết lập đường triển khai lặp lại được bằng Docker Compose trên VPS, Caddy, GHCR và GitHub Actions theo đúng stack đã duyệt và các quyết định đã chốt tại `./decision-register.md`: compose Supabase tag **`v1.26.07`** rút gọn còn **PostgreSQL + Supavisor + Studio** (DEC-T10), Caddy là proxy duy nhất expose ra Internet (DEC-T11), mọi image pin theo **digest** ghi ở `infra/compose/IMAGE-PINS.md`, CI bốn job `quality`/`test`/`db`/`build` đẩy image lên GHCR (DEC-T13).
+- Thiết lập đường triển khai lặp lại được bằng Docker Compose trên VPS, Caddy, GHCR và GitHub Actions theo đúng stack đã duyệt và các quyết định đã chốt tại `./decision-register.md`: compose Supabase tag **`v1.26.07`** rút gọn quanh hai service bắt buộc **`db` + `supavisor`** (DEC-T10), Caddy là proxy duy nhất expose ra Internet (DEC-T11), mọi image pin theo **digest** ghi ở `infra/compose/IMAGE-PINS.md`, CI bốn job `quality`/`test`/`db`/`build` đẩy image lên GHCR (DEC-T13).
+- Kế thừa nguyên trạng lựa chọn nhánh quản trị mà **P1.10 đã chốt bằng thực nghiệm** (DEC-T10): nhánh **(a)** `db + supavisor + studio + meta + kong`, hoặc nhánh **(b)** `db + supavisor` và dùng `pnpm db:studio` (Drizzle Studio). P8 **không** chọn lại nhánh và không tự khẳng định Studio có mặt.
 - Bảo vệ ranh giới Internet/private network, session, M2M identity, secret, quyền database và thao tác quản trị.
 - Chứng minh backup off-host, WAL/PITR và quy trình restore đáp ứng RPO/RTO đã duyệt bằng restore drill có đo thời gian và mức mất dữ liệu.
 - Có health/readiness, graceful drain, quan sát, cảnh báo, runbook, capacity test, rollback/forward-fix và game day trước go-live.
@@ -57,9 +58,22 @@ Thiếu bất kỳ quyết định bắt buộc nào thì dừng ở thiết k�
 ## 4. Phạm vi
 
 - Docker Compose production trên VPS với Caddy ở biên, image lấy từ GHCR và pipeline GitHub Actions có approval của chủ dự án.
-- Nâng compose Supabase `v1.26.07` từ P1 (`infra/compose/docker-compose.yml`) lên cấu hình production: giữ đúng **PostgreSQL + Supavisor + Studio**, không kéo lại GoTrue/Realtime/Storage/Edge Functions/Kong (DEC-T10 — identity thuộc Auth0, các service kia là bề mặt tấn công thừa). Nếu một service Supabase bị loại xuất hiện trở lại trong compose production, đó là stop condition mục 19, không phải tùy chọn.
+- Nâng compose Supabase `v1.26.07` từ P1 (`infra/compose/docker-compose.yml`) lên cấu hình production, giữ nguyên scope DEC-T10. Lưu ý tên service: PostgreSQL trong compose chính thức tên là **`db`**, không phải `postgres` — mọi hostname, healthcheck, connection string và lệnh `docker compose` phải dùng `db`.
+
+### Scope compose kế thừa từ DEC-T10 và P1.10
+
+| Nhóm | Service | Trạng thái ở P8 |
+|---|---|---|
+| Bắt buộc giữ | `db`, `supavisor` | Luôn có mặt; là hai service duy nhất runtime nghiệp vụ cần. |
+| Loại bỏ vô điều kiện | `auth` (GoTrue), `rest` (PostgREST), `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache` | Không được có mặt ở bất kỳ nhánh nào. Service nào trong nhóm này xuất hiện lại trong compose production là **stop condition** mục 19. |
+| Phụ thuộc nhánh P1.10 | `studio`, `meta`, `kong` | Có mặt **chỉ khi** P1.10 chốt nhánh (a); vắng mặt nếu chốt nhánh (b). |
+
+- **Nhánh (a)** `db + supavisor + studio + meta + kong`: Studio đầy đủ, đổi lại kéo theo Kong. Bằng chứng từ compose thật: `studio` phụ thuộc `meta` (`STUDIO_PG_META_URL: http://meta:8080`) **và** `kong` (`SUPABASE_URL: http://kong:8000`), còn `meta` cũng `depends_on: kong` — nên **không thể** giữ Studio mà bỏ Kong. Ở nhánh này Kong là thành phần bắt buộc của Studio, không phải service thừa.
+- **Nhánh (b)** `db + supavisor`: không có Studio/`meta`/`kong` trong compose; nhu cầu quản trị dùng `pnpm db:studio` (Drizzle Studio, DEC-T15) chạy cục bộ. Ở nhánh này mọi yêu cầu "Studio private access" của P8 **không áp dụng** — không có Studio để bảo vệ, và đó là một bề mặt tấn công ít hơn.
+- P8 **kế thừa** nhánh P1.10 đã chốt, không chọn lại. Nếu P1.10 chưa ghi lại kết quả quan sát được thì đó là blocker: P8 không được suy đoán nhánh.
+- **Loại `rest` (PostgREST) là quyết định bảo mật, không phải tối ưu dung lượng:** PostgREST mở một đường vào DB thứ hai vòng qua toàn bộ enforcement entitlement/quota của Control Plane. Control Plane là API duy nhất được phép chạm dữ liệu nghiệp vụ.
 - Mọi image trong compose production tham chiếu **digest** (`image: ...@sha256:...`) khớp `infra/compose/IMAGE-PINS.md`; không tag trôi (`latest`, `nightly`, `2-alpine` trần).
-- Triển khai topology đã được chủ dự án phê duyệt. Nếu chọn hai VPS thì tách workload ứng dụng/dữ liệu và private routing; nếu chọn một VPS thì vẫn cô lập network/container và ghi nhận shared failure domain. Trong mọi lựa chọn, **Caddy là container duy nhất publish port ra Internet** (DEC-T11); PostgreSQL, Supavisor và Studio nằm trên internal network và không publish port ra host.
+- Triển khai topology đã được chủ dự án phê duyệt. Nếu chọn hai VPS thì tách workload ứng dụng/dữ liệu và private routing; nếu chọn một VPS thì vẫn cô lập network/container và ghi nhận shared failure domain. Trong mọi lựa chọn, **Caddy là container duy nhất publish port ra Internet** (DEC-T11); `db`, `supavisor` và — nếu nhánh (a) — `studio`/`meta`/`kong` nằm trên internal network và không publish port ra host.
 - Quyền runtime/migration tách biệt; secret injection/rotation/revoke theo công cụ đã duyệt, không đưa secret vào image, source, log hoặc workflow output.
 - Migration task one-shot; rollout API, worker và web có health/readiness/drain; migration không chạy ở mỗi lần process startup.
 - Backup PostgreSQL/Supabase off-host, WAL/PITR, restore drill, upgrade/version pin và staging validation.
@@ -75,14 +89,15 @@ Thiếu bất kỳ quyết định bắt buộc nào thì dừng ở thiết k�
 - Chuyển khỏi Docker Compose/Caddy/GHCR/GitHub Actions/Supabase self-hosted đã duyệt.
 - Thay đổi domain invariant, quota semantics, subscription policy hoặc hợp đồng P1–P7 ngoài một change-control riêng.
 - Billing, payment provider, checkout, webhook, refund, tax, price/currency và paid entitlement; các mục này chỉ thuộc Phase 9 sau phê duyệt.
-- Biến Supabase Data API hoặc Studio thành đường truy cập runtime nghiệp vụ.
+- Biến Supabase Data API hoặc Studio (nếu nhánh (a)) thành đường truy cập runtime nghiệp vụ; kéo `rest` (PostgREST) trở lại để "tiện query" cũng nằm trong lệnh cấm này.
+- Chọn lại nhánh (a)/(b) của DEC-T10. Nhánh do P1.10 chốt bằng thực nghiệm; đổi nhánh ở P8 phải là record superseding tại `./decision-register.md`, không phải sửa compose tiện tay.
 - Xóa/sửa lịch sử `usage_events` hoặc `audit_events` để rollback hay thực thi retention.
 
 ## 6. Deliverables
 
-- Bộ Compose production/staging (`infra/compose/**`) dẫn xuất từ compose Supabase `v1.26.07` đã rút gọn còn PostgreSQL + Supavisor + Studio, kèm sơ đồ network/data flow và inventory port/endpoint.
+- Bộ Compose production/staging (`infra/compose/**`) dẫn xuất từ compose Supabase `v1.26.07` đã rút gọn theo scope DEC-T10 và đúng nhánh P1.10 đã chốt, kèm sơ đồ network/data flow và inventory port/endpoint.
 - `infra/compose/IMAGE-PINS.md` cập nhật cho mọi image production, mỗi dòng có digest và ngày ghi.
-- Caddy routing/TLS/security configuration; Caddy là container duy nhất publish port; Supabase/Studio không public.
+- Caddy routing/TLS/security configuration; Caddy là container duy nhất publish port; `db`/`supavisor` không public, và ở nhánh (a) thì `studio`/`meta`/`kong` cũng không public.
 - GitHub Actions build/publish/deploy dùng image immutable pin bằng digest; promotion có approval của chủ dự án và provenance phù hợp khả năng tooling được duyệt.
 - Runbook migration, rollout, rollback/forward-fix, drain, backup, PITR, restore, upgrade, secret rotation, M2M revoke, retention và **kill-switch** — viết cho một người đọc lúc 3 giờ sáng: lệnh copy-paste được, không phải mô tả quy trình.
 - Bằng chứng staging deploy, rollback drill, restore drill, DR game day, capacity/Supavisor test và security test.
@@ -94,7 +109,7 @@ Thiếu bất kỳ quyết định bắt buộc nào thì dừng ở thiết k�
 
 Các path dưới đây là **đích dự kiến cho implementation sau khi P7 PASS**, không khẳng định chúng hiện tồn tại:
 
-- `infra/compose/docker-compose.yml` và overlay production/staging: Supabase `v1.26.07` rút gọn (PostgreSQL + Supavisor + Studio), app/worker/web và Caddy.
+- `infra/compose/docker-compose.yml` và overlay production/staging: Supabase `v1.26.07` rút gọn (`db` + `supavisor`, cộng `studio`/`meta`/`kong` nếu P1.10 chốt nhánh (a)), app/worker/web và Caddy.
 - `infra/compose/IMAGE-PINS.md`: bảng digest canonical, mở rộng từ bản P1.10 sang mọi image production.
 - `infra/caddy/**`: Caddyfile production, TLS và security header ở biên.
 - `infra/**` còn lại: network theo topology được duyệt, backup/restore/DR scripts và cấu hình hạ tầng telemetry.
@@ -114,8 +129,9 @@ Không tạo `apps/*/billing`, billing workflow, billing secret hoặc billing s
 ### Quyền và kết nối
 
 - Runtime chỉ dùng role tối thiểu cho repository của Control Plane qua Supavisor; không dùng owner/migration role.
-- Migration task chạy `pnpm db:migrate` bằng role migration riêng, **nối trực tiếp PostgreSQL không qua Supavisor** (DEC-T09/DEC-T15), secret riêng, thời hạn/quyền truy cập được kiểm soát; Studio là ngoại lệ quản trị private và có audit truy cập phù hợp.
-- Xác minh Supavisor ở **transaction pooling mode** và `prepare: false` của postgres.js vẫn giữ nguyên trên production (DEC-T09): prepared statement có tên sẽ vỡ khi connection bị trả về pool. Kiểm tra connection timeout, pool budget cho API/worker/migration và tổng giới hạn PostgreSQL.
+- Migration task chạy `pnpm db:migrate` bằng role migration riêng, **nối trực tiếp tới service `db` không qua `supavisor`** (DEC-T09/DEC-T15), secret riêng, thời hạn/quyền truy cập được kiểm soát.
+- Đường quản trị DB phụ thuộc nhánh P1.10: nhánh **(a)** dùng Studio như ngoại lệ quản trị private, có audit truy cập phù hợp; nhánh **(b)** không có Studio trong compose và quản trị đi qua `pnpm db:studio` chạy cục bộ, không expose ra Internet ở bất kỳ dạng nào. Ở cả hai nhánh, đường quản trị không bao giờ là đường runtime nghiệp vụ.
+- Xác minh `supavisor` ở **transaction pooling mode** và `prepare: false` của postgres.js vẫn giữ nguyên trên production (DEC-T09): prepared statement có tên sẽ vỡ khi connection bị trả về pool. Kiểm tra connection timeout, pool budget cho API/worker/migration và tổng giới hạn của `db`.
 - Cấm mọi thứ phụ thuộc session state trên đường runtime — session-level advisory lock, temp table, `SET` ngoài transaction. Hard quota chỉ dùng row lock trong một transaction.
 
 ### Trình tự và an toàn migration
@@ -170,8 +186,10 @@ Retention của `audit_events`/`usage_events` phải qua procedure đặc quyề
 
 ### Network và secret
 
-- Internet → Caddy → web/API được phép theo route. **Caddy là container duy nhất có `ports:` publish ra host** (DEC-T11); mọi service khác chỉ nói chuyện qua internal network của compose. Kết nối app → data chỉ qua endpoint/port tối thiểu theo topology đã duyệt; nếu tách hai VPS thì bắt buộc dùng private routing đã phê duyệt. PostgreSQL, Supavisor quản trị và Studio không public trong mọi topology.
-- Studio chỉ truy cập qua đường quản trị private ‹cần chốt: cách truy cập Studio, mục 3›; không đưa Studio ra sau Caddy public dù có thêm auth.
+- Internet → Caddy → web/API được phép theo route. **Caddy là container duy nhất có `ports:` publish ra host** (DEC-T11); mọi service khác chỉ nói chuyện qua internal network của compose. Kết nối app → data chỉ qua endpoint/port tối thiểu theo topology đã duyệt; nếu tách hai VPS thì bắt buộc dùng private routing đã phê duyệt. `db` và `supavisor` không public trong mọi topology và mọi nhánh.
+- **Nhánh (a):** `studio`, `meta` và `kong` cũng nằm sau internal network và không public. Studio chỉ truy cập qua đường quản trị private ‹cần chốt: cách truy cập Studio, mục 3›; không đưa Studio ra sau Caddy public dù có thêm auth. Kong ở đây chỉ phục vụ Studio/`meta` — không được định tuyến bất kỳ traffic nghiệp vụ nào qua Kong, vì đó sẽ là đường vòng qua Control Plane.
+- **Nhánh (b):** không có `studio`/`meta`/`kong` để bảo vệ; quản trị dùng `pnpm db:studio` cục bộ qua đường truy cập private ‹cần chốt: cách truy cập quản trị DB, mục 3›. Mọi yêu cầu "Studio private" ở trên không áp dụng.
+- Ở cả hai nhánh, `rest` (PostgREST) **không tồn tại** trong compose. Đây là ràng buộc bảo mật cứng: PostgREST sẽ là đường vào `db` thứ hai, vòng qua toàn bộ enforcement entitlement/quota của Control Plane.
 - Firewall deny-by-default; SSH/admin access giới hạn nguồn/phương thức đã duyệt. Không dùng shared M2M credential giữa backend.
 - Thực hiện rotation drill cho deploy/runtime/database/Auth0 secret theo khả năng hệ thống đã duyệt; xác nhận credential cũ bị vô hiệu và request mới bị deny trong SLA.
 
@@ -194,7 +212,7 @@ Trước khi mở implementation, architect read-only review/đề xuất contra
 
 Release contract gồm:
 
-- deployment topology đã được chủ dự án approve, image/digest matrix chốt tại `infra/compose/IMAGE-PINS.md`, danh sách service Supabase được giữ (PostgreSQL + Supavisor + Studio), Compose project, domain/DNS/TLS và network allowlist tương ứng;
+- deployment topology đã được chủ dự án approve, image/digest matrix chốt tại `infra/compose/IMAGE-PINS.md`, danh sách service Supabase được giữ theo nhánh P1.10 đã chốt (`db` + `supavisor`, cộng `studio`/`meta`/`kong` nếu nhánh (a)), Compose project, domain/DNS/TLS và network allowlist tương ứng;
 - biến cấu hình và secret reference theo environment, không ghi giá trị secret;
 - API/OpenAPI compatibility, schema version/migration order và minimum compatible application version;
 - liveness/readiness/drain semantics, timeout và rollout ordering;
@@ -210,7 +228,7 @@ Mọi thay đổi contract sau freeze phải qua change review và cập nhật 
 - **Build/supply chain:** image reproducibility ở mức tooling cho phép, immutable reference, dependency/vulnerability gate đã duyệt, secret scan và không rò secret vào layer/artifact/log.
 - **Deployment:** fresh staging deploy, repeat deploy, migration failure, API/worker/web partial rollout, readiness removal, graceful drain và promotion approval.
 - **Rollback/forward-fix:** rollback image khi schema còn compatible; forward-fix sau migration nhận write; kiểm chứng không xóa ledger/published snapshot.
-- **Security:** TLS/header/CSP/CSRF/cookie, direct endpoint/admin bypass, private Supabase/Studio exposure, SSRF qua image URL, log/token/PII leakage, least-privilege role và forged health/admin requests.
+- **Security:** TLS/header/CSP/CSRF/cookie, direct endpoint/admin bypass, SSRF qua image URL, log/token/PII leakage, least-privilege role và forged health/admin requests. Riêng về compose: xác nhận `db`/`supavisor` không reachable từ Internet; xác nhận **không có** service `rest` (PostgREST) lắng nghe ở bất kỳ đâu; nếu nhánh (a) thì thêm test `studio`/`meta`/`kong` không public.
 - **Identity:** session revoke/logout, secret rotation, M2M identity/scope revoke, credential cũ và race giữa revoke với quota operation; đo theo revoke SLA.
 - **Database:** migration grants/constraints/triggers, backup integrity, WAL continuity, PITR target, restore consistency, version upgrade staging và append-only retention procedure.
 - **Concurrency/capacity:** remaining=1 hard quota, API/worker contention, duplicate reconciliation, connection storm, Supavisor saturation/recovery, worker drain/restart và DB unavailable fail-closed.
@@ -254,18 +272,18 @@ Lệnh trong ô **Verify** dùng tên canonical tại DEC-T15 (`./decision-regis
 
 ### Bước 4 — Chuẩn bị staging tương đồng topology
 
-- **Hành động:** Dựng staging khớp topology đã duyệt (chỉ tách app/data VPS nếu decision record chọn phương án đó) từ compose Supabase `v1.26.07` rút gọn của P1.10; xác nhận GoTrue/Realtime/Storage/Edge Functions/Kong vẫn không có mặt (DEC-T10); bỏ mọi `ports:` trừ Caddy; khóa PostgreSQL/Supavisor quản trị/Studio khỏi Internet.
+- **Hành động:** Dựng staging khớp topology đã duyệt (chỉ tách app/data VPS nếu decision record chọn phương án đó) từ compose Supabase `v1.26.07` rút gọn của P1.10, **đúng nhánh (a)/(b) mà P1.10 đã chốt** — P8 không chọn lại nhánh; nếu P1.10 chưa ghi kết quả thì dừng, đây là blocker. Xác nhận nhóm loại bỏ vô điều kiện (`auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache`) vẫn không có mặt (DEC-T10); bỏ mọi `ports:` trừ Caddy; khóa `db`/`supavisor` — và `studio`/`meta`/`kong` nếu nhánh (a) — khỏi Internet.
 - **Sản phẩm:** `infra/compose/**` (compose staging + overlay theo topology), `infra/caddy/**` (Caddyfile staging).
-- **Phụ thuộc:** Bước 3. **Cần user approval trước khi chạm `infra/**`.**
-- **Verify:** `docker compose -f infra/compose/docker-compose.yml config` render đúng danh sách service kỳ vọng (PostgreSQL, Supavisor, Studio, api, worker, web, caddy) và **chỉ caddy có `ports:`**; `docker compose -f infra/compose/docker-compose.yml up -d` rồi probe từ Internet xác nhận endpoint Supabase/Studio không truy cập được; chỉ route ứng dụng qua Caddy phản hồi; ghi lại kết quả scan port/endpoint. Teardown bằng `docker compose -f infra/compose/docker-compose.yml down -v`.
+- **Phụ thuộc:** Bước 3; nhánh (a)/(b) đã được P1.10 chốt và ghi lại. **Cần user approval trước khi chạm `infra/**`.**
+- **Verify:** `docker compose -f infra/compose/docker-compose.yml config` render đúng danh sách service của nhánh đã chốt — nhánh (a): `db`, `supavisor`, `studio`, `meta`, `kong`, api, worker, web, caddy; nhánh (b): `db`, `supavisor`, api, worker, web, caddy — và **chỉ caddy có `ports:`**. Grep output `config` xác nhận **không có** `auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache`. `docker compose -f infra/compose/docker-compose.yml up -d` rồi probe từ Internet xác nhận `db`/`supavisor` (và Studio nếu nhánh (a)) không truy cập được; chỉ route ứng dụng qua Caddy phản hồi; ghi lại kết quả scan port/endpoint. Teardown bằng `docker compose -f infra/compose/docker-compose.yml down -v`.
 - **Lane:** `orchestrator` **sau explicit user approval** (hoặc agent hiện hữu được giao path).
 
 ### Bước 5 — Thiết lập role, secret, firewall, Caddy/TLS và image pin
 
-- **Hành động:** Cấu hình role runtime tối thiểu qua Supavisor (transaction pooling, `prepare: false`) và role migration riêng nối trực tiếp PostgreSQL; secret reference theo công cụ đã duyệt (không đưa secret vào image/source/log); firewall deny-by-default; Caddy/TLS cho domain production ‹cần chốt: domain/DNS, mục 3›; cập nhật `infra/compose/IMAGE-PINS.md` cho mọi image production.
+- **Hành động:** Cấu hình role runtime tối thiểu qua `supavisor` (transaction pooling, `prepare: false`) và role migration riêng nối trực tiếp service `db`; secret reference theo công cụ đã duyệt (không đưa secret vào image/source/log); firewall deny-by-default; Caddy/TLS cho domain production ‹cần chốt: domain/DNS, mục 3›; cập nhật `infra/compose/IMAGE-PINS.md` cho mọi image production (bao gồm `studio`/`meta`/`kong` nếu nhánh (a)).
 - **Sản phẩm:** `infra/compose/IMAGE-PINS.md`, `infra/caddy/**`, `infra/**` (secret reference config, firewall rules).
 - **Phụ thuộc:** Bước 4; công cụ secret handling đã duyệt ở mục 3. **Cần user approval trước khi chạm `infra/**`.**
-- **Verify:** Mọi `image:` trong compose production là `...@sha256:...` khớp một dòng của `infra/compose/IMAGE-PINS.md` — grep compose không còn tag trần; secret scan trên repo/artifact/layer/log không phát hiện credential; xác minh runtime role không có quyền owner/migration (thử `CREATE TABLE` bằng role runtime phải bị từ chối).
+- **Verify:** Mọi `image:` trong compose production là `...@sha256:...` khớp một dòng của `infra/compose/IMAGE-PINS.md` — grep compose không còn tag trần; secret scan trên repo/artifact/layer/log không phát hiện credential; xác minh runtime role không có quyền owner/migration (thử `CREATE TABLE` bằng role runtime phải bị từ chối). Connection string của runtime trỏ tới `supavisor`, của migration trỏ tới `db` — dùng `docker compose -f infra/compose/docker-compose.yml port db 5432` như P1.10 để xác nhận tên service là `db`, không phải `postgres`.
 - **Lane:** `orchestrator` **sau explicit user approval**.
 
 ### Bước 6 — Mở rộng pipeline CI/CD sang publish → promotion
@@ -281,13 +299,13 @@ Lệnh trong ô **Verify** dùng tên canonical tại DEC-T15 (`./decision-regis
 - **Hành động:** Triển khai release order **backup/checkpoint → migration task (one-shot) → validation → API → worker → web**; migration không nằm trong startup path của bất kỳ process nào.
 - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (forward migrations), `apps/control-plane/**` (worker entrypoint không tự migrate); orchestration deploy thuộc `infra/**`/`.github/workflows/**`.
 - **Phụ thuộc:** Bước 6; migration chain P7 đã đóng phiên bản. Phần deploy orchestration **cần user approval trước khi chạm `infra/**`/`.github/workflows/**`.**
-- **Verify:** Staging deploy theo đúng order: backup/checkpoint tạo trước, migration task chạy `pnpm db:migrate` **một lần** bằng role migration nối trực tiếp PostgreSQL và pass validation (constraint, trigger append-only, grants, schema version) trước khi rollout API → worker → web; chạy lại `pnpm db:migrate` là no-op. Startup API/worker với schema incompatible fail rõ ràng và không nhận traffic; grep image/entrypoint xác nhận không process nào gọi migrate lúc khởi động.
+- **Verify:** Staging deploy theo đúng order: backup/checkpoint tạo trước, migration task chạy `pnpm db:migrate` **một lần** bằng role migration nối trực tiếp service `db` (không qua `supavisor`) và pass validation (constraint, trigger append-only, grants, schema version) trước khi rollout API → worker → web; chạy lại `pnpm db:migrate` là no-op. Startup API/worker với schema incompatible fail rõ ràng và không nhận traffic; grep image/entrypoint xác nhận không process nào gọi migrate lúc khởi động.
 - **Lane:** `subagent/backend` (migrations, worker/API); `orchestrator` **sau approval** cho deploy orchestration.
 
 ### Bước 8 — health/readiness/drain, runbook "service chết", kill-switch và rollback/forward-fix decision tree
 
 - **Hành động:** Thêm/kiểm chứng liveness, readiness (theo dependency/policy đã duyệt), graceful drain có giới hạn thời gian ‹cần chốt: drain timeout›, schema compatibility check và rollback/forward-fix decision tree. Viết hai runbook cho một người:
-  - **Service chết:** cây chẩn đoán từ triệu chứng tới lệnh — container nào chết (`docker compose -f infra/compose/docker-compose.yml ps`), log gần nhất (`docker compose -f infra/compose/docker-compose.yml logs --tail=200 <service>`), khởi động lại một service, quay về digest last-known-good ghi ở `infra/compose/IMAGE-PINS.md`, và mốc "khi nào ngừng sửa, chuyển sang restore Bước 9".
+  - **Service chết:** cây chẩn đoán từ triệu chứng tới lệnh — container nào chết (`docker compose -f infra/compose/docker-compose.yml ps`), log gần nhất (`docker compose -f infra/compose/docker-compose.yml logs --tail=200 <service>`, với `<service>` là tên thật trong compose: `db`, `supavisor`, `caddy`, api/worker/web — **không phải `postgres`**), khởi động lại một service, quay về digest last-known-good ghi ở `infra/compose/IMAGE-PINS.md`, và mốc "khi nào ngừng sửa, chuyển sang restore Bước 9". Runbook phải phân biệt `db` chết (mất dữ liệu tiềm tàng → cân nhắc Bước 9) với `supavisor` chết (đường pool gãy, `db` còn nguyên).
   - **Kill-switch** ‹cần chốt: phạm vi, mục 3›: cách chặn traffic ở Caddy hoặc gỡ một app khỏi Hub **không cần deploy lại**, cùng cách bật lại và cách xác nhận không có entitlement/quota nào bị fail-open trong lúc tắt.
 - **Sản phẩm:** `apps/control-plane/**` (health/readiness/drain, schema check); `infra/caddy/**` (kill-switch tại biên); `docs/**` (runbook service-down, runbook kill-switch, rollback/forward-fix decision tree).
 - **Phụ thuộc:** Bước 7.
@@ -320,7 +338,7 @@ Lệnh trong ô **Verify** dùng tên canonical tại DEC-T15 (`./decision-regis
 
 ### Bước 12 — Security, concurrency, capacity và Supavisor tests
 
-- **Hành động:** Chạy security test (direct endpoint/admin bypass, private Supabase/Studio exposure, log/token/PII leakage, least-privilege, forged health/admin requests); concurrency (remaining=1 hard quota, duplicate reconciliation); capacity/connection storm; Supavisor saturation/recovery; DB unavailable fail-closed; xử lý finding theo severity gate.
+- **Hành động:** Chạy security test (direct endpoint/admin bypass; `db`/`supavisor` không lộ ra Internet; **không có PostgREST/`rest` lắng nghe ở bất kỳ đâu**; Studio/`meta`/`kong` không public nếu nhánh (a); log/token/PII leakage, least-privilege, forged health/admin requests); concurrency (remaining=1 hard quota, duplicate reconciliation); capacity/connection storm; `supavisor` saturation/recovery; `db` unavailable fail-closed; xử lý finding theo severity gate.
 - **Sản phẩm:** `tests/**` (security/concurrency/capacity/Supavisor tests + evidence).
 - **Phụ thuộc:** Bước 7–11; capacity/SLO budget ‹cần chốt: mục 3›.
 - **Verify:** `pnpm test:concurrency` (testcontainers trên PostgreSQL thật, DEC-T05) chứng minh remaining=1 dưới tải chỉ cho tối đa một reserve thành công — mock hay in-memory DB không tính là evidence vì invariant này phụ thuộc row lock và isolation level thật. `pnpm test` cho suite còn lại. Connection/Supavisor test đáp ứng connection budget/SLO đã duyệt mà không phá fail-closed invariant; mọi test lưu command/version/environment/timestamp/expected/actual/artifact/người xác minh. Finding **Critical** phải đóng, không waiver.
@@ -372,11 +390,14 @@ Không có lane `Infrastructure` trong roster `AGENTS.md`; tên này không đư
 - [ ] Health/readiness/drain phản ánh đúng trạng thái; migration không chạy ở startup.
 - [ ] Go-live checklist bao phủ DNS/TLS, digest matrix, migration, smoke, kênh alert và kill-switch.
 - [ ] Topology được chủ dự án approve sau khi so sánh một VPS, hai VPS và HA tương lai; mọi task topology-specific chỉ áp dụng theo lựa chọn đó.
-- [ ] Compose production giữ đúng PostgreSQL + Supavisor + Studio; GoTrue/Realtime/Storage/Edge Functions/Kong không quay lại (DEC-T10).
+- [ ] Compose production giữ đúng scope DEC-T10: `db` + `supavisor` bắt buộc; `studio`/`meta`/`kong` chỉ có mặt nếu P1.10 chốt nhánh (a); `auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache` không quay lại.
+- [ ] Nhánh (a)/(b) áp dụng ở P8 đúng bằng nhánh P1.10 đã chốt, có dẫn chiếu bằng chứng; P8 không tự chọn lại.
+- [ ] Không có tham chiếu nào tới service tên `postgres`; PostgreSQL luôn là `db`.
 - [ ] Runbook service-down và kill-switch đã được drill bằng sự cố thật trên staging, không chỉ tồn tại trên giấy.
 
 ### Security
-- [ ] Supabase endpoints và Studio private; chỉ Caddy publish port; firewall/Caddy/headers/CSP/cookie/CSRF được kiểm thử.
+- [ ] `db`/`supavisor` private (và `studio`/`meta`/`kong` private nếu nhánh (a)); chỉ Caddy publish port; firewall/Caddy/headers/CSP/cookie/CSRF được kiểm thử.
+- [ ] Không tồn tại PostgREST (`rest`) trong compose — không có đường vào `db` thứ hai vòng qua enforcement của Control Plane.
 - [ ] Mọi image production pin theo digest khớp `infra/compose/IMAGE-PINS.md`; không tag trôi.
 - [ ] Runtime/migration role và secret tách biệt; rotation cùng M2M revoke đáp ứng SLA.
 - [ ] Không PII/token/secret trong log, trace, image, artifact hoặc workflow output.
@@ -419,7 +440,7 @@ Phase 8 chỉ đủ điều kiện kết thúc khi:
 - mọi quyết định mục 3 được chủ dự án ký, gồm DEC-B10/B11/B12 đã chuyển `approved` tại `./decision-register.md`; toàn bộ mandatory roster P7 đã được verify và P7 vẫn PASS trên release candidate, không chấp nhận partial P7;
 - staging deploy theo đúng order thành công, rollback/forward-fix drill đạt và production migration plan được review;
 - restore drill cùng DR game day đạt RPO/RTO đã duyệt và được chạy bằng runbook bởi chính chủ dự án; mọi gap **Critical** đã đóng, không chấp nhận waiver. Gap **High** phải đóng, trừ exception có chữ ký chủ dự án, compensating controls đã kiểm chứng, expiry/remediation deadline và reviewer xác nhận finding không còn là mục “phải sửa”;
-- compose production đúng scope DEC-T10 (PostgreSQL + Supavisor + Studio), mọi image pin digest theo `infra/compose/IMAGE-PINS.md`, chỉ Caddy expose ra Internet;
+- compose production đúng scope DEC-T10 và đúng nhánh P1.10 đã chốt (`db` + `supavisor`, cộng `studio`/`meta`/`kong` chỉ ở nhánh (a); không có `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions`/`deno-cache`), mọi image pin digest theo `infra/compose/IMAGE-PINS.md`, chỉ Caddy expose ra Internet;
 - alert đã fire-test tới kênh chủ dự án đọc; runbook service-down và kill-switch đã drill thật;
 - capacity/connection/Supavisor test đáp ứng capacity/SLO gate; fail-closed invariant không bị phá;
 - private network, role/secret, security headers/CSP/image URL, session/M2M revoke và admin protection đều có test evidence;
@@ -435,8 +456,10 @@ Exit của phase là kết luận readiness theo bằng chứng, không tự đ�
 
 - P7 không còn PASS, contract/schema/image không xác định được hoặc migration không tương thích.
 - Thiếu RPO/RTO (DEC-B12), retention/privacy (DEC-B11), revoke SLA (DEC-B10), outage, SLO/capacity, kênh alert, kill-switch scope, deployment-topology approval, domain/network, residency hoặc risk acceptance; P7 partial cũng phải dừng.
-- Backup/WAL không xác minh được, restore vượt gate, data loss không đo được hoặc Studio/Supabase bị public.
-- Compose production xuất hiện service Supabase đã bị loại ở DEC-T10 (GoTrue/Realtime/Storage/Edge Functions/Kong), hoặc có container ngoài Caddy publish port ra Internet, hoặc image quay về tag trôi.
+- Backup/WAL không xác minh được, restore vượt gate, data loss không đo được, hoặc `db`/`supavisor`/Studio bị public.
+- Compose production xuất hiện service thuộc nhóm loại bỏ vô điều kiện của DEC-T10: `auth` (GoTrue), **`rest` (PostgREST)**, `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache`. `rest` là trường hợp nghiêm trọng nhất — nó mở một đường vào `db` thứ hai vòng qua toàn bộ enforcement entitlement/quota của Control Plane, nên sự có mặt của nó là stop condition ngay cả khi chưa lộ ra Internet.
+- P8 chạy nhánh (a)/(b) khác với nhánh P1.10 đã chốt mà không có record superseding; hoặc P1.10 chưa ghi lại nhánh và P8 vẫn dựng compose theo suy đoán.
+- Có container ngoài Caddy publish port ra Internet, hoặc image quay về tag trôi.
 - Phát hiện secret/PII/token trong artifact/log, quyền runtime quá rộng, bypass admin/auth/quota hoặc append-only bị phá.
 - Readiness/drain không đáng tin, Supavisor/connection test làm mất invariant, hoặc cùng lỗi lặp lại lần hai.
 - Còn bất kỳ gap Critical nào, hoặc có đề xuất waiver/risk acceptance cho Critical.
@@ -459,13 +482,13 @@ Nếu rollback có thể vi phạm RPO/RTO hoặc invariant, **dừng và để 
 
 - Xác minh command/path/config từ repo và môi trường thật; không chấp nhận output mô phỏng. Lệnh phải là tên canonical DEC-T15 và phải **đã tồn tại** (tạo ở P1.7/P1.10); tên lệnh trong kế hoạch không chứng minh nó chạy được.
 - Đối chiếu toàn bộ checklist, test evidence, staging/deploy/rollback, restore/DR, capacity/Supavisor, security/revoke/rotation và observability.
-- Kiểm chứng scope compose (PostgreSQL + Supavisor + Studio, không GoTrue/Realtime/Storage/Kong), digest pin khớp `infra/compose/IMAGE-PINS.md`, chỉ Caddy publish port, và alert fire-test thật sự đến kênh chủ dự án đọc.
+- Kiểm chứng scope compose theo DEC-T10: `db` + `supavisor` có mặt; `studio`/`meta`/`kong` khớp đúng nhánh P1.10 đã chốt; `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions`/`deno-cache` vắng mặt. Kiểm digest pin khớp `infra/compose/IMAGE-PINS.md`, chỉ Caddy publish port, và alert fire-test thật sự đến kênh chủ dự án đọc.
 - Ghi kết quả verification theo quy trình (`PASS`, `FAIL`, hoặc `TẮC`/`CẠN LƯỢT` khi đúng điều kiện), finding, severity, evidence link và bước tái hiện. Đây không phải trường trạng thái phase; QA không sửa implementation.
 
 ### Reviewer bắt buộc
 
 - Review kiến trúc/topology, least privilege, migration compatibility, rollback/forward-fix, RPO/RTO evidence, privacy/redaction và topology risk statement, gồm single-primary/no-auto-failover nếu áp dụng.
-- Tìm thay đổi stack/tooling không được duyệt (đối chiếu bảng D của `./decision-register.md`), claim HA sai, migration-on-startup, public Supabase/Studio, service Supabase bị loại quay lại compose, tag trôi thay digest, billing bị kéo vào P8 và đường bypass invariant.
+- Tìm thay đổi stack/tooling không được duyệt (đối chiếu bảng D của `./decision-register.md`), claim HA sai, migration-on-startup, `db`/`supavisor`/Studio bị public, service thuộc nhóm loại bỏ quay lại compose (đặc biệt `rest`/PostgREST), nhánh (a)/(b) lệch khỏi P1.10 mà không có record superseding, tham chiếu service `postgres` không tồn tại, tag trôi thay digest, billing bị kéo vào P8 và đường bypass invariant.
 - Vì chủ dự án vừa đề xuất vừa phê duyệt, reviewer là đối trọng duy nhất còn lại: một quyết định được ký không có nghĩa nó đúng. Nêu thẳng nếu risk acceptance đang được dùng để lách một gap đáng lẽ phải sửa.
 - Phân loại rõ “phải sửa” và “khuyến nghị”. Reviewer không sửa implementation.
 

@@ -102,7 +102,7 @@ contracts/
 integrations/             # adapter/SDK boundary cho Data Plane, không sở hữu domain
 tests/                    # integration, E2E và các suite xuyên workspace
 infra/
-  compose/                # Supabase rút gọn: postgres + supavisor + studio (DEC-T10)
+  compose/                # Supabase rút gọn: db + supavisor (+ Studio? P1.10 quyết, DEC-T10)
   caddy/                  # reverse proxy/TLS, điểm expose duy nhất (DEC-T11)
 .github/workflows/        # physical path canonical của GitHub Actions
 ```
