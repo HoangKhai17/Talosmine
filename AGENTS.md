@@ -16,24 +16,32 @@ Không có `package.json`, không có hệ thống build, không có test framew
 
 ## 2. Tech stack
 
-> ## ⛔ CHƯA QUYẾT ĐỊNH
->
-> Stack **chưa** được chọn. Nó sẽ do agent `architect` đề xuất và người dùng phê duyệt,
-> sau đó được ghi lại vào chính mục này.
+Stack đã được người dùng phê duyệt ở mức đường cơ sở. Chi tiết và ranh giới vận hành được
+ghi tại `docs/stack-tech.md`.
+
+| Lớp | Công nghệ đã chọn |
+|---|---|
+| Web | Next.js, TypeScript, responsive cho trình duyệt desktop, điện thoại và máy tính bảng, mô hình BFF |
+| Control Plane | Node.js Active LTS khi bootstrap, TypeScript strict, NestJS, Fastify adapter, modular monolith |
+| API | REST JSON có version, OpenAPI 3.1 |
+| Identity/SSO | Auth0 managed, OIDC Authorization Code cho web BFF, M2M identity riêng từng backend |
+| Database | PostgreSQL trong Supabase self-hosted bằng official Docker Compose |
+| Data access | Drizzle ORM/Drizzle Kit; SQL transaction có kiểm soát cho hard quota |
+| Deploy | Docker Compose trên VPS, Caddy, GitHub Actions, GHCR |
 
 ### Luật cứng — đọc kỹ hai lần
 
-**Tuyệt đối không tự bịa, tự giả định, hay âm thầm chọn tech stack, framework, thư viện,
-hay cấu trúc thư mục.**
+**Tuyệt đối không tự bịa, tự giả định, hay âm thầm thay đổi tech stack, framework, thư viện,
+hay cấu trúc thư mục đã được phê duyệt.**
 
-Nếu bạn cần một quyết định về stack mà file này chưa ghi:
+Nếu cần một quyết định chưa có trong bảng trên hoặc `docs/stack-tech.md`:
 
 1. **DỪNG LẠI.**
 2. Báo về cho orchestrator, nói rõ chính xác đang thiếu quyết định nào.
 3. **Không** được tiếp tục bằng cách chọn đại một thứ "nghe có vẻ hợp lý".
 
-Luật này tồn tại vì 8 agent mỗi con tự đoán một stack sẽ tạo ra một codebase hỗn loạn.
-Một quyết định duy nhất, ghi ở đây, dùng chung cho tất cả.
+Mọi thay đổi stack phải được người dùng phê duyệt và đồng bộ lại vào mục này cùng tài liệu
+quyết định liên quan trước khi hiện thực.
 
 ---
 
