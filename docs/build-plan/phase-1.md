@@ -130,7 +130,7 @@ Canonical path không đổi xuyên plan: `apps/control-plane/drizzle/migrations
 
 ## 8. DB/migration
 
-- Compose Supabase **rút gọn theo DEC-T10**. Bắt buộc giữ `db` (tên service của PostgreSQL — **không phải** `postgres`) và `supavisor`. Loại `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions`/`deno-cache`: dự án dùng Auth0 nên GoTrue thừa, và PostgREST sẽ mở một đường vào DB thứ hai vòng qua toàn bộ enforcement của Control Plane — loại nó là quyết định bảo mật.
+- Compose Supabase **rút gọn theo DEC-T10** (11 service + 2 volume — xem bằng chứng tại register). Bắt buộc giữ service `db` (tên service của PostgreSQL — **không phải** `postgres`) + `supavisor`, và volume **`db-config`** (mount vào `db` tại `/etc/postgresql-custom` để giữ pgsodium decryption key qua restart — bỏ nó sẽ mất key). Loại 6 service `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions` cùng volume mồ côi `deno-cache`: dự án dùng Auth0 nên GoTrue thừa, và PostgREST sẽ mở một đường vào `db` thứ hai vòng qua toàn bộ enforcement của Control Plane — loại nó là quyết định bảo mật.
 - **Studio là câu hỏi mở P1.10 phải trả lời bằng thực nghiệm** (DEC-T10): `studio` phụ thuộc `meta` *và* `kong`, nên không thể giữ Studio mà bỏ Kong trọn vẹn. Chọn (a) `db+supavisor+studio+meta+kong` hoặc (b) `db+supavisor` rồi dùng `pnpm db:studio`. Nếu chọn (b) thì phải cập nhật `../stack-tech.md` và ghi record superseding, không âm thầm lệch khỏi stack đã duyệt.
 - Mọi image pin **digest**, ghi ở `infra/compose/IMAGE-PINS.md`. Không tag trôi.
 - Không service nào publish port ra host. Chỉ Caddy expose.
@@ -295,7 +295,7 @@ Thứ tự: approval path điều kiện → contract freeze → bootstrap works
 - Lane: `backend`.
 
 **P1.10 — Compose Supabase rút gọn, Caddy, env và CI/GHCR**
-- Hành động: lấy `docker/docker-compose.yml` từ `supabase/supabase` tag `v1.26.07` (13 service — xem bằng chứng tại DEC-T10); **giữ `db` + `supavisor`**, loại `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions`/`deno-cache`; **quyết định Studio bằng thực nghiệm** theo hai phương án (a)/(b) tại DEC-T10 rồi ghi lại kết quả; thay mọi image bằng **digest** và ghi `infra/compose/IMAGE-PINS.md`; bỏ mọi `ports:` publish ra host; viết `infra/caddy/Caddyfile` chỉ route web/API; viết `.env.example` không secret; viết 4 workflow `quality`/`test`/`db`/`build` với GHCR push có điều kiện.
+- Hành động: lấy `docker/docker-compose.yml` từ `supabase/supabase` tag `v1.26.07` (11 service + 2 volume — xem bằng chứng tại DEC-T10); **giữ service `db` + `supavisor` và volume `db-config`**; loại 6 service `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions` cùng volume mồ côi `deno-cache`; **quyết định Studio bằng thực nghiệm** theo hai phương án (a)/(b) tại DEC-T10 rồi ghi lại kết quả; thay mọi image bằng **digest** và ghi `infra/compose/IMAGE-PINS.md`; bỏ mọi `ports:` publish ra host; viết `infra/caddy/Caddyfile` chỉ route web/API; viết `.env.example` không secret; viết 4 workflow `quality`/`test`/`db`/`build` với GHCR push có điều kiện.
 - Sản phẩm: `infra/compose/docker-compose.yml`, `infra/compose/IMAGE-PINS.md`, `infra/caddy/Caddyfile`, `.env.example`, `.github/workflows/`.
 - Phụ thuộc: approval P1.2; spike P1.5; topology P1.6; manifest P1.4.
 - Verify: `docker compose -f infra/compose/docker-compose.yml config` validate không lỗi; `docker compose ... up -d` rồi `docker compose ... ps` cho thấy container healthy; **`docker compose ... port db 5432` không trả gì** và `ss -ltnp` xác nhận không port Supabase nào bind ra host — chỉ Caddy expose; `IMAGE-PINS.md` không còn tag trôi; grep `.env.example` không thấy secret thật; CI chạy đủ 4 job; step GHCR khi thiếu credential thì **skip và báo skip**, không log như thành công.
@@ -361,7 +361,8 @@ Mỗi shared/root file và `contracts/openapi/**` có **đúng một** writer. A
 - [ ] Supabase/Studio/Supavisor không publish port; chỉ Caddy expose.
 - [ ] BFF/client boundary không đưa server secret/M2M config vào browser bundle.
 - [ ] CSP/image/admin guard đúng DEC-T12; không wildcard, không dev bypass.
-- [ ] Compose đã loại `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions` theo DEC-T10; đặc biệt **PostgREST không chạy** (nó sẽ là đường vào DB thứ hai vòng qua enforcement của Control Plane).
+- [ ] Compose đã loại 6 service `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions` theo DEC-T10; đặc biệt **PostgREST không chạy** (nó sẽ là đường vào `db` thứ hai vòng qua enforcement của Control Plane).
+- [ ] Volume **`db-config` được giữ** và mount vào `db` — nó lưu pgsodium decryption key; bỏ nó là mất key sau restart.
 - [ ] Quyết định Studio (a)/(b) được ghi kèm bằng chứng quan sát được, không phải suy đoán.
 
 ### DB

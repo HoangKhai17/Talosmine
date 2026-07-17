@@ -62,11 +62,22 @@ Thiếu bất kỳ quyết định bắt buộc nào thì dừng ở thiết k�
 
 ### Scope compose kế thừa từ DEC-T10 và P1.10
 
+Compose `v1.26.07` có đúng **11 service** và **2 named volume**. Hai thứ này được liệt kê tách bạch dưới đây — trộn chung service với volume chính là nguồn gốc của một lần đọc sai scope, nên P8 giữ chúng ở hai bảng riêng.
+
+**Service (11 service gốc):**
+
 | Nhóm | Service | Trạng thái ở P8 |
 |---|---|---|
 | Bắt buộc giữ | `db`, `supavisor` | Luôn có mặt; là hai service duy nhất runtime nghiệp vụ cần. |
-| Loại bỏ vô điều kiện | `auth` (GoTrue), `rest` (PostgREST), `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache` | Không được có mặt ở bất kỳ nhánh nào. Service nào trong nhóm này xuất hiện lại trong compose production là **stop condition** mục 19. |
-| Phụ thuộc nhánh P1.10 | `studio`, `meta`, `kong` | Có mặt **chỉ khi** P1.10 chốt nhánh (a); vắng mặt nếu chốt nhánh (b). |
+| Loại bỏ vô điều kiện (6) | `auth` (GoTrue), `rest` (PostgREST), `realtime`, `storage`, `imgproxy`, `functions` | Không được có mặt ở bất kỳ nhánh nào. Service nào trong nhóm này xuất hiện lại trong compose production là **stop condition** mục 19. |
+| Phụ thuộc nhánh P1.10 (3) | `studio`, `meta`, `kong` | Có mặt **chỉ khi** P1.10 chốt nhánh (a); vắng mặt nếu chốt nhánh (b). |
+
+**Named volume (2 volume gốc) — không phải service:**
+
+| Volume | Mount vào | Trạng thái ở P8 |
+|---|---|---|
+| `db-config` | `db` tại `/etc/postgresql-custom` | **Bắt buộc giữ.** Volume này persist **pgsodium decryption key** qua các lần restart. Mất nó = mất key = dữ liệu mã hoá bằng pgsodium không đọc được nữa. Xem ràng buộc backup/restore ở mục 8. |
+| `deno-cache` | chỉ `functions` | Bỏ theo. `functions` bị loại nên volume này thành **mồ côi**, không còn gì mount nó. Đây là hệ quả của việc loại `functions`, không phải một quyết định độc lập. |
 
 - **Nhánh (a)** `db + supavisor + studio + meta + kong`: Studio đầy đủ, đổi lại kéo theo Kong. Bằng chứng từ compose thật: `studio` phụ thuộc `meta` (`STUDIO_PG_META_URL: http://meta:8080`) **và** `kong` (`SUPABASE_URL: http://kong:8000`), còn `meta` cũng `depends_on: kong` — nên **không thể** giữ Studio mà bỏ Kong. Ở nhánh này Kong là thành phần bắt buộc của Studio, không phải service thừa.
 - **Nhánh (b)** `db + supavisor`: không có Studio/`meta`/`kong` trong compose; nhu cầu quản trị dùng `pnpm db:studio` (Drizzle Studio, DEC-T15) chạy cục bộ. Ở nhánh này mọi yêu cầu "Studio private access" của P8 **không áp dụng** — không có Studio để bảo vệ, và đó là một bề mặt tấn công ít hơn.
@@ -146,8 +157,9 @@ Không tạo `apps/*/billing`, billing workflow, billing secret hoặc billing s
 ### Backup, PITR, restore và upgrade
 
 - Backup phải rời host/failure domain chứa primary data tới vị trí off-host phù hợp data residency; chi tiết luồng mạng phụ thuộc topology đã duyệt. Mã hóa, quyền truy cập, integrity check và retention theo quyết định đã duyệt.
+- **Phạm vi backup không chỉ là dump của `db`.** Volume **`db-config`** (mount vào `db` tại `/etc/postgresql-custom`) giữ **pgsodium decryption key** và phải nằm trong phạm vi backup cùng dữ liệu. Backup có đủ mọi row nhưng thiếu `db-config` là một **backup hỏng ở dạng im lặng**: restore sẽ chạy, `db` sẽ khởi động, nhưng mọi dữ liệu mã hoá bằng pgsodium trở nên không đọc được — và điều đó chỉ lộ ra khi đọc đúng cột đó, có thể là rất lâu sau drill. Key và ciphertext phải được backup như một đơn vị không tách rời, đồng thời chính key phải được bảo vệ theo quyết định mã hoá/quyền truy cập đã duyệt.
 - WAL archive/PITR phải có monitoring cho freshness/gap và cảnh báo trước khi vi phạm RPO.
-- Restore drill dùng môi trường cô lập, phục hồi cả base backup + WAL tới recovery point mục tiêu, chạy kiểm tra consistency/application smoke và đo **data loss thực tế** cùng **thời gian khôi phục thực tế** so với RPO/RTO.
+- Restore drill dùng môi trường cô lập, phục hồi cả base backup + WAL tới recovery point mục tiêu **và volume `db-config`**, chạy kiểm tra consistency/application smoke và đo **data loss thực tế** cùng **thời gian khôi phục thực tế** so với RPO/RTO. Consistency check bắt buộc bao gồm **đọc và giải mã thành công ít nhất một giá trị pgsodium** — đây là bài kiểm tra duy nhất chứng minh key đã được khôi phục đúng; smoke test thông thường sẽ pass ngay cả khi key đã mất.
 - Image Supabase/PostgreSQL pin theo digest tại `infra/compose/IMAGE-PINS.md`; nâng version là sửa digest trong file đó cùng một record superseding ở `./decision-register.md`, không phải đổi tag tại chỗ. Upgrade trước ở staging với bản sao dữ liệu đã sanitize hoặc bộ dữ liệu đại diện, kiểm tra extension/Compose compatibility, backup và đường quay lại. Dự án **không** cài extension DB cho UUIDv7 (DEC-T06 sinh ID ở application layer), nên đường upgrade không phải kéo theo extension đó.
 - Capacity test bao phủ connection exhaustion, Supavisor saturation/recovery, API/worker competition, quota lock contention và hành vi fail-closed.
 
@@ -272,10 +284,10 @@ Lệnh trong ô **Verify** dùng tên canonical tại DEC-T15 (`./decision-regis
 
 ### Bước 4 — Chuẩn bị staging tương đồng topology
 
-- **Hành động:** Dựng staging khớp topology đã duyệt (chỉ tách app/data VPS nếu decision record chọn phương án đó) từ compose Supabase `v1.26.07` rút gọn của P1.10, **đúng nhánh (a)/(b) mà P1.10 đã chốt** — P8 không chọn lại nhánh; nếu P1.10 chưa ghi kết quả thì dừng, đây là blocker. Xác nhận nhóm loại bỏ vô điều kiện (`auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache`) vẫn không có mặt (DEC-T10); bỏ mọi `ports:` trừ Caddy; khóa `db`/`supavisor` — và `studio`/`meta`/`kong` nếu nhánh (a) — khỏi Internet.
+- **Hành động:** Dựng staging khớp topology đã duyệt (chỉ tách app/data VPS nếu decision record chọn phương án đó) từ compose Supabase `v1.26.07` rút gọn của P1.10, **đúng nhánh (a)/(b) mà P1.10 đã chốt** — P8 không chọn lại nhánh; nếu P1.10 chưa ghi kết quả thì dừng, đây là blocker. Xác nhận 6 service thuộc nhóm loại bỏ vô điều kiện (`auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`) vẫn không có mặt và volume mồ côi `deno-cache` đã bỏ theo `functions`; xác nhận volume **`db-config` vẫn được mount vào `db`** (DEC-T10). Bỏ mọi `ports:` trừ Caddy; khóa `db`/`supavisor` — và `studio`/`meta`/`kong` nếu nhánh (a) — khỏi Internet.
 - **Sản phẩm:** `infra/compose/**` (compose staging + overlay theo topology), `infra/caddy/**` (Caddyfile staging).
 - **Phụ thuộc:** Bước 3; nhánh (a)/(b) đã được P1.10 chốt và ghi lại. **Cần user approval trước khi chạm `infra/**`.**
-- **Verify:** `docker compose -f infra/compose/docker-compose.yml config` render đúng danh sách service của nhánh đã chốt — nhánh (a): `db`, `supavisor`, `studio`, `meta`, `kong`, api, worker, web, caddy; nhánh (b): `db`, `supavisor`, api, worker, web, caddy — và **chỉ caddy có `ports:`**. Grep output `config` xác nhận **không có** `auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache`. `docker compose -f infra/compose/docker-compose.yml up -d` rồi probe từ Internet xác nhận `db`/`supavisor` (và Studio nếu nhánh (a)) không truy cập được; chỉ route ứng dụng qua Caddy phản hồi; ghi lại kết quả scan port/endpoint. Teardown bằng `docker compose -f infra/compose/docker-compose.yml down -v`.
+- **Verify:** `docker compose -f infra/compose/docker-compose.yml config` render đúng danh sách service của nhánh đã chốt — nhánh (a): `db`, `supavisor`, `studio`, `meta`, `kong`, api, worker, web, caddy; nhánh (b): `db`, `supavisor`, api, worker, web, caddy — và **chỉ caddy có `ports:`**. Grep output `config` xác nhận **không có** service `auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`; xác nhận khối `volumes:` có `db-config` mount vào `db` tại `/etc/postgresql-custom` và **không còn** `deno-cache`. `docker compose -f infra/compose/docker-compose.yml up -d` rồi probe từ Internet xác nhận `db`/`supavisor` (và Studio nếu nhánh (a)) không truy cập được; chỉ route ứng dụng qua Caddy phản hồi; ghi lại kết quả scan port/endpoint. Teardown bằng `docker compose -f infra/compose/docker-compose.yml down -v` — lưu ý `-v` xóa cả `db-config`, nên chỉ dùng trên staging/throwaway, không bao giờ trên production.
 - **Lane:** `orchestrator` **sau explicit user approval** (hoặc agent hiện hữu được giao path).
 
 ### Bước 5 — Thiết lập role, secret, firewall, Caddy/TLS và image pin
@@ -305,7 +317,7 @@ Lệnh trong ô **Verify** dùng tên canonical tại DEC-T15 (`./decision-regis
 ### Bước 8 — health/readiness/drain, runbook "service chết", kill-switch và rollback/forward-fix decision tree
 
 - **Hành động:** Thêm/kiểm chứng liveness, readiness (theo dependency/policy đã duyệt), graceful drain có giới hạn thời gian ‹cần chốt: drain timeout›, schema compatibility check và rollback/forward-fix decision tree. Viết hai runbook cho một người:
-  - **Service chết:** cây chẩn đoán từ triệu chứng tới lệnh — container nào chết (`docker compose -f infra/compose/docker-compose.yml ps`), log gần nhất (`docker compose -f infra/compose/docker-compose.yml logs --tail=200 <service>`, với `<service>` là tên thật trong compose: `db`, `supavisor`, `caddy`, api/worker/web — **không phải `postgres`**), khởi động lại một service, quay về digest last-known-good ghi ở `infra/compose/IMAGE-PINS.md`, và mốc "khi nào ngừng sửa, chuyển sang restore Bước 9". Runbook phải phân biệt `db` chết (mất dữ liệu tiềm tàng → cân nhắc Bước 9) với `supavisor` chết (đường pool gãy, `db` còn nguyên).
+  - **Service chết:** cây chẩn đoán từ triệu chứng tới lệnh — container nào chết (`docker compose -f infra/compose/docker-compose.yml ps`), log gần nhất (`docker compose -f infra/compose/docker-compose.yml logs --tail=200 <service>`, với `<service>` là tên thật trong compose: `db`, `supavisor`, `caddy`, api/worker/web — **không phải `postgres`**), khởi động lại một service, quay về digest last-known-good ghi ở `infra/compose/IMAGE-PINS.md`, và mốc "khi nào ngừng sửa, chuyển sang restore Bước 9". Runbook phải phân biệt `db` chết (mất dữ liệu tiềm tàng → cân nhắc Bước 9) với `supavisor` chết (đường pool gãy, `db` còn nguyên). **Cảnh báo cứng phải in đậm trong runbook:** không bao giờ chạy `docker compose ... down -v` trên production để "làm sạch rồi bật lại" — `-v` xóa volume `db-config` cùng pgsodium key, biến một sự cố khởi động thành mất dữ liệu vĩnh viễn. Đây chính xác là loại lệnh một người mệt lúc 3 giờ sáng sẽ gõ theo phản xạ.
   - **Kill-switch** ‹cần chốt: phạm vi, mục 3›: cách chặn traffic ở Caddy hoặc gỡ một app khỏi Hub **không cần deploy lại**, cùng cách bật lại và cách xác nhận không có entitlement/quota nào bị fail-open trong lúc tắt.
 - **Sản phẩm:** `apps/control-plane/**` (health/readiness/drain, schema check); `infra/caddy/**` (kill-switch tại biên); `docs/**` (runbook service-down, runbook kill-switch, rollback/forward-fix decision tree).
 - **Phụ thuộc:** Bước 7.
@@ -314,10 +326,10 @@ Lệnh trong ô **Verify** dùng tên canonical tại DEC-T15 (`./decision-regis
 
 ### Bước 9 — Backup off-host, WAL/PITR monitoring và restore drill đầu tiên
 
-- **Hành động:** Thiết lập backup rời host/failure domain primary tới vị trí off-host phù hợp data residency ‹cần chốt: nơi lưu backup, mục 3› (mã hóa, integrity check, retention theo DEC-B11); WAL archive/PITR monitoring cho freshness/gap; viết **runbook restore** dạng lệnh copy-paste cho một người; chạy restore drill #1.
+- **Hành động:** Thiết lập backup rời host/failure domain primary tới vị trí off-host phù hợp data residency ‹cần chốt: nơi lưu backup, mục 3› (mã hóa, integrity check, retention theo DEC-B11). **Phạm vi backup gồm cả volume `db-config`** (pgsodium decryption key) chứ không chỉ dump của `db` — backup script phải bắt volume này và fail lớn tiếng nếu không tìm thấy nó, thay vì lặng lẽ tạo một backup thiếu key. WAL archive/PITR monitoring cho freshness/gap; viết **runbook restore** dạng lệnh copy-paste cho một người, trong đó bước khôi phục `db-config` đứng **trước** bước khởi động `db`; chạy restore drill #1.
 - **Sản phẩm:** `infra/**` (backup/restore/DR scripts, WAL/PITR monitoring config); `docs/**` (runbook restore/upgrade + kết quả drill).
 - **Phụ thuộc:** Bước 5; RPO/RTO ‹cần chốt: DEC-B12›; retention ‹cần chốt: DEC-B11›; data residency ‹cần chốt: mục 3›. **Cần user approval trước khi chạm `infra/**`.**
-- **Verify:** Restore drill trong môi trường cô lập phục hồi base backup + WAL tới recovery point mục tiêu; đo **data loss thực tế** so với RPO và **thời gian khôi phục thực tế** so với RTO; chạy consistency check + application smoke; WAL freshness alert fire trước khi vi phạm RPO. Drill pass chỉ khi số đo nằm trong ngưỡng đã duyệt và **do chủ dự án tự chạy end-to-end chỉ bằng runbook** — đây là bài kiểm tra thật, vì trong sự cố thật cũng chỉ có một người đó. Backup chưa từng được restore không phải backup; evidence phải là số đo thật từ môi trường, không phải mô tả quy trình.
+- **Verify:** Restore drill trong môi trường cô lập phục hồi base backup + WAL **+ volume `db-config`** tới recovery point mục tiêu; đo **data loss thực tế** so với RPO và **thời gian khôi phục thực tế** so với RTO; chạy consistency check + application smoke; WAL freshness alert fire trước khi vi phạm RPO. **Bài kiểm tra key bắt buộc:** đọc và giải mã thành công ít nhất một giá trị pgsodium trên bản restore — nếu bỏ bước này thì một restore mất key vẫn "pass" mọi smoke test và chỉ vỡ ra trong sự cố thật. Thêm một drill âm bản ít nhất một lần: restore **cố tình không kèm `db-config`** và xác nhận nó **fail** đúng như kỳ vọng — drill chỉ chứng minh được điều gì đó nếu nó biết fail. Drill pass chỉ khi số đo nằm trong ngưỡng đã duyệt và **do chủ dự án tự chạy end-to-end chỉ bằng runbook** — đây là bài kiểm tra thật, vì trong sự cố thật cũng chỉ có một người đó. Backup chưa từng được restore không phải backup; evidence phải là số đo thật từ môi trường, không phải mô tả quy trình.
 - **Lane:** `orchestrator` **sau explicit user approval** (scripts/config); `subagent/document` ghi kết quả đo.
 
 ### Bước 10 — Observability: telemetry, dashboard, alert, runbook
@@ -390,7 +402,7 @@ Không có lane `Infrastructure` trong roster `AGENTS.md`; tên này không đư
 - [ ] Health/readiness/drain phản ánh đúng trạng thái; migration không chạy ở startup.
 - [ ] Go-live checklist bao phủ DNS/TLS, digest matrix, migration, smoke, kênh alert và kill-switch.
 - [ ] Topology được chủ dự án approve sau khi so sánh một VPS, hai VPS và HA tương lai; mọi task topology-specific chỉ áp dụng theo lựa chọn đó.
-- [ ] Compose production giữ đúng scope DEC-T10: `db` + `supavisor` bắt buộc; `studio`/`meta`/`kong` chỉ có mặt nếu P1.10 chốt nhánh (a); `auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache` không quay lại.
+- [ ] Compose production giữ đúng scope DEC-T10: service `db` + `supavisor` và volume `db-config` bắt buộc; `studio`/`meta`/`kong` chỉ có mặt nếu P1.10 chốt nhánh (a); 6 service `auth`, `rest`, `realtime`, `storage`, `imgproxy`, `functions` không quay lại; volume mồ côi `deno-cache` đã bỏ theo `functions`.
 - [ ] Nhánh (a)/(b) áp dụng ở P8 đúng bằng nhánh P1.10 đã chốt, có dẫn chiếu bằng chứng; P8 không tự chọn lại.
 - [ ] Không có tham chiếu nào tới service tên `postgres`; PostgreSQL luôn là `db`.
 - [ ] Runbook service-down và kill-switch đã được drill bằng sự cố thật trên staging, không chỉ tồn tại trên giấy.
@@ -404,6 +416,8 @@ Không có lane `Infrastructure` trong roster `AGENTS.md`; tên này không đư
 
 ### Database
 - [ ] Backup off-host, WAL/PITR, integrity/freshness alert và restore drill đạt RPO/RTO đã duyệt.
+- [ ] Phạm vi backup gồm volume `db-config` (pgsodium key), không chỉ dump của `db`; backup script fail lớn tiếng nếu thiếu volume này.
+- [ ] Restore drill khôi phục cả `db-config` và **giải mã thành công ít nhất một giá trị pgsodium**; drill âm bản (restore thiếu `db-config`) đã được chạy và **fail** đúng kỳ vọng.
 - [ ] Version pin/upgrade được staging validate; migration grants/triggers/constraints đạt.
 - [ ] Retention append-only dùng procedure đặc quyền có approval/audit, không rewrite lịch sử.
 
@@ -440,7 +454,8 @@ Phase 8 chỉ đủ điều kiện kết thúc khi:
 - mọi quyết định mục 3 được chủ dự án ký, gồm DEC-B10/B11/B12 đã chuyển `approved` tại `./decision-register.md`; toàn bộ mandatory roster P7 đã được verify và P7 vẫn PASS trên release candidate, không chấp nhận partial P7;
 - staging deploy theo đúng order thành công, rollback/forward-fix drill đạt và production migration plan được review;
 - restore drill cùng DR game day đạt RPO/RTO đã duyệt và được chạy bằng runbook bởi chính chủ dự án; mọi gap **Critical** đã đóng, không chấp nhận waiver. Gap **High** phải đóng, trừ exception có chữ ký chủ dự án, compensating controls đã kiểm chứng, expiry/remediation deadline và reviewer xác nhận finding không còn là mục “phải sửa”;
-- compose production đúng scope DEC-T10 và đúng nhánh P1.10 đã chốt (`db` + `supavisor`, cộng `studio`/`meta`/`kong` chỉ ở nhánh (a); không có `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions`/`deno-cache`), mọi image pin digest theo `infra/compose/IMAGE-PINS.md`, chỉ Caddy expose ra Internet;
+- compose production đúng scope DEC-T10 và đúng nhánh P1.10 đã chốt — service `db` + `supavisor` và volume `db-config` có mặt, `studio`/`meta`/`kong` chỉ ở nhánh (a), không có 6 service `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions` — mọi image pin digest theo `infra/compose/IMAGE-PINS.md`, chỉ Caddy expose ra Internet;
+- restore drill chứng minh pgsodium key khôi phục được cùng dữ liệu (giải mã thật một giá trị), và drill âm bản thiếu `db-config` fail đúng kỳ vọng;
 - alert đã fire-test tới kênh chủ dự án đọc; runbook service-down và kill-switch đã drill thật;
 - capacity/connection/Supavisor test đáp ứng capacity/SLO gate; fail-closed invariant không bị phá;
 - private network, role/secret, security headers/CSP/image URL, session/M2M revoke và admin protection đều có test evidence;
@@ -457,7 +472,8 @@ Exit của phase là kết luận readiness theo bằng chứng, không tự đ�
 - P7 không còn PASS, contract/schema/image không xác định được hoặc migration không tương thích.
 - Thiếu RPO/RTO (DEC-B12), retention/privacy (DEC-B11), revoke SLA (DEC-B10), outage, SLO/capacity, kênh alert, kill-switch scope, deployment-topology approval, domain/network, residency hoặc risk acceptance; P7 partial cũng phải dừng.
 - Backup/WAL không xác minh được, restore vượt gate, data loss không đo được, hoặc `db`/`supavisor`/Studio bị public.
-- Compose production xuất hiện service thuộc nhóm loại bỏ vô điều kiện của DEC-T10: `auth` (GoTrue), **`rest` (PostgREST)**, `realtime`, `storage`, `imgproxy`, `functions`, `deno-cache`. `rest` là trường hợp nghiêm trọng nhất — nó mở một đường vào `db` thứ hai vòng qua toàn bộ enforcement entitlement/quota của Control Plane, nên sự có mặt của nó là stop condition ngay cả khi chưa lộ ra Internet.
+- Compose production xuất hiện một trong 6 service thuộc nhóm loại bỏ vô điều kiện của DEC-T10: `auth` (GoTrue), **`rest` (PostgREST)**, `realtime`, `storage`, `imgproxy`, `functions`. `rest` là trường hợp nghiêm trọng nhất — nó mở một đường vào `db` thứ hai vòng qua toàn bộ enforcement entitlement/quota của Control Plane, nên sự có mặt của nó là stop condition ngay cả khi chưa lộ ra Internet.
+- Volume `db-config` không được mount vào `db`, không nằm trong phạm vi backup, hoặc restore drill không chứng minh được pgsodium key khôi phục cùng dữ liệu. Đây là mất dữ liệu ở dạng im lặng: hệ thống vẫn chạy, backup vẫn "thành công", chỉ dữ liệu mã hoá là mất.
 - P8 chạy nhánh (a)/(b) khác với nhánh P1.10 đã chốt mà không có record superseding; hoặc P1.10 chưa ghi lại nhánh và P8 vẫn dựng compose theo suy đoán.
 - Có container ngoài Caddy publish port ra Internet, hoặc image quay về tag trôi.
 - Phát hiện secret/PII/token trong artifact/log, quyền runtime quá rộng, bypass admin/auth/quota hoặc append-only bị phá.
@@ -482,13 +498,14 @@ Nếu rollback có thể vi phạm RPO/RTO hoặc invariant, **dừng và để 
 
 - Xác minh command/path/config từ repo và môi trường thật; không chấp nhận output mô phỏng. Lệnh phải là tên canonical DEC-T15 và phải **đã tồn tại** (tạo ở P1.7/P1.10); tên lệnh trong kế hoạch không chứng minh nó chạy được.
 - Đối chiếu toàn bộ checklist, test evidence, staging/deploy/rollback, restore/DR, capacity/Supavisor, security/revoke/rotation và observability.
-- Kiểm chứng scope compose theo DEC-T10: `db` + `supavisor` có mặt; `studio`/`meta`/`kong` khớp đúng nhánh P1.10 đã chốt; `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions`/`deno-cache` vắng mặt. Kiểm digest pin khớp `infra/compose/IMAGE-PINS.md`, chỉ Caddy publish port, và alert fire-test thật sự đến kênh chủ dự án đọc.
+- Kiểm chứng scope compose theo DEC-T10, tách bạch service và volume: service `db` + `supavisor` có mặt; `studio`/`meta`/`kong` khớp đúng nhánh P1.10 đã chốt; 6 service `auth`/`rest`/`realtime`/`storage`/`imgproxy`/`functions` vắng mặt; volume `db-config` được mount vào `db` và `deno-cache` đã bỏ. Kiểm digest pin khớp `infra/compose/IMAGE-PINS.md`, chỉ Caddy publish port, và alert fire-test thật sự đến kênh chủ dự án đọc.
+- Với restore/DR: không chấp nhận drill chỉ chứng minh "`db` khởi động lại được". Đòi bằng chứng **giải mã thật một giá trị pgsodium** trên bản restore, cùng kết quả drill âm bản thiếu `db-config`.
 - Ghi kết quả verification theo quy trình (`PASS`, `FAIL`, hoặc `TẮC`/`CẠN LƯỢT` khi đúng điều kiện), finding, severity, evidence link và bước tái hiện. Đây không phải trường trạng thái phase; QA không sửa implementation.
 
 ### Reviewer bắt buộc
 
 - Review kiến trúc/topology, least privilege, migration compatibility, rollback/forward-fix, RPO/RTO evidence, privacy/redaction và topology risk statement, gồm single-primary/no-auto-failover nếu áp dụng.
-- Tìm thay đổi stack/tooling không được duyệt (đối chiếu bảng D của `./decision-register.md`), claim HA sai, migration-on-startup, `db`/`supavisor`/Studio bị public, service thuộc nhóm loại bỏ quay lại compose (đặc biệt `rest`/PostgREST), nhánh (a)/(b) lệch khỏi P1.10 mà không có record superseding, tham chiếu service `postgres` không tồn tại, tag trôi thay digest, billing bị kéo vào P8 và đường bypass invariant.
+- Tìm thay đổi stack/tooling không được duyệt (đối chiếu bảng D của `./decision-register.md`), claim HA sai, migration-on-startup, `db`/`supavisor`/Studio bị public, service thuộc nhóm loại bỏ quay lại compose (đặc biệt `rest`/PostgREST), nhánh (a)/(b) lệch khỏi P1.10 mà không có record superseding, tham chiếu service `postgres` không tồn tại, `db-config` bị đối xử như service hoặc bị bỏ khỏi backup, tag trôi thay digest, billing bị kéo vào P8 và đường bypass invariant.
 - Vì chủ dự án vừa đề xuất vừa phê duyệt, reviewer là đối trọng duy nhất còn lại: một quyết định được ký không có nghĩa nó đúng. Nêu thẳng nếu risk acceptance đang được dùng để lách một gap đáng lẽ phải sửa.
 - Phân loại rõ “phải sửa” và “khuyến nghị”. Reviewer không sửa implementation.
 
