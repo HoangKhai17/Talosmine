@@ -32,6 +32,34 @@ CREATE ROLE talosmine_runtime LOGIN PASSWORD :'runtime_pw'
 GRANT CONNECT ON DATABASE postgres TO talosmine_migration;
 GRANT CONNECT ON DATABASE postgres TO talosmine_runtime;
 
+-- Gỡ USAGE mà pseudo-role PUBLIC có trên schema public.
+--
+-- VÌ SAO Ở ĐÂY chứ không phải trong migration của Drizzle:
+-- schema `public` thuộc sở hữu của `pg_database_owner`. Migration chạy bằng
+-- `talosmine_migration`, và role đó KHÔNG có thẩm quyền revoke quyền của PUBLIC —
+-- PostgreSQL chỉ trả `WARNING: no privileges could be revoked` rồi đi tiếp.
+-- Tức là đặt statement này trong migration sẽ tạo một no-op IM LẶNG: log có chữ
+-- REVOKE, người đọc tin là đã thu hồi, nhưng ACL không đổi.
+-- Script này chạy bằng `supabase_admin` nên nó có thẩm quyền thật.
+--
+-- VÌ SAO AN TOÀN: chỉ entry `=U/` (PUBLIC) bị gỡ. Bốn role của Supabase
+-- (postgres, anon, authenticated, service_role) có grant TƯỜNG MINH riêng nên
+-- giữ nguyên quyền — đã kiểm chứng bằng ACL thật trước và sau khi chạy.
+--
+-- Hệ quả: `talosmine_runtime` mất USAGE trên public. Nó chỉ được dùng schema
+-- `control_plane`, đúng như baseline migration tuyên bố.
+--
+-- LƯU Ý cho người sửa sau: sau khi USAGE bị thu hồi, `talosmine_migration` cũng
+-- không còn tham chiếu được schema public. Vì vậy migration KHÔNG được chứa bất kỳ
+-- statement nào đụng tới public — nó sẽ chết với `permission denied for schema public`.
+-- Đây là lý do file baseline 0000 cố ý không có statement nào về public.
+REVOKE USAGE ON SCHEMA public FROM PUBLIC;
+
+-- CREATE trên public: PostgreSQL 15+ mặc định đã không cấp cho PUBLIC nữa
+-- (ACL đo được chỉ có `=U/`, không có `C`). Statement này là phòng thủ chiều sâu
+-- phòng khi image đổi mặc định, và nó vô hại khi không có gì để thu hồi.
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+
 -- CREATE trên database chỉ cấp cho role migration — đây là quyền tạo schema.
 -- Cấp ở đây (chạy bằng supabase_admin) vì bản thân migration baseline không thể
 -- tự cấp quyền cho chính nó.

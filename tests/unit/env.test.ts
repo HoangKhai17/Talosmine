@@ -44,21 +44,50 @@ describe('loadEnv — fail fast khi thiếu biến bắt buộc', () => {
   });
 });
 
-describe('loadEnv — GAP ĐÃ BIẾT: scheme của DATABASE_URL không được kiểm', () => {
-  // Đây là CHARACTERIZATION TEST: nó ghi lại hành vi THẬT hiện tại, không phải hành vi mong muốn.
-  //
-  // `z.string().url()` (env.ts dòng 22) chỉ hỏi `new URL(value)` có parse được không.
-  // `new URL('localhost:5432')` parse THÀNH CÔNG — `localhost:` bị coi là scheme, `5432` là
-  // pathname. Nên một DATABASE_URL vô nghĩa với PostgreSQL vẫn qua được cửa fail-fast, rồi
-  // vỡ muộn hơn ở tầng connect — đúng thứ mà comment đầu env.ts nói nó đang ngăn chặn.
-  //
-  // Test này CỐ Ý không assert hành vi mong muốn: "DATABASE_URL phải có scheme postgres"
-  // KHÔNG nằm trong contract đã freeze của P1 (phase-1 mục 9 và 14 chỉ yêu cầu fail-fast khi
-  // THIẾU biến, và không lộ giá trị). Tester không tự dựng contract mới; đã giao owner
-  // `backend` quyết định. Nếu owner siết scheme, test này sẽ fail và phải được cập nhật —
-  // đó là mục đích của nó.
-  it('hiện tại CHẤP NHẬN "localhost:5432" — đã báo owner backend, chưa phải contract', () => {
-    expect(() => loadEnv({ DATABASE_URL: 'localhost:5432' })).not.toThrow();
+describe('loadEnv — scheme của DATABASE_URL phải là postgres', () => {
+  // Lịch sử: đây từng là characterization test ghi lại một GAP — `z.string().url()` chỉ hỏi
+  // `new URL(value)` có parse được không, mà `new URL('localhost:5432')` parse THÀNH CÔNG
+  // (`localhost:` thành scheme, `5432` thành pathname). Owner `backend` đã quyết định siết,
+  // vì để một DATABASE_URL vô nghĩa lọt qua cửa fail-fast rồi vỡ ở tầng connect chính là
+  // thứ env.ts sinh ra để ngăn. Test nay assert CONTRACT, không còn ghi lại gap.
+
+  it('từ chối chuỗi không có scheme postgres', () => {
+    expect(() => loadEnv({ DATABASE_URL: 'localhost:5432' })).toThrow();
+  });
+
+  it('từ chối scheme sai', () => {
+    expect(() => loadEnv({ DATABASE_URL: 'http://localhost:5432/postgres' })).toThrow();
+    expect(() => loadEnv({ DATABASE_URL: 'mysql://localhost:3306/db' })).toThrow();
+  });
+
+  it('từ chối chuỗi không parse được thành URL', () => {
+    expect(() => loadEnv({ DATABASE_URL: 'khong-phai-url' })).toThrow();
+  });
+
+  it('chấp nhận cả postgresql:// và postgres://', () => {
+    // postgres.js và drizzle-kit đều nhận cả hai scheme.
+    expect(() =>
+      loadEnv({ DATABASE_URL: 'postgresql://u:p@127.0.0.1:5432/postgres' }),
+    ).not.toThrow();
+
+    // loadEnv cache kết quả nên phải reset trước khi thử scheme thứ hai.
+    resetEnvCache();
+    expect(() => loadEnv({ DATABASE_URL: 'postgres://u:p@127.0.0.1:5432/postgres' })).not.toThrow();
+  });
+
+  it('thông điệp lỗi nêu scheme nhận được nhưng KHÔNG in cả URL', () => {
+    // URL chứa password. Nêu scheme là đủ để người vận hành sửa; in cả chuỗi thì biến
+    // một lỗi cấu hình thành một lần rò rỉ credential.
+    const url = 'http://user:sUp3r-s3cr3t@localhost:5432/db';
+    try {
+      loadEnv({ DATABASE_URL: url });
+      throw new Error('đáng lẽ phải ném');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      expect(message).toContain('http://');
+      expect(message).not.toContain('sUp3r-s3cr3t');
+      expect(message).not.toContain(url);
+    }
   });
 });
 

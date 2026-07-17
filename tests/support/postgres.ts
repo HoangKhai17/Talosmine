@@ -18,22 +18,47 @@ import postgres from 'postgres';
  */
 export const POSTGRES_IMAGE = 'postgres:17.6-alpine';
 
-const BASELINE_MIGRATION_URL = new URL(
-  '../../apps/control-plane/drizzle/migrations/0000_baseline_schema_roles.sql',
-  import.meta.url,
-);
+const MIGRATIONS_DIR = new URL('../../apps/control-plane/drizzle/migrations/', import.meta.url);
+
+interface JournalEntry {
+  idx: number;
+  tag: string;
+}
+
+/**
+ * Đọc thứ tự migration từ `meta/_journal.json` — chính nguồn mà drizzle-kit dùng.
+ *
+ * KHÔNG hardcode tên file: baseline không còn là một file duy nhất (0001 sửa một no-op
+ * của 0000, và P2+ sẽ thêm tiếp). Hardcode `0000` sẽ khiến test âm thầm bỏ qua migration
+ * mới và "chứng minh" một schema không phải cái production chạy.
+ */
+async function readJournal(): Promise<JournalEntry[]> {
+  const raw = await readFile(new URL('meta/_journal.json', MIGRATIONS_DIR), 'utf8');
+  const journal = JSON.parse(raw) as { entries: JournalEntry[] };
+
+  return [...journal.entries].sort((a, b) => a.idx - b.idx);
+}
 
 /**
  * Drizzle phân tách statement bằng marker `--> statement-breakpoint`, KHÔNG bằng dấu `;`.
  * Tách theo `;` sẽ cắt nát các khối `DO $$ ... END $$;` trong baseline.
  */
 export async function loadBaselineStatements(): Promise<string[]> {
-  const raw = await readFile(BASELINE_MIGRATION_URL, 'utf8');
+  const entries = await readJournal();
+  const statements: string[] = [];
 
-  return raw
-    .split('--> statement-breakpoint')
-    .map((chunk) => chunk.trim())
-    .filter((chunk) => chunk.length > 0 && !isCommentOnly(chunk));
+  for (const entry of entries) {
+    const raw = await readFile(new URL(`${entry.tag}.sql`, MIGRATIONS_DIR), 'utf8');
+
+    statements.push(
+      ...raw
+        .split('--> statement-breakpoint')
+        .map((chunk) => chunk.trim())
+        .filter((chunk) => chunk.length > 0 && !isCommentOnly(chunk)),
+    );
+  }
+
+  return statements;
 }
 
 function isCommentOnly(chunk: string): boolean {

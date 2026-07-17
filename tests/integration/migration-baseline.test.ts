@@ -142,21 +142,29 @@ describe('migration baseline 0000_baseline_schema_roles.sql', () => {
       expect(rows[0]?.has_create).toBe(false);
     });
 
-    it('GAP ĐÃ BIẾT: runtime VẪN có USAGE trên schema public dù baseline có REVOKE', async () => {
-      // CHARACTERIZATION TEST — ghi lại hành vi THẬT, không phải hành vi mong muốn.
+    it('MIGRATION MỘT MÌNH không thu hồi được USAGE trên public — việc đó thuộc infra', async () => {
+      // Đây KHÔNG phải bug chưa sửa. Nó ghi lại một ranh giới thẩm quyền có thật.
       //
-      // Baseline dòng 65-66 ghi ý định "Runtime không được đụng schema public" rồi chạy
-      //   REVOKE ALL ON SCHEMA public FROM talosmine_runtime;
-      // Statement đó là NO-OP cho mục đích của nó: USAGE trên public không hề được cấp
-      // TRỰC TIẾP cho talosmine_runtime — nó đến từ pseudo-role PUBLIC. ACL thật đo được:
-      //   {pg_database_owner=UC/pg_database_owner,=U/pg_database_owner}
-      // Entry `=U/` là "PUBLIC có USAGE". REVOKE FROM <role> không đụng tới entry đó;
-      // muốn bỏ thật phải `REVOKE USAGE ON SCHEMA public FROM PUBLIC`.
+      // Migration 0000 chạy `REVOKE ALL ON SCHEMA public FROM talosmine_runtime` — no-op,
+      // vì USAGE của runtime đến từ pseudo-role PUBLIC (`=U/` trong ACL), mà
+      // `REVOKE ... FROM <role>` không chạm tới grant của PUBLIC.
       //
-      // Mức độ: phòng thủ theo chiều sâu, KHÔNG phải lỗ hổng đang mở — PUBLIC đã bị thu hồi
-      // CREATE nên runtime không tạo được gì trong public, và P1 chưa có object nào ở đó.
-      // Đã báo owner `backend`; tester không tự sửa product code và cũng không tự dựng
-      // contract mới (phase-1 chỉ freeze "runtime không CREATE/ALTER/DROP").
+      // Và statement đúng (`REVOKE USAGE ON SCHEMA public FROM PUBLIC`) cũng KHÔNG thể
+      // đặt trong migration: schema public thuộc `pg_database_owner`, còn migration chạy
+      // bằng `talosmine_migration` — role đó không có thẩm quyền, PostgreSQL chỉ trả
+      // `WARNING: no privileges could be revoked` rồi đi tiếp. Đo được thật:
+      //     talosmine_migration -> WARNING, ACL không đổi
+      //     supabase_admin      -> REVOKE thành công, `=U/` biến mất
+      //
+      // Nên việc thu hồi nằm ở `infra/compose/volumes/db/talosmine-roles.sql`, chạy bằng
+      // supabase_admin lúc init container. Test này chỉ apply migration nên đúng là USAGE
+      // vẫn còn — và điều đó ĐÚNG với thực tế của migration.
+      //
+      // CẢNH BÁO QUAN TRỌNG: test này chạy bằng superuser của testcontainers, vốn CÓ
+      // thẩm quyền revoke. Nếu ai đó thêm `REVOKE ... FROM PUBLIC` vào migration, test này
+      // sẽ chuyển XANH trong khi production vẫn hỏng — vì ở đó migration chạy bằng
+      // talosmine_migration. Đừng tin màu xanh ở đây cho câu hỏi quyền của PUBLIC.
+      // Bằng chứng thật cho chuỗi init đầy đủ nằm ở docs/build-plan/evidence-p1.md.
       const rows = await sql<{ has_usage: boolean }[]>`
         SELECT has_schema_privilege('talosmine_runtime', 'public', 'USAGE') AS has_usage
       `;
