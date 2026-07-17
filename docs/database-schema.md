@@ -20,7 +20,7 @@
 
 `created_at` mặc định `CURRENT_TIMESTAMP`. Bảng mutable có `updated_at` cùng mặc định lúc insert, nhưng service phải gán lại bằng DB clock trong mỗi `UPDATE`; không dựa vào application clock. Các bảng append-only không có `updated_at`. Email chỉ là thuộc tính liên hệ, không unique và không dùng để liên kết identity.
 
-Hồ sơ account trong MVP được biểu diễn bằng cột typed `display_name`; không tạo profile JSONB tùy ý. Cả `display_name` và `email` đều không unique.
+Hồ sơ account trong MVP dùng các cột typed `display_name`, `email`, `email_verified`, `locale` và `timezone`; không tạo profile JSONB tùy ý. Không lưu avatar hoặc số điện thoại khi chưa có use case. `display_name` và `email` không unique; `locale`/`timezone` chỉ là tùy chọn hiển thị, không quyết định quota window.
 
 ## 2. Module → table
 
@@ -95,14 +95,19 @@ erDiagram
 | `status` | `text` | không | — | `pending`, `active`, `disabled` | Trạng thái truy cập. |
 | `display_name` | `text` | có | — | — | Tên hồ sơ; không dùng làm identity. |
 | `email` | `text` | có | — | — | Thông tin liên hệ không unique; không dùng để link account. |
+| `email_verified` | `boolean` | không | `false` | — | Trạng thái xác minh của email gần nhất nhận từ nguồn danh tính tin cậy. |
+| `locale` | `text` | có | — | non-empty nếu có | Ngôn ngữ/định dạng hiển thị ưu tiên, ví dụ BCP 47; application kiểm tra giá trị hỗ trợ. |
+| `timezone` | `text` | có | — | non-empty nếu có | IANA timezone ưu tiên để hiển thị thời gian; không dùng làm timezone của quota policy. |
 | `disabled_at` | `timestamptz` | có | — | state consistency | Thời điểm vô hiệu hóa. |
 | `created_at` | `timestamptz` | không | DB clock | — | Thời điểm tạo. |
 | `updated_at` | `timestamptz` | không | DB clock | — | Lần cập nhật gần nhất. |
 
 - **PK:** `accounts_pkey (id)`.
 - **FK/unique:** không có FK; không có unique ngoài PK. Email và tên hồ sơ cố ý không unique.
-- **Check:** `accounts_status_check`; `accounts_disabled_state_check` yêu cầu `disabled_at IS NOT NULL` đúng và chỉ đúng khi `status = 'disabled'`.
+- **Check:** `accounts_status_check`; `accounts_disabled_state_check` yêu cầu `disabled_at IS NOT NULL` đúng và chỉ đúng khi `status = 'disabled'`; `accounts_email_verified_check` yêu cầu `email IS NOT NULL OR email_verified = false`; `accounts_locale_check` và `accounts_timezone_check` từ chối chuỗi rỗng khi có giá trị.
 - **Index:** `accounts_status_idx (status)` phục vụ vận hành. Không tạo unique index trên `email` hoặc `display_name`.
+
+`email` và `email_verified` phải được cập nhật nguyên tử. Khi giá trị email thay đổi, service mặc định đặt `email_verified = false`; chỉ đặt `true` khi **chính email đó** đi kèm claim boolean `email_verified = true` từ token/UserInfo đã được Auth0 xác minh. Claim thiếu, null hoặc chỉ có scope `email` không chứng minh email đã được xác minh.
 
 ### 4.2. `external_identities`
 
@@ -123,6 +128,17 @@ erDiagram
 - **Index:** `external_identities_account_idx (account_id)`.
 
 Identity orchestration resolve duy nhất bằng `(issuer, subject)`. Khi mapping chưa tồn tại, Identity gọi Account qua các port và shared Unit of Work để insert `accounts` cùng `external_identities` trong **một PostgreSQL transaction**. Nếu unique constraint bị transaction cạnh tranh thắng, toàn bộ transaction thua—including account vừa insert—phải rollback; retry mở transaction mới và đọc mapping của winner. Không commit account trước mapping, vì như vậy có thể tạo orphan account.
+
+#### Google Login qua Auth0
+
+Google Login không cần thêm bảng hoặc thay đổi khóa identity. Auth0 vẫn là issuer tin cậy, vì vậy `external_identities.provider` tiếp tục là `auth0` và account vẫn được resolve bằng `(issuer, subject)` dù upstream connection là Google.
+
+- Cấu hình Google social connection trong Auth0 bằng Google OAuth client ID/secret và callback URL do Auth0 cung cấp; secret chỉ nằm trong Auth0/secret manager, không lưu trong schema này.
+- Bật connection cho đúng Auth0 Application và yêu cầu tối thiểu các scope OIDC `openid profile email`.
+- Khi provision lần đầu, có thể khởi tạo `display_name`, `email` và `email_verified` từ claims đã được Auth0 xác minh. Các lần login sau chỉ đồng bộ theo profile-sync policy đã phê duyệt; không âm thầm ghi đè dữ liệu user đã chỉnh sửa.
+- Không tự liên kết hai account chỉ vì Google trả cùng email. Account linking, nếu cần sau này, phải là luồng riêng có xác minh lại danh tính và audit.
+- Tắt mọi Auth0 Action/Management API thực hiện automatic hoặc email-based account linking. Luồng linking tương lai phải do Talosmine kiểm soát, re-authenticate cả hai identity, khóa và kiểm tra cả hai mapping trong một transaction, từ chối nếu chúng đã thuộc hai account khác nhau cho tới khi có quy trình merge dữ liệu riêng, và luôn ghi audit.
+- `locale` và `timezone` là preference của Talosmine; không bắt buộc lấy từ Google và không dùng làm identity claim.
 
 ### 4.3. `web_sessions`
 
@@ -155,6 +171,7 @@ Identity orchestration resolve duy nhất bằng `(issuer, subject)`. Khi mappin
 | `key` | `text` | không | — | unique, stable | Định danh machine-readable không tái sử dụng. |
 | `display_name` | `text` | không | — | non-empty | Tên hiển thị. |
 | `description` | `text` | có | — | — | Mô tả catalog. |
+| `image_url` | `text` | có | — | non-empty nếu có | URL ảnh/icon của ứng dụng trên object storage, CDN hoặc static host; không lưu binary/base64 trong PostgreSQL. |
 | `launch_url` | `text` | không | — | non-empty | URL mở ứng dụng; service kiểm tra URL hợp lệ. |
 | `status` | `text` | không | — | `draft`, `active`, `inactive` | Vòng đời catalog. |
 | `created_at` | `timestamptz` | không | DB clock | — | Thời điểm tạo. |
@@ -162,8 +179,10 @@ Identity orchestration resolve duy nhất bằng `(issuer, subject)`. Khi mappin
 
 - **PK/unique:** `applications_pkey`; `applications_key_key (key)`.
 - **FK:** không có.
-- **Check:** `applications_status_check`, các check non-empty cho `key`, `display_name`, `launch_url`.
+- **Check:** `applications_status_check`, các check non-empty cho `key`, `display_name`, `launch_url`; `applications_image_url_check` từ chối chuỗi rỗng khi `image_url` có giá trị. Cú pháp URL, scheme HTTPS và host allowlist được kiểm tra ở application layer.
 - **Index:** `applications_status_idx (status)`.
+
+`image_url` chỉ được lưu URL public, ổn định thuộc CDN/object-storage domain do dự án kiểm soát; không lưu URL có userinfo, credential trong query hoặc presigned token ngắn hạn. Ưu tiên URL sinh từ asset key do hệ thống quản lý. Nếu Next.js/BFF fetch hoặc tối ưu ảnh phía server, cấu hình allowlist tĩnh, kiểm tra lại mọi redirect và chặn loopback/private/link-local address sau DNS resolution; nếu không cần proxy ảnh thì browser tải trực tiếp theo CSP allowlist.
 
 ### 5.2. `application_redirect_uris`
 
