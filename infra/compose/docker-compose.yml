@@ -1,0 +1,125 @@
+# Talosmine — Supabase self-hosted RÚT GỌN (DEC-T10).
+#
+# Nguồn: docker/docker-compose.yml của supabase/supabase tại tag v1.26.07.
+# Bản gốc có 11 service; bản này giữ 2. Xem infra/compose/IMAGE-PINS.md để biết digest.
+#
+# GIỮ:  db (PostgreSQL), supavisor (transaction pooler), volume db-config
+# BỎ:   auth (GoTrue), rest (PostgREST), realtime, storage, imgproxy, functions,
+#       studio, meta, kong, volume deno-cache
+#
+# Vì sao bỏ — hai lý do khác nhau, đừng lẫn:
+#   - GoTrue: dự án dùng Auth0 cho identity. GoTrue là identity provider thứ hai
+#     không ai dùng nhưng vẫn chạy → bề mặt tấn công thừa.
+#   - PostgREST: đây là lý do BẢO MẬT, không phải dọn dẹp. Nó phơi toàn bộ database
+#     ra thành REST API, tức một đường vào `db` VÒNG QUA toàn bộ enforcement
+#     entitlement/quota của Control Plane. Nó là stop condition kể cả khi không
+#     lộ ra Internet (docs/build-plan/phase-8 mục 19).
+#   - studio/meta/kong: nhánh (a)/(b) của DEC-T10 chưa chốt. Bản này theo nhánh (b)
+#     — quản trị DB bằng `pnpm db:studio` (Drizzle Studio). Nếu đổi sang (a) thì
+#     phải ghi record superseding, không sửa file này rồi thôi.
+#
+# MẠNG: KHÔNG service nào publish port ra host. Bản gốc có `ports:` ở supavisor —
+# đã bỏ có chủ đích. Chỉ Caddy được expose (DEC-T11). Truy cập DB lúc dev đi qua
+# `docker compose exec` hoặc container phụ trong cùng network.
+
+name: talosmine
+
+services:
+  db:
+    container_name: talosmine-db
+    image: supabase/postgres:17.6.1.136
+    restart: unless-stopped
+    # KHÔNG có `ports:` — DB không bao giờ bind ra host.
+    volumes:
+      # Init script của Supabase, đã lọc còn đúng thứ supavisor cần.
+      # Bỏ realtime.sql / webhooks.sql / logs.sql / jwt.sql vì các service dùng chúng
+      # đã bị loại khỏi compose này.
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
+      - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
+      # Role riêng của Talosmine. Phải là .sql (migrate.sh của image lờ file .sh)
+      # và phải nằm ở migrations/ để chạy bằng supabase_admin — user `postgres`
+      # đã bị demote ở post-setup nên không tạo được role.
+      - ./volumes/db/talosmine-roles.sql:/docker-entrypoint-initdb.d/migrations/99-talosmine-roles.sql:Z
+      # Named volume: KHÔNG dùng hậu tố `:Z` (đó là tuỳ chọn SELinux của bind mount).
+      - db-data:/var/lib/postgresql/data
+      # BẮT BUỘC: giữ pgsodium decryption key qua các lần restart.
+      # Bỏ volume này = mất key = dữ liệu mã hoá bằng pgsodium không đọc lại được.
+      # Backup phải bao gồm nó (docs/build-plan/phase-8 mục 8).
+      - db-config:/etc/postgresql-custom
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres', '-h', 'localhost']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: 5432
+      POSTGRES_PORT: 5432
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD là bắt buộc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD là bắt buộc}
+      PGDATABASE: ${POSTGRES_DB:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: postgres
+      TALOSMINE_MIGRATION_PASSWORD: ${TALOSMINE_MIGRATION_PASSWORD:?bắt buộc}
+      TALOSMINE_RUNTIME_PASSWORD: ${TALOSMINE_RUNTIME_PASSWORD:?bắt buộc}
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+    networks: [talosmine-internal]
+
+  supavisor:
+    container_name: talosmine-pooler
+    image: supabase/supavisor:2.9.5
+    restart: unless-stopped
+    # Bản gốc publish 5432 và 6543 ra host. ĐÃ BỎ có chủ đích (DEC-T10):
+    # không service Supabase nào được bind ra host. App nói chuyện với pooler
+    # qua network nội bộ bằng hostname `supavisor`.
+    volumes:
+      - ./volumes/pooler/pooler.exs:/etc/pooler/pooler.exs:ro,z
+    healthcheck:
+      test: ['CMD', 'curl', '-sSfL', '--head', '-o', '/dev/null', 'http://127.0.0.1:4000/api/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      POSTGRES_PORT: 5432
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?bắt buộc}
+      DATABASE_URL: ecto://supabase_admin:${POSTGRES_PASSWORD}@db:5432/_supabase
+      CLUSTER_POSTGRES: 'true'
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?bắt buộc}
+      VAULT_ENC_KEY: ${VAULT_ENC_KEY:?bắt buộc}
+      API_JWT_SECRET: ${JWT_SECRET:?bắt buộc}
+      METRICS_JWT_SECRET: ${JWT_SECRET:?bắt buộc}
+      REGION: local
+      ERL_AFLAGS: -proto_dist inet_tcp
+      POOLER_TENANT_ID: ${POOLER_TENANT_ID:-talosmine}
+      POOLER_DEFAULT_POOL_SIZE: ${POOLER_DEFAULT_POOL_SIZE:-20}
+      POOLER_MAX_CLIENT_CONN: ${POOLER_MAX_CLIENT_CONN:-100}
+      # transaction mode là ràng buộc kiến trúc, không phải tuning.
+      # Nó là lý do driver PHẢI đặt `prepare: false` (DEC-T09) và là lý do
+      # spike P1.5 phải chứng minh transaction pinning trước khi P5 được build.
+      POOLER_POOL_MODE: transaction
+      DB_POOL_SIZE: ${POOLER_DB_POOL_SIZE:-5}
+    command:
+      - /bin/sh
+      - -c
+      - /app/bin/migrate && /app/bin/supavisor eval "$$(cat /etc/pooler/pooler.exs)" && /app/bin/server
+    networks: [talosmine-internal]
+
+volumes:
+  db-data:
+  # Xem ghi chú ở service `db`: volume này giữ pgsodium key. Không xoá.
+  db-config:
+
+networks:
+  talosmine-internal:
+    driver: bridge

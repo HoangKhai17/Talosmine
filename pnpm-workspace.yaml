@@ -1,0 +1,18 @@
+# Workspace theo DEC-T02 (pnpm 11.13.1).
+# Chỉ khai báo các package thật sự tồn tại; thêm package mới phải cập nhật ở đây.
+packages:
+  - "apps/*"
+  - "tests"
+# pnpm 11 mặc định KHÔNG chạy build script của dependency (chống supply-chain attack:
+# một package bị chiếm có thể chạy code tuỳ ý lúc install). Chỉ bật cho package thật sự cần,
+# và phải nêu lý do — đây là allowlist có chủ đích, không phải "bật cho hết lỗi".
+allowBuilds:
+  # esbuild: tải native binary đúng platform. Vitest và tsx phụ thuộc nó.
+  esbuild: true
+  # sharp: native binary xử lý ảnh. Next.js image optimizer cần (DEC-T12: ảnh đi qua
+  # Next image proxy, nên đường này bắt buộc hoạt động).
+  sharp: true
+
+# pnpm mặc định tạo node_modules strict (không phantom dependency).
+# Đây là điều kiện hỗ trợ luật ranh giới module tại docs/modular.md mục 1.2:
+# một package không import được thứ nó không khai báo dependency.

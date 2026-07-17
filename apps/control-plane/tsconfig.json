@@ -1,0 +1,35 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // NestJS dựng dependency injection từ decorator metadata mà TypeScript phát ở runtime.
+    // Hai cờ này là bắt buộc — thiếu chúng thì DI không resolve được và app chết lúc khởi động.
+    // Đây cũng là lý do DEC-T03 pin TypeScript 5.9.3 thay vì 7.0.2: bản port Go chưa được
+    // kiểm chứng với emitDecoratorMetadata trên NestJS 11.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // CommonJS chứ không phải ESM. NestJS 11 chạy được ESM nhưng tổ hợp
+    // ESM + emitDecoratorMetadata + Fastify adapter là đường ít người đi và dễ vỡ.
+    // Root workspace vẫn là ESM; chỉ package này khác, và package.json của nó
+    // khai "type": "commonjs" để khớp.
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
+
+    // verbatimModuleSyntax bị tắt ở đây (base bật).
+    // Lý do: nó buộc `import type` bị xoá hoàn toàn, trong khi emitDecoratorMetadata
+    // cần tham chiếu type còn sống ở runtime để sinh metadata cho DI.
+    // Hai cờ này xung khắc nhau — đây là đánh đổi có chủ đích, không phải bỏ sót.
+    "verbatimModuleSyntax": false,
+
+    // composite/declaration không cần cho một app đầu cuối.
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "drizzle.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -18,6 +18,18 @@ dist/
 build/
 out/
 *.log
+.next/
+*.tsbuildinfo
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# pnpm
+.pnpm-store/
 
 # OS / editor
 .DS_Store

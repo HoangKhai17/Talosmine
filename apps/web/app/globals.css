@@ -1,0 +1,191 @@
+/*
+ * Accessibility/responsive foundation cho shell P1 (phase-1 mục 10).
+ * CSS thuần: bảng D không có UI library nào, thêm một cái là lệch DEC.
+ */
+
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f4f5f7;
+  --color-border: #c9ced6;
+  /* Contrast trên nền --color-bg: #40474f ~ 8.6:1, đạt WCAG AA cho text thường. */
+  --color-text: #14181d;
+  --color-text-muted: #40474f;
+  --color-accent: #14181d;
+  --color-focus: #0b5cd5;
+
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2rem;
+
+  --max-content-width: 72rem;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #101317;
+    --color-surface: #191d23;
+    --color-border: #3a424c;
+    /* #e6e9ee trên #101317 ~ 14.3:1. */
+    --color-text: #e6e9ee;
+    --color-text-muted: #b3bbc6;
+    --color-accent: #e6e9ee;
+    --color-focus: #7fb0ff;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* Focus phải nhìn thấy được ở mọi control có thể tab tới. Không bao giờ outline: none. */
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+a {
+  color: inherit;
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Skip link: hiện ra khi nhận focus bằng bàn phím. */
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: -4rem;
+  z-index: 10;
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--color-bg);
+  border: 2px solid var(--color-accent);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: top 120ms ease-in-out;
+}
+
+.skip-link:focus-visible {
+  top: var(--space-2);
+}
+
+.shell-header {
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+}
+
+.shell-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  width: 100%;
+  max-width: var(--max-content-width);
+  margin-inline: auto;
+  padding: var(--space-2);
+}
+
+.shell-brand {
+  font-weight: 600;
+  font-size: 1.125rem;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.shell-nav-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shell-nav-link {
+  display: inline-block;
+  padding: var(--space-1);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.shell-nav-link:hover {
+  border-bottom-color: var(--color-accent);
+}
+
+.shell-main {
+  width: 100%;
+  max-width: var(--max-content-width);
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-2) var(--space-4);
+}
+
+.shell-footer {
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.stack > * + * {
+  margin-top: var(--space-2);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.notice {
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-accent);
+  border-radius: 4px;
+  background-color: var(--color-surface);
+  padding: var(--space-2);
+}
+
+.action-button {
+  font: inherit;
+  color: var(--color-bg);
+  background-color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: 4px;
+  padding: var(--space-1) var(--space-3);
+  min-height: 44px; /* Vùng chạm tối thiểu trên mobile. */
+  cursor: pointer;
+}
+
+/* Người dùng bật "reduce motion" thì tắt hẳn animation/transition, không chỉ làm nhanh hơn. */
+@media (prefers-reduced-motion: reduce) {
+  /* biome-ignore-start lint/complexity/noImportantStyles: đây là reset accessibility toàn cục,
+     nó phải thắng mọi khai báo animation/transition đặt sau nó. Bỏ !important sẽ làm
+     preference của người dùng bị component ghi đè — đó chính là lỗi cần tránh. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* biome-ignore-end lint/complexity/noImportantStyles: hết phạm vi reset. */
+}

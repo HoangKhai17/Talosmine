@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    // rootDir là "src" (không phải "." như tsconfig.json) để output phẳng thành
+    // dist/main-api.js chứ không phải dist/src/main-api.js — khớp với script
+    // start:api/start:worker và với đường dẫn trong Dockerfile.
+    "rootDir": "src"
+  },
+  // drizzle.config.ts chỉ dùng cho drizzle-kit ở dev/CI, không thuộc runtime bundle.
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts", "drizzle.config.ts"]
+}

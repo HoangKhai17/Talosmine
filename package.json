@@ -1,0 +1,36 @@
+{
+  "name": "talosmine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.13.1",
+  "engines": {
+    "node": "24.18.0"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "build": "pnpm -r --filter \"./apps/*\" run build",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:concurrency": "vitest run --project concurrency",
+    "db:generate": "pnpm --filter @talosmine/control-plane run db:generate",
+    "db:migrate": "pnpm --filter @talosmine/control-plane run db:migrate",
+    "db:studio": "pnpm --filter @talosmine/control-plane run db:studio",
+    "openapi:lint": "redocly lint contracts/openapi/control-plane.v1.yaml",
+    "openapi:types": "openapi-typescript contracts/openapi/control-plane.v1.yaml -o contracts/openapi/generated/types.ts",
+    "openapi:drift": "node scripts/openapi-drift.mjs",
+    "dev:web": "pnpm --filter @talosmine/web run dev",
+    "dev:api": "pnpm --filter @talosmine/control-plane run dev:api",
+    "dev:worker": "pnpm --filter @talosmine/control-plane run dev:worker"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.4",
+    "@redocly/cli": "2.39.0",
+    "@types/node": "^24.10.1",
+    "openapi-typescript": "7.13.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  }
+}
