@@ -1,7 +1,7 @@
 ---
 description: Kỹ sư frontend. Hiện thực giao diện, logic phía client, quản lý state, và styling. Dùng cho mọi thứ liên quan tới người dùng nhìn thấy.
 mode: subagent
-model: anthropic/claude-opus-4-8
+model: openai/gpt-5.6-sol
 temperature: 0.2
 permission:
   read: allow

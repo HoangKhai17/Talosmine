@@ -1,7 +1,7 @@
 ---
 description: Kỹ sư backend. Hiện thực logic server, API, mô hình dữ liệu, lưu trữ, và tích hợp bên thứ ba.
 mode: subagent
-model: anthropic/claude-opus-4-8
+model: openai/gpt-5.6-sol
 temperature: 0.2
 permission:
   read: allow

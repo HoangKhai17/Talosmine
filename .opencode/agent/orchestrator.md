@@ -1,7 +1,7 @@
 ---
 description: Agent điều phối chính. Chia mục tiêu thành các nhiệm vụ, chạy song song khi có thể, và lặp vòng kiểm chứng cho tới khi đạt chuẩn. Điều phối toàn bộ quá trình xây dựng.
 mode: primary
-model: anthropic/claude-opus-4.8
+model: openai/gpt-5.6-sol
 temperature: 0.2
 permission:
   read: allow

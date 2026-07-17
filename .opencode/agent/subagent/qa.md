@@ -1,7 +1,7 @@
 ---
 description: Kỹ sư QA. Đối chiếu tiêu chí nghiệm thu, chạy build/lint/typecheck/test, và báo lỗi. Không sửa code.
 mode: subagent
-model: anthropic/claude-opus-4-8
+model: openai/gpt-5.6-sol
 temperature: 0.1
 permission:
   read: allow
