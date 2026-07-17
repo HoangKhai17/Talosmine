@@ -45,7 +45,7 @@
 2. Nhu cầu dữ liệu xuyên module phải đi qua **public application port** có input/output ổn định. MVP gọi đồng bộ trong cùng process; không biến lời gọi nội bộ thành HTTP loopback.
 3. Controller/BFF chỉ điều phối use case công khai, không gọi thẳng repository.
 4. Internal domain/integration event chỉ được phát **sau khi transaction đã commit**. Consumer phải idempotent và không được giả định event là transaction phân tán.
-5. Audit bắt buộc không đi qua event bất đồng bộ. Mọi mutation nhạy cảm gọi `AuditAppendPort` đồng bộ trong cùng PostgreSQL transaction/shared Unit of Work; append audit thất bại phải rollback mutation. Caller không đọc Audit repository. Audit event dùng `operationId + sequence` để retry idempotent.
+5. Audit bắt buộc không đi qua event bất đồng bộ. Mọi mutation nhạy cảm gọi `AuditAppendPort` đồng bộ trong cùng PostgreSQL transaction/shared Unit of Work; append audit thất bại phải rollback mutation. Caller không đọc Audit repository. Audit record dùng `operationId + sequence` để retry idempotent.
 6. Event sau commit không thay thế transaction SQL có kiểm soát của hard quota hoặc audit bắt buộc. Quyết định `reserve` và ghi reservation/bucket/idempotency phải hoàn thành trong cùng ranh giới nguyên tử cần thiết. MVP không thêm outbox.
 7. `audit_events` và `usage_events` là append-only. Sửa sai bằng event điều chỉnh hoặc bản ghi mới, không update/delete lịch sử.
 8. PostgreSQL là ledger quota. Không dùng Redis hoặc cache phân tán làm nguồn sự thật cho số dư hard quota.
@@ -103,12 +103,12 @@ Các mũi tên liền biểu thị dependency qua public port, gồm cả audit 
 | `ExternalIdentityResolutionPort` | Identity | Entitlement, Quota | Nhận `issuer + subject` đã được caller xác minh và trả internal account reference; không resolve trước service resource-scope check. |
 | `CatalogLookupPort` | Application Catalog | Plan, Entitlement, Quota, Service Identity | Resolve key ổn định và xác minh feature/metric thuộc đúng application. |
 | `PlanVersionLookupPort` | Plan / Plan Version | Subscription, Entitlement | Chỉ trả snapshot published/retired theo nhu cầu use case; không cho sửa xuyên module. |
-| `ActiveSubscriptionPort` | Subscription | Entitlement | Trả subscription cá nhân theo canonical DB-time predicate, kể cả `pending` đã tới `starts_at`; không phụ thuộc worker projection. |
+| `ActiveSubscriptionPort` | Subscription | Entitlement | Tính `effective_end` và trả subscription theo canonical DB-time predicate, kể cả `pending` đã tới `starts_at`; không phụ thuộc worker projection. |
 | `EntitlementDecisionPort` | Entitlement | Data Plane adapter | Quyết định allow/deny sau exact feature-scope check; không trả tên plan để app suy luận. |
 | `EntitlementEligibilityPort` | Entitlement | Quota | Kiểm tra entitlement nội bộ bằng account reference đã resolve sau exact quota metric-scope check; không mở endpoint cho Data Plane. |
 | `ServiceScopeAuthorizationPort` | Service Identity | Entitlement, Quota | Xác minh M2M identity DB state, app binding và exact capability/resource scope trước khi đọc trạng thái user. |
 | `QuotaReservationPort` | Quota | Data Plane adapter | `reserve`, `commit`, `cancel`, `getStatus` idempotent và fail-closed. |
-| `QuotaReconciliationPort` | Quota | Background Reconciliation | Claim, expire và reconcile work item mà không lộ repository. |
+| `QuotaReconciliationPort` | Quota | Background Reconciliation | List due candidates và thử expire/reconcile dưới transaction lock + state recheck; candidate có thể xuất hiện ở nhiều invocation mà không lộ repository. |
 | `AuditAppendPort` | Audit / Admin | Các module có mutation nhạy cảm | Append đồng bộ bằng `operationId + sequence` trong transaction của mutation; lỗi append rollback mutation. |
 | `SubscriptionMutationPort` | Subscription | Admin; Billing Adapter tương lai | Thay đổi vòng đời có effective time, source từ authenticated actor/integration, namespaced idempotency và audit context. |
 
@@ -399,9 +399,12 @@ Ngoài phạm vi: organization/team subscription, payment/refund processing, tí
 
 - Chủ thể là một account cá nhân; không có `organizationId` hoặc pooled owner trong MVP.
 - Subscription mới chỉ tham chiếu published Plan Version. Retired version không được chọn mới nhưng subscription đã tham chiếu vẫn giữ snapshot.
-- Không có hơn một timeline overlap cho cùng account, bất kể status projection hoặc concurrent request.
-- Tại database time `t`, subscription cấp quyền khi và chỉ khi `starts_at <= t`, `t < COALESCE(cancel_at, ends_at, infinity)` và status thuộc `pending|active|cancel_at_period_end`.
+- `effective_end = LEAST(cancel_at, ends_at)` theo PostgreSQL semantics: `LEAST` bỏ qua operand `NULL`; nếu cả hai đều `NULL` thì `effective_end` là `NULL` và được hiểu là infinity khi so sánh hiệu lực.
+- Tại database time `t`, subscription cấp quyền khi và chỉ khi `starts_at <= t`, `t < COALESCE(effective_end, infinity)` và status thuộc `pending|active|cancel_at_period_end`.
+- Canonical interval của mọi row, không phân biệt status, là `[starts_at, effective_end)`, với infinity khi `effective_end` là `NULL`. Overlap check không loại `suspended`, `canceled` hoặc `expired`; mutation khóa account để serialize việc kiểm tra. Subscription mới được phép bắt đầu đúng tại `effective_end` của row trước vì end là exclusive.
 - `pending` là projection cho hiệu lực tương lai và tự có hiệu lực khi `starts_at` đến; authorization không chờ worker đổi state sang `active`. `suspended`, `canceled`, `expired` không cấp quyền.
+- `cancel_at_period_end` bắt buộc có `cancel_at > starts_at`; nếu có `ends_at` thì `cancel_at <= ends_at`. Entitlement ngừng ngay tại `cancel_at` theo predicate dù worker chưa hội tụ state. Khi database time đạt `cancel_at`, worker có thể hội tụ sang `canceled` hoặc `expired` theo business semantics đã phê duyệt; tài liệu này không chọn nhánh.
+- Mọi transition sang `canceled` hoặc `expired` phải ghi `ends_at` hữu hạn bằng effective terminal time trong cùng transaction. Terminal row không được giữ interval vô hạn, kể cả khi `cancel_at` hoặc `ends_at` trước đó là `NULL`.
 - Account disabled không làm mất bản ghi subscription nhưng Entitlement vẫn deny.
 - Upgrade/downgrade/cancel timing chưa được chốt; không tự mặc định immediate hoặc end-of-period.
 - User chỉ xem dữ liệu của mình; mutation cần admin permission hoặc source billing đã xác minh trong tương lai.
@@ -430,9 +433,11 @@ Subscription thủ công/tối thiểu Phase 2. Lifecycle đầy đủ và paid 
 ### 7.9. Acceptance criteria
 
 - Tạo subscription với draft/retired version mới bị từ chối.
-- Hai timeline overlap cho cùng account bị chặn cả khi request đồng thời.
-- Query tại biên thời gian dùng đúng predicate `starts_at <= t AND t < COALESCE(cancel_at, ends_at, infinity)` với status `pending|active|cancel_at_period_end`, và trả tối đa một subscription hiệu lực.
+- Hai canonical interval `[starts_at, effective_end)` cho cùng account không overlap ở bất kỳ status nào; concurrent request được serialize bằng account lock, trong khi row mới bắt đầu đúng tại prior `effective_end` được chấp nhận.
+- Query tại biên thời gian tính `effective_end = LEAST(cancel_at, ends_at)` với PostgreSQL NULL semantics và dùng đúng predicate `starts_at <= t AND t < COALESCE(effective_end, infinity)` với status `pending|active|cancel_at_period_end`; kết quả có tối đa một subscription hiệu lực.
 - Pending subscription tự cấp hiệu lực khi database time đạt `starts_at` dù worker chưa cập nhật projection; `suspended|canceled|expired` không cấp quyền.
+- `cancel_at_period_end` thiếu/không hợp lệ `cancel_at` bị từ chối; entitlement ngừng tại `cancel_at` dù state projection chưa terminal.
+- Transition sang `canceled`/`expired` atomically ghi `ends_at` hữu hạn bằng effective terminal time; test xác nhận terminal row không có interval vô hạn và không tự chọn nhánh cuối kỳ khi business semantics chưa được duyệt.
 - Cancel/downgrade không tự áp dụng timing khi policy chưa cấu hình/được phê duyệt.
 - Retry mutation cùng `(trusted source, operation, key)` và fingerprint replay outcome; fingerprint khác conflict, source do authenticated actor/integration xác lập.
 - Concurrent mutation tuân thủ lock order idempotency -> account -> subscription và audit failure rollback mutation.
@@ -523,7 +528,7 @@ Ngoài phạm vi: business action của app, tự chọn metric/limit/window, Re
 - `AdjustUsageCommand`
 - `GetReservationStatusQuery`
 - `GetUsageSummaryQuery`
-- `ClaimReconciliationWorkQuery`
+- `ListDueReconciliationCandidatesQuery`
 
 ### 9.4. Invariant và authorization
 
@@ -539,7 +544,7 @@ Ngoài phạm vi: business action của app, tự chọn metric/limit/window, Re
 - Reservation expiration dùng database clock. TTL, late success và counting failure còn mở, không hard-code ngoài policy đã chốt.
 - Không có Redis/local cache nào được quyền chấp thuận reserve. Control Plane/database không sẵn sàng thì reserve fail-closed.
 - Lock order canonical cho transaction service-call là service identity/scope -> idempotency -> bucket -> reservation, bỏ qua lock không áp dụng nhưng không đảo thứ tự các lock còn lại. Commit/cancel/status/retry và revoke dùng discipline tương thích để tránh race/deadlock và bảo đảm identity/scope revoked deny request mới.
-- Reconciliation không giả mạo M2M caller: system actor chỉ gọi system-only `QuotaReconciliationPort`. Scan/recompute nằm trong Quota implementation và không lộ table cho Background Reconciliation.
+- Reconciliation không giả mạo M2M caller: system actor chỉ gọi system-only `QuotaReconciliationPort`. List/scan/recompute nằm trong Quota implementation và không lộ table cho Background Reconciliation. Cùng candidate có thể được trả cho nhiều invocation; safety đến từ Quota transaction lock + state recheck, không từ lời hứa exclusive claim.
 
 ### 9.5. Dependency và port được phép
 
@@ -571,6 +576,7 @@ Phase 3 cho toàn bộ hard quota lifecycle; Phase 4 onboard metric từng app; 
 - Database/entitlement/scope check không sẵn sàng làm reserve bị từ chối và business action chưa được chạy.
 - Không thể reserve metric sai app, metric chưa duyệt, account disabled hoặc caller thiếu scope.
 - Transaction service-call tuân thủ lock order service identity/scope -> idempotency -> bucket -> reservation; revoke dùng lock discipline tương thích.
+- Hai reconciliation invocation cùng nhận một due candidate vẫn chỉ tạo một terminal transition, một bucket change và một usage event nhờ Quota transaction lock + state/expiry recheck.
 
 ## 10. Service Identity / Integration
 
@@ -694,7 +700,7 @@ Permission/audit tối thiểu đi cùng mutation Phase 1–3; công cụ điề
 - Audit event thành công chứa actor/action/target/reason/correlation/time nhưng không chứa secret/token thô.
 - Audit append failure rollback mutation nhạy cảm; không có trạng thái mutation thành công nhưng thiếu audit bắt buộc.
 - Không có API update/delete `audit_events`.
-- Retry append cùng `operationId + sequence` không tạo audit duplicate; sequence khác trong cùng operation biểu diễn các audit record phân biệt.
+- Retry append tương đương cùng `operationId + sequence` không tạo audit duplicate; nội dung khác cùng identity bị conflict, còn sequence khác trong cùng operation biểu diễn các audit record phân biệt.
 
 ## 12. Background Reconciliation
 
@@ -707,26 +713,28 @@ Ngoài phạm vi: tự sửa SQL/bucket, tự quyết late-success policy, thay 
 ### 12.2. Tính năng
 
 - **User/Admin:** không mutation trực tiếp; admin chỉ xem outcome/anomaly qua audit/operational view được cấp quyền.
-- **System:** yêu cầu Quota scan/recompute và claim batch đến hạn, tránh nhiều worker xử lý cùng row, expire hoặc reconcile idempotent, retry có giới hạn/quan sát và phát hiện reservation cần can thiệp.
+- **System:** yêu cầu Quota list/scan/recompute batch candidate đến hạn, thử expire/reconcile idempotent, retry có giới hạn/quan sát và phát hiện reservation cần can thiệp. Nhiều invocation được phép nhận cùng candidate.
 
 ### 12.3. Command và query chính
 
 - `RunReservationExpirationCommand`
 - `RunUsageReconciliationCommand`
-- `ClaimReconciliationBatchQuery`
+- `ListDueReconciliationCandidatesQuery`
 - `GetReconciliationOutcomeQuery`
 
 ### 12.4. Invariant và authorization
 
 - Database clock quyết định row đến hạn; không dùng clock cục bộ của worker cho business expiry.
-- Quota implementation thực hiện scan/recompute/claim và locking để nhiều worker không đồng thời xử lý cùng work item/row; Background Reconciliation chỉ nhận opaque work result qua port.
-- Mỗi operation idempotent; crash sau claim hoặc timeout có thể retry mà không double-release/double-commit.
+- Quota implementation thực hiện list/scan/recompute. Candidate selection không exclusive: nhiều worker/invocation có thể cùng chọn một reservation.
+- Với từng candidate, Quota mở transaction, lấy lock cần thiết và recheck state/expiry dưới lock trước mutation. Chỉ transaction còn thấy state hợp lệ được transition, đổi bucket và append event; transaction còn lại trở thành no-op/outcome đã terminal.
+- Mỗi operation idempotent; duplicate selection, crash hoặc timeout có thể retry mà không double-transition, double-release, double-commit hoặc append duplicate transition event.
+- Dùng batch nhỏ và backoff khi contention để giảm tranh chấp; đây là kiểm soát vận hành, không phải correctness guarantee.
 - Worker chỉ có service permission tối thiểu cho reconciliation port, không truy cập repository/table trực tiếp.
 - Khi outcome không thể suy ra theo policy đã chốt, worker đánh dấu/ghi nhận anomaly thay vì đoán commit/cancel.
 
 ### 12.5. Dependency và port được phép
 
-Chỉ gọi system-only `QuotaReconciliationPort` và effect quan sát/audit được công bố. Toàn bộ scan/recompute nằm trong Quota implementation; Background Reconciliation không truy cập trực tiếp `usage_reservations`, `usage_buckets`, `usage_events` hay table module khác.
+Chỉ gọi system-only `QuotaReconciliationPort` và effect quan sát/audit được công bố. Toàn bộ list/scan/recompute, transaction lock và state recheck nằm trong Quota implementation; Background Reconciliation không truy cập trực tiếp `usage_reservations`, `usage_buckets`, `usage_events` hay table module khác.
 
 ### 12.6. Domain event / integration effect
 
@@ -742,8 +750,9 @@ MVP Phase 3; scale nhiều worker, alerting và runbook được harden Phase 4�
 
 ### 12.9. Acceptance criteria
 
-- Hai worker claim đồng thời không cùng xử lý một reservation.
-- Worker restart/retry không tạo thêm usage event cùng transition logic.
+- Hai invocation có thể list cùng candidate; dưới Quota transaction lock + state recheck chỉ một transition/event/bucket change thành công.
+- Duplicate candidate selection và worker restart/retry không double-transition, double-release hoặc tạo thêm usage event cho cùng transition logic.
+- Batch nhỏ/backoff được áp dụng và kiểm thử dưới contention mà không trở thành điều kiện bảo đảm đúng đắn.
 - Test clock skew của worker không làm thay đổi expiry do database clock quyết định.
 - Trường hợp late success chưa có policy được đưa vào anomaly/manual path, không tự commit/cancel.
 - Worker không có code path đọc/ghi table Quota trực tiếp.
@@ -851,20 +860,21 @@ Deferred đến Phase 5 sau quyết định riêng về provider, payment và re
 
 ### 14.7. Expiration và reconciliation
 
-1. System actor gọi system-only `QuotaReconciliationPort`; Quota implementation scan/recompute work đến hạn theo database clock.
-2. Quota claim batch bằng cơ chế đảm bảo một row không bị nhiều worker xử lý đồng thời; Background Reconciliation không đọc table.
-3. Quota áp dụng expiry/reconcile idempotently trong transaction, cập nhật bucket/reservation và append usage event.
+1. System actor gọi system-only `QuotaReconciliationPort`; Quota implementation list/scan/recompute candidate đến hạn theo database clock. Background Reconciliation không đọc table.
+2. Nhiều invocation có thể nhận cùng candidate. Với từng candidate, Quota lấy transaction lock và recheck state/expiry; chỉ một transaction được transition, cập nhật bucket/reservation và append usage event, còn invocation trễ nhận no-op/outcome terminal.
+3. Worker dùng batch nhỏ và backoff để giảm contention; correctness không phụ thuộc exclusive claim hay việc candidate chỉ xuất hiện một lần.
 4. Late success chỉ commit/cancel theo policy đã chốt; nếu không đủ bằng chứng hoặc policy chưa có, tạo anomaly cho xử lý có audit.
-5. Retry/crash không được giải phóng hoặc tính usage hai lần.
+5. Duplicate selection/retry/crash không được double-transition, giải phóng hoặc tính usage hai lần.
 
 ### 14.8. Subscription lifecycle
 
 1. Actor được phép yêu cầu create/change/cancel với target account, published plan version, effective time, reason và idempotency key. Trusted `source` lấy từ authenticated actor/integration, không từ field client tùy ý.
-2. Subscription claim namespace `(trusted source, operation, idempotency key)`, so fingerprint/replay outcome, rồi khóa theo thứ tự subscription idempotency -> account -> subscription; kiểm tra account/plan qua ports và ngăn mọi timeline overlap.
-3. Tại DB time `t`, quyền dùng predicate `starts_at <= t`, `t < COALESCE(cancel_at, ends_at, infinity)`, status `pending|active|cancel_at_period_end`. Pending tự effective tại `starts_at`; không chờ worker. `suspended|canceled|expired` không cấp quyền.
-4. Mutation và audit bắt buộc commit cùng transaction; event chỉ phát sau commit để invalidation entitlement cache. Worker chỉ hội tụ projection `pending -> active` hoặc terminal state.
-5. Entitlement query tiếp theo tính lại từ timeline và immutable plan snapshot.
-6. Timing upgrade/downgrade/cancel, xử lý usage vượt limit mới và dữ liệu feature bị mất quyền còn mở; không tự chọn hành vi.
+2. Subscription claim namespace `(trusted source, operation, idempotency key)`, so fingerprint/replay outcome, rồi khóa theo thứ tự subscription idempotency -> account -> subscription. Dưới account lock, module kiểm tra overlap bằng canonical interval `[starts_at, effective_end)` cho **mọi** status; start mới bằng prior end là hợp lệ.
+3. Tính `effective_end = LEAST(cancel_at, ends_at)` theo PostgreSQL NULL semantics, rồi tại DB time `t` dùng predicate `starts_at <= t`, `t < COALESCE(effective_end, infinity)`, status `pending|active|cancel_at_period_end`. Pending tự effective tại `starts_at`; không chờ worker. `suspended|canceled|expired` không cấp quyền.
+4. Với `cancel_at_period_end`, `cancel_at` phải hợp lệ; entitlement dừng tại đó dù worker chưa hội tụ. Khi hội tụ terminal, worker dùng nhánh `canceled` hoặc `expired` từ business semantics đã phê duyệt và ghi `ends_at` hữu hạn bằng effective terminal time trong cùng transaction.
+5. Mọi mutation và audit bắt buộc commit cùng transaction; event chỉ phát sau commit để invalidation entitlement cache. Transition terminal trực tiếp cũng phải ghi finite `ends_at`; không terminal row nào giữ interval vô hạn.
+6. Entitlement query tiếp theo tính lại từ timeline và immutable plan snapshot.
+7. Timing upgrade/downgrade/cancel, lựa chọn `canceled` hay `expired` cuối kỳ, xử lý usage vượt limit mới và dữ liệu feature bị mất quyền còn mở; không tự chọn hành vi.
 
 ### 14.9. Admin entitlement/quota override
 
@@ -901,6 +911,7 @@ Deferred đến Phase 5 sau quyết định riêng về provider, payment và re
 - Service entitlement/quota request mang full `issuer + subject` từ user token đã được Data Plane xác minh; contract không nhận internal `accountId` làm user identity.
 - Service authorization là resource-specific: entitlement decision cần `entitlement:decide` cho exact feature; reserve/commit/cancel/status lần lượt cần `quota:reserve`, `quota:commit`, `quota:cancel`, `quota:read` cho exact metric. Mỗi operation re-authorize DB state và binding.
 - Subscription mutation lấy trusted source từ authenticated actor/integration và dùng namespace idempotency `(source, operation, key)`; client không được tự khai source đáng tin cậy.
+- Subscription contract dùng canonical interval `[starts_at,effective_end)`, trong đó `effective_end = LEAST(cancel_at, ends_at)` theo PostgreSQL NULL semantics. `cancel_at_period_end` phải có valid `cancel_at`; terminal mutation phải chốt finite `ends_at`.
 - Timestamp dùng định dạng chuẩn trong API; business effective/expiry dựa database clock.
 - Không trả plan name, secret hoặc chi tiết account tồn tại nếu caller chưa qua service scope.
 
@@ -938,7 +949,7 @@ Response lỗi có cấu trúc ổn định gồm `code`, `message` an toàn cho
 
 | HTTP | Reason code tiêu biểu | Ý nghĩa |
 |---|---|---|
-| `400` | `VALIDATION_FAILED`, `METRIC_SEMANTICS_NOT_APPROVED` | Input/policy không hợp lệ. |
+| `400` | `VALIDATION_FAILED`, `METRIC_SEMANTICS_NOT_APPROVED`, `SUBSCRIPTION_PERIOD_INVALID`, `SUBSCRIPTION_CANCEL_AT_INVALID` | Input/policy hoặc temporal shape không hợp lệ. |
 | `401` | `AUTHENTICATION_REQUIRED`, `TOKEN_INVALID`, `SESSION_REVOKED` | Không xác thực được user/service. |
 | `403` | `ACCOUNT_NOT_ACTIVE`, `ACCOUNT_DISABLED`, `ENTITLEMENT_DENIED`, `SERVICE_RESOURCE_SCOPE_DENIED`, `SERVICE_IDENTITY_REVOKED`, `ADMIN_PERMISSION_DENIED` | Đã xác thực nhưng không được phép. |
 | `404` | `RESOURCE_NOT_FOUND`, `EXTERNAL_IDENTITY_NOT_FOUND` | Chỉ dùng sau exact service scope check và khi caller được phép biết resource; nếu không, ưu tiên deny không lộ tồn tại. |
@@ -972,18 +983,22 @@ Không có transition ngược; chỉ draft được sửa cấu hình.
 ### 16.3. Subscription
 
 ```text
-pending --projection convergence--> active --set cancel--> cancel_at_period_end
-   |                                  |                         |
-   +--cancel------------------------> canceled <---period end----+
-   |                                  ^
-   +--suspend--> suspended --cancel---+
+pending --projection convergence--> active --set valid cancel_at--> cancel_at_period_end
+   |                                  |
+   +--cancel------------------------> canceled
+   |
+   +--suspend--> suspended --cancel--> canceled
                        |--resume--> active
 
-active --expire--> expired
-suspended --expire--> expired
+active --expire(finite ends_at)--> expired
+suspended --expire(finite ends_at)--> expired
+cancel_at_period_end --at cancel_at; policy--> canceled OR expired
+cancel_at_period_end --undo(policy); clear cancel_at--> active
 ```
 
-Chỉ dùng `pending`, `active`, `cancel_at_period_end`, `suspended`, `canceled`, `expired`. `pending` tự cấp quyền tại `starts_at` theo predicate DB-time, không chờ mũi tên hội tụ projection. Timing cancel/change chưa được mặc định; mọi transition phải có effective time và không overlap.
+Chỉ dùng `pending`, `active`, `cancel_at_period_end`, `suspended`, `canceled`, `expired`. `pending` tự cấp quyền tại `starts_at` theo predicate DB-time, không chờ mũi tên hội tụ projection. `cancel_at_period_end` ngừng cấp quyền tại valid `cancel_at`, cũng không chờ worker. Terminal target cuối kỳ là `canceled` hoặc `expired` theo semantics còn phải chốt; cả hai nhánh và mọi transition terminal khác đều atomically ghi `ends_at` hữu hạn bằng effective terminal time.
+
+Mọi row, kể cả terminal, tham gia overlap bằng `[starts_at, effective_end)` với `effective_end = LEAST(cancel_at, ends_at)` theo PostgreSQL NULL semantics. Account lock serialize overlap check; endpoint exclusive cho phép row kế tiếp bắt đầu đúng tại prior `effective_end`.
 
 ### 16.4. Usage Reservation
 
@@ -1064,7 +1079,9 @@ Không kéo Billing vào Phase 1–4, không hard-code default plan/quota để 
 - [ ] Application/feature/metric key ổn định; ownership chéo app bị từ chối.
 - [ ] Metric semantics được duyệt trước quota; counting/window/amount không bị hard-code khi chưa quyết định.
 - [ ] Plan Version chỉ `draft -> published -> retired`; published snapshot bất biến.
-- [ ] Subscription chỉ dùng sáu state canonical, áp dụng đúng DB-time predicate; pending tự effective tại `starts_at`, suspended/canceled/expired không cấp quyền và timeline không overlap.
+- [ ] Subscription tính `effective_end = LEAST(cancel_at, ends_at)` theo PostgreSQL NULL semantics và áp dụng predicate `starts_at <= t < COALESCE(effective_end, infinity)` cho status `pending|active|cancel_at_period_end`.
+- [ ] Overlap dùng `[starts_at,effective_end)` cho mọi status dưới account lock; terminal row có finite `ends_at`, và subscription mới bắt đầu đúng tại prior `effective_end` được chấp nhận.
+- [ ] `pending` tự effective tại `starts_at`; valid `cancel_at_period_end` ngừng entitlement tại `cancel_at` dù worker chưa hội tụ; nhánh terminal `canceled`/`expired` chỉ theo business semantics đã duyệt.
 - [ ] Subscription mutation dùng `subscription_idempotency_records`, trusted source namespace/fingerprint/replay và lock order idempotency -> account -> subscription.
 - [ ] App không nhận/tin plan name, `isPremium` hoặc quota từ browser/token để quyết định quyền.
 
@@ -1075,7 +1092,8 @@ Không kéo Billing vào Phase 1–4, không hard-code default plan/quota để 
 - [ ] Reserve/commit/cancel/status/expire/reconcile có state transition và idempotency test; same key/different fingerprint bị conflict.
 - [ ] Reserve/commit/cancel/status re-authorize exact metric scope và dùng lock order service identity/scope -> idempotency -> bucket -> reservation; revoke dùng discipline tương thích.
 - [ ] `usage_events` append-only; adjustment là event mới; không Redis/local ledger cho hard quota.
-- [ ] Timeout được phục hồi bằng status/retry cùng key; Quota scan/recompute theo database clock qua system-only port, worker không đọc table và không double-process row.
+- [ ] Timeout được phục hồi bằng status/retry cùng key; Quota list/scan/recompute theo database clock qua system-only port và worker không đọc table.
+- [ ] Duplicate reconciliation candidate selection được phép; Quota transaction lock + state recheck bảo đảm chỉ một transition/event/bucket change, không double-release. Batch nhỏ/backoff chỉ giảm contention.
 
 ### Admin, audit và vận hành
 

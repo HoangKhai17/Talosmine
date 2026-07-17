@@ -315,19 +315,19 @@ Không kích hoạt policy trước khi chốt calendar/rolling semantics, timez
 
 - **PK/FK:** `subscriptions_pkey`; FK account, plan version và self-reference đều `RESTRICT`.
 - **Unique:** `subscriptions_source_reference_key (source, source_reference) WHERE source_reference IS NOT NULL`; `subscriptions_id_account_key (id, account_id)` để bucket dùng composite FK; `subscriptions_account_start_key (account_id, starts_at)`.
-- **Check:** `subscriptions_status_check` cho `pending`, `active`, `cancel_at_period_end`, `suspended`, `canceled`, `expired`; `subscriptions_period_check (ends_at IS NULL OR ends_at > starts_at)`; `subscriptions_cancel_at_check` giữ `cancel_at` trong khoảng subscription; `subscriptions_not_self_supersede_check`.
-- **Index:** `subscriptions_account_status_period_idx (account_id, status, starts_at, ends_at)`; `subscriptions_plan_version_idx (plan_version_id)`.
-- **Invariant transaction:** FK không thể bảo đảm version đã publish và `CHECK` không thể ngăn các time range chồng lấp. Mọi create/transition phải `SELECT ... FOR UPDATE` row `accounts` trước, xác minh version, rồi kiểm tra khoảng hiệu lực của account trong cùng transaction. Không yêu cầu `btree_gist`. Quy tắc upgrade/downgrade/cancel còn mở quyết định nghiệp vụ.
+- **Check:** `subscriptions_status_check` cho `pending`, `active`, `cancel_at_period_end`, `suspended`, `canceled`, `expired`; `subscriptions_period_check (ends_at IS NULL OR ends_at > starts_at)`; `subscriptions_cancel_at_range_check` yêu cầu `cancel_at IS NULL OR (cancel_at > starts_at AND (ends_at IS NULL OR cancel_at <= ends_at))`; `subscriptions_status_time_shape_check` là `(status = 'cancel_at_period_end' AND cancel_at IS NOT NULL) OR (status IN ('pending','active','suspended') AND cancel_at IS NULL) OR (status IN ('canceled','expired') AND ends_at IS NOT NULL AND isfinite(ends_at))`; `subscriptions_not_self_supersede_check`.
+- **Index:** `subscriptions_account_status_period_idx (account_id, status, starts_at, cancel_at, ends_at)`; `subscriptions_plan_version_idx (plan_version_id)`.
+- **Invariant transaction:** FK không thể bảo đảm version đã publish và `CHECK` không thể ngăn các time range chồng lấp. Mọi create/transition phải `SELECT ... FOR UPDATE` row `accounts` trước, xác minh version, rồi kiểm tra interval canonical `[starts_at, effective_end)` của **mọi** subscription cùng account, kể cả terminal rows. Không lọc `canceled`/`expired` khỏi overlap query. Future subscription được bắt đầu đúng tại previous `effective_end` vì biên cuối là exclusive. Không yêu cầu `btree_gist`. Quy tắc upgrade/downgrade/cancel còn mở quyết định nghiệp vụ.
 
-`ActiveSubscriptionPort` áp dụng predicate sau tại DB time `t`:
+PostgreSQL `LEAST(cancel_at, ends_at)` bỏ qua operand null và trả null chỉ khi cả hai đều null. Vì vậy định nghĩa canonical là `effective_end = LEAST(cancel_at, ends_at)`; riêng predicate/range comparison thay null kép bằng infinity. `ActiveSubscriptionPort` áp dụng chính xác predicate sau tại DB time `t`:
 
 ```text
 starts_at <= t
-AND t < COALESCE(cancel_at, ends_at, 'infinity'::timestamptz)
+AND t < COALESCE(LEAST(cancel_at, ends_at), 'infinity'::timestamptz)
 AND status IN ('pending', 'active', 'cancel_at_period_end')
 ```
 
-`pending` là scheduled projection: subscription tự có hiệu lực theo thời gian khi predicate đúng, không chờ worker đổi status. `suspended`, `canceled` và `expired` luôn bị loại. Worker chỉ hội tụ projection/status phục vụ vận hành; worker không phải điều kiện để entitlement có hiệu lực. Việc ngăn khoảng chồng lấp vẫn khóa row `accounts` và query các khoảng cạnh tranh trong cùng transaction.
+`pending` là scheduled projection: subscription tự có hiệu lực theo thời gian khi predicate đúng, không chờ worker đổi status. `suspended`, `canceled` và `expired` luôn bị loại khỏi active predicate, nhưng **không** bị loại khỏi overlap check lịch sử. Worker chỉ hội tụ projection/status phục vụ vận hành; worker không phải điều kiện để entitlement có hiệu lực. Mọi terminal transition sang `canceled` hoặc `expired` ghi `ends_at` hữu hạn bằng effective terminal DB time trong cùng transaction; nếu giữ `cancel_at`, giá trị đó phải thỏa range check, nếu không phải clear/normalize trong chính transition.
 
 ### 6.6. `subscription_idempotency_records`
 
@@ -526,9 +526,9 @@ MVP không commit vượt lượng reserve và không hỗ trợ terminal transi
 
 - **PK/FK:** PK; FK bucket, service identity và account đều `RESTRICT`; `usage_events_reservation_bucket_fk (usage_reservation_id, usage_bucket_id) REFERENCES usage_reservations(id, usage_bucket_id)` bảo đảm event có reservation thuộc đúng bucket.
 - **Unique:** không có ngoài PK; nhiều event cho cùng reservation là hợp lệ và được sắp theo `(created_at, id)`.
-- **Check:** `usage_events_type_check` gồm `reserved`, `committed`, `canceled`, `expired`, `limit_adjusted`, `reconciled_adjustment`; `usage_events_after_check` dùng cast `numeric` để yêu cầu after-values không âm và `committed_after::numeric + reserved_after::numeric <= limit_after::numeric`; `usage_events_actor_check` bảo đảm đúng một actor ID cho `service`/`account`, không actor ID cho `system`.
+- **Check:** `usage_events_type_check` gồm `reserved`, `committed`, `canceled`, `expired`, `limit_adjusted`, `reconciled_adjustment`; `usage_events_reservation_shape_check` yêu cầu lifecycle types `reserved`/`committed`/`canceled`/`expired` có `usage_reservation_id` non-null, còn `limit_adjusted`/`reconciled_adjustment` có reservation null; `usage_events_after_check` dùng cast `numeric` để yêu cầu after-values không âm và `committed_after::numeric + reserved_after::numeric <= limit_after::numeric`; `usage_events_actor_check` bảo đảm đúng một actor ID cho `service`/`account`, không actor ID cho `system`.
 - **Index:** `(usage_bucket_id, created_at, id)`; `(usage_reservation_id, created_at)`; `(correlation_id) WHERE correlation_id IS NOT NULL`.
-- Trigger append-only chặn `UPDATE`/`DELETE`. Event reservation lifecycle phải có `usage_reservation_id`; adjustment/reconciliation event có thể để null. Adjustment luôn thêm event và đồng thời cập nhật bucket trong một transaction.
+- Trigger append-only chặn `UPDATE`/`DELETE`. Named shape check khóa chính xác nullability theo event type; composite FK tiếp tục bảo đảm lifecycle event trỏ tới reservation của đúng bucket. Adjustment luôn thêm event và đồng thời cập nhật bucket trong một transaction.
 
 ### 9.4. `idempotency_records`
 
@@ -661,21 +661,21 @@ Không quay lại `draft`; `published` và `retired` giữ snapshot bất biến
 ### 11.3. Subscription
 
 ```text
-pending ──effective──> active ──schedule cancel──> cancel_at_period_end
-   │                      │  └──suspend──> suspended
-   │                      ├──cancel──────> canceled
-   │                      └──period end──> expired
-   ├──cancel──────────> canceled
-   └──window missed───> expired
+pending ──status convergence──> active ──schedule cancel (set cancel_at)──> cancel_at_period_end
+   │                               │  └──suspend────────────────────────> suspended
+   │                               ├──cancel (set finite ends_at)──────> canceled
+   │                               └──period end (set finite ends_at)──> expired
+   ├──cancel (set finite ends_at)─────────────────────────────────────> canceled
+   └──window missed (set finite ends_at)──────────────────────────────> expired
 
 suspended ──resume──> active
-suspended ──cancel──> canceled
-suspended ──period end──> expired
-cancel_at_period_end ──undo (nếu policy cho phép)──> active
-cancel_at_period_end ──period end──> canceled/expired (cần chốt semantics)
+suspended ──cancel (set finite ends_at)──> canceled
+suspended ──period end (set finite ends_at)──> expired
+cancel_at_period_end ──undo + clear cancel_at (nếu policy cho phép)──> active
+cancel_at_period_end ──effective_end; set finite ends_at──> canceled/expired (cần chốt state)
 ```
 
-Luồng upgrade/downgrade/cancel và terminal state cuối kỳ còn là business decision; implementation không được tự chọn nhánh.
+`pending -> active` chỉ hội tụ status; hiệu lực thật vẫn do `ActiveSubscriptionPort` predicate quyết định theo DB time. `pending`, `active` và `suspended` không mang `cancel_at`; chỉ `cancel_at_period_end` bắt buộc có lịch hủy. Mọi terminal transition ghi finite `ends_at` trong transaction. Luồng upgrade/downgrade/cancel và lựa chọn `canceled` hay `expired` tại cuối kỳ còn là business decision; implementation không được tự chọn nhánh.
 
 ### 11.4. Reservation
 
@@ -751,13 +751,13 @@ Status request mang application/metric cùng reservation ID. Trong một transac
 
 ### 12.6. Expire
 
-Background Reconciliation worker chỉ gọi `QuotaReconciliationPort`; worker không query table/repository. Bên trong Quota module/repository, port implementation chọn batch candidate và với từng candidate khóa bucket trước rồi reservation. Nhiều invocation có thể gặp cùng candidate, nhưng state check dưới row lock khiến chỉ một transaction transition. Nếu reservation vẫn `reserved` và `expires_at <= DB clock`, Quota giảm reserved bucket, chuyển `expired`, append system event. Expiry không dùng service `idempotency_records`; row lock + conditional state transition bảo đảm idempotent. Không giữ lock trong khi gọi network.
+Background Reconciliation worker chỉ gọi `QuotaReconciliationPort`; worker không query table/repository. Bên trong Quota module/repository, port implementation scan due candidates **không khóa candidate row** và không dùng `SKIP LOCKED`, vì khóa reservation trước bucket sẽ đảo canonical lock order. Nhiều worker/invocation có thể chọn cùng candidate. Với từng candidate, Quota mutation transaction khóa bucket trước, rồi reservation, sau đó recheck `state = 'reserved'` và `expires_at <= DB clock`. Chính xác một transaction được giảm reserved bucket, chuyển `expired` và append system event; các transaction còn lại no-op hoặc đọc terminal state, không tạo event/update thứ hai. Batch nhỏ và jitter giảm contention nhưng không thay thế row lock/state check. Expiry không dùng service `idempotency_records`. Không giữ lock trong khi gọi network.
 
 Late success, gia hạn reservation và số lần worker retry là policy còn mở. Không tự chuyển `expired -> committed`.
 
 ### 12.7. Reconciliation
 
-Reconciliation không có owned table trong MVP. Worker chỉ gọi `QuotaReconciliationPort` và không đọc domain table trực tiếp. Scan event, recompute after-values, so sánh bucket và claim work đều là chi tiết private bên trong Quota module/repository. Mọi sửa số dư được phê duyệt do Quota thực hiện phải khóa bucket, append `reconciled_adjustment` và gọi `AuditAppendPort` trong cùng transaction; không update/xóa event cũ. Checkpoint/job history nếu cần sau này phải qua quyết định schema riêng.
+Reconciliation không có owned table trong MVP. Worker chỉ gọi `QuotaReconciliationPort` và không đọc domain table trực tiếp. Scan due/event data, recompute after-values, so sánh bucket và recheck mutation đều là chi tiết private bên trong Quota module/repository; scan không trao exclusive candidate ownership. Mọi sửa số dư được phê duyệt do Quota thực hiện phải khóa bucket, recheck dữ liệu liên quan, append `reconciled_adjustment` và gọi `AuditAppendPort` trong cùng transaction; không update/xóa event cũ. Checkpoint/job history nếu cần sau này phải qua quyết định schema riêng.
 
 ### 12.8. Revoke service identity/scope
 
@@ -802,15 +802,17 @@ Trigger không tự điền quota, metric hoặc business policy còn thiếu.
 | Service scope/resource cùng app | Composite FK scope → service/app, feature/app hoặc metric/app; shape check | Khóa active identity + đúng active resource scope trước operation. |
 | Service và metric reservation cùng app | Composite FK reservation → service/app và bucket app/metric | Re-authorize theo canonical lock order tại DB time. |
 | Reservation account/app/metric khớp bucket | Composite FK reservation → bucket tuple | Kiểm tra entitlement còn hiệu lực cho reserve. |
-| Usage event reservation khớp bucket | Composite FK event `(reservation_id, bucket_id)` → reservation | Cho phép reservation null chỉ với adjustment/reconciliation event hợp lệ. |
+| Usage event shape và reservation khớp bucket | `usage_events_reservation_shape_check` + composite FK event `(reservation_id, bucket_id)` → reservation | Lifecycle event luôn có reservation; adjustment/reconciliation luôn null. |
 | Bucket account khớp subscription | Composite FK bucket → subscription/account | Kiểm tra subscription state/time và không overlap. |
-| Active subscription tại DB time | Range/state checks cơ bản | Dùng chính xác `ActiveSubscriptionPort` predicate; pending scheduled không phụ thuộc worker. |
+| Subscription state/time shape | Named period, cancel range và status/time checks | Terminal transition ghi finite `ends_at`; undo scheduled cancel clear `cancel_at`. |
+| Active subscription tại DB time | Range/state checks cơ bản | Dùng `COALESCE(LEAST(cancel_at, ends_at), infinity)` trong đúng `ActiveSubscriptionPort` predicate; pending scheduled không phụ thuộc worker. |
 | Counter không âm, không vượt limit | Named `CHECK` cast tổng sang `numeric` + atomic subtraction guard | Lock order, retry và event cùng transaction. |
 | Published snapshot bất biến | Trigger | Publish validation và authorization. |
 | Events append-only | Trigger + role grants | Retention procedure và audit vận hành. |
 | Sensitive mutation có audit | Unique audit `(operation_id, sequence)` | Domain mutation + `AuditAppendPort` chung UoW; async event không thay thế. |
 | Identity mapping không tạo orphan | Unique `(issuer, subject)` + FK account | Account + mapping chung UoW; rollback loser và retry đọc winner. |
-| Subscription không overlap | Range check cơ bản; không có `btree_gist` | Khóa row account, query overlap trong transaction. |
+| Subscription không overlap | Range check cơ bản; không có `btree_gist` | Khóa row account; so sánh `[starts_at, effective_end)` cho mọi status, kể cả terminal; chấp nhận start đúng previous end. |
+| Expiry cạnh tranh chỉ transition một lần | Reservation state/check và event shape | Quota khóa bucket → reservation, recheck state/expiry; duplicate candidates no-op sau winner. |
 | Override/role validity không overlap | Range check cơ bản | Khóa account và kiểm tra time range. |
 | IANA timezone hợp lệ/DST semantics | Text/non-empty only | Validate bằng timezone catalog/runtime và test policy trước publish. |
 | State transition hợp lệ | State/shape checks | So sánh old/new state dưới row lock. |
@@ -839,7 +841,7 @@ Trigger không tự điền quota, metric hoặc business policy còn thiếu.
 9. Quota theo thứ tự buckets → reservations (gồm composite unique ID/bucket) → events (gồm composite FK reservation/bucket) → idempotency.
 10. Admin roles, permissions, assignments, rồi `audit_events` với unique operation sequence.
 11. Custom SQL cho composite/partial indexes chưa được Drizzle DSL hỗ trợ, immutable/append-only triggers và role grants.
-12. Chạy migration validation: constraint existence/name, scope shape/partial unique, event/bucket binding, audit operation idempotency, trigger behavior, published mutation rejection, append-only rejection và concurrent quota tests trước khi nhận traffic.
+12. Chạy migration validation: constraint existence/name; subscription temporal/state shapes và overlap `[starts_at, effective_end)` gồm terminal rows; scope shape/partial unique; `usage_events_reservation_shape_check` cùng event/bucket binding; audit operation idempotency; trigger behavior; published mutation rejection; append-only rejection; duplicate expiration candidates chỉ tạo một transition/event; và concurrent quota tests trước khi nhận traffic.
 
 ### 17.2. Forward-only và rollback
 

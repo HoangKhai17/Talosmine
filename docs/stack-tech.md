@@ -15,4 +15,4 @@
 | Container/deploy | Docker Compose trên VPS, Caddy reverse proxy/TLS |
 | CI/CD | GitHub Actions, GitHub Container Registry |
 
-Supabase được self-host nên dự án tự chịu trách nhiệm backup, WAL/PITR, cập nhật, giám sát và khôi phục. Toàn bộ endpoint Supabase chỉ nằm trong private/internal network; Internet chỉ truy cập ứng dụng qua Caddy. Trong runtime nghiệp vụ, chỉ Control Plane và worker được đọc/ghi database; migration task và Studio là ngoại lệ quản trị có kiểm soát với quyền tối thiểu.
+Supabase được self-host nên dự án tự chịu trách nhiệm backup, WAL/PITR, cập nhật, giám sát và khôi phục. Toàn bộ endpoint Supabase chỉ nằm trong private/internal network; Internet chỉ truy cập ứng dụng qua Caddy. Trong runtime nghiệp vụ, database chỉ được truy cập qua repository của module sở hữu trong Control Plane; worker gọi public application port, không truy cập table trực tiếp. Migration task và Studio là ngoại lệ quản trị có kiểm soát với quyền tối thiểu.

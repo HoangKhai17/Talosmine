@@ -1,6 +1,6 @@
 # Kiến trúc đề xuất cho Talosmine
 
-> **Trạng thái:** Kiến trúc đề xuất, dùng làm đường cơ sở để thảo luận và triển khai theo từng giai đoạn. Đây **không phải** quyết định về tech stack và không phải mô tả một hệ thống đã được triển khai.
+> **Trạng thái:** Kiến trúc logic làm đường cơ sở để triển khai theo từng giai đoạn. Tech stack đã được phê duyệt riêng tại [`stack-tech.md`](./stack-tech.md); tài liệu này không mô tả một hệ thống đã được triển khai.
 
 ## 1. Bài toán
 
@@ -320,7 +320,7 @@ khả dụng = hạn mức - usage đã commit - reservation còn hiệu lực
 
 Chỉ chấp thuận nếu `khả dụng` đủ cho lượng yêu cầu, đồng thời ghi nhận reservation trong cùng ranh giới nhất quán. Không triển khai theo mẫu đọc số dư rồi ghi ở hai bước độc lập. Hai yêu cầu đồng thời không được cùng nhìn thấy một lượt cuối cùng là còn trống.
 
-Cơ chế kỹ thuật cụ thể để bảo đảm tính nguyên tử phụ thuộc stack và datastore được chọn sau; hợp đồng hành vi ở trên là bắt buộc.
+Cơ chế kỹ thuật cụ thể theo stack đã phê duyệt và được chi tiết tại [`database-schema.md`](./database-schema.md); hợp đồng hành vi ở trên là bắt buộc.
 
 ## 9. Chống bypass khi truy cập app trực tiếp
 
@@ -502,7 +502,7 @@ Hợp đồng phải bảo đảm retry cùng ý định trả cùng kết quả
 - Chốt semantics của metric, mốc tính lượt, reset window/timezone và lỗi có tính lượt hay không.
 - Xác định revoke SLA, outage policy, privacy/retention và hành vi downgrade.
 - Chốt hợp đồng logic, threat model, tiêu chí quan sát và kế hoạch migration.
-- Chưa chọn stack chỉ để bắt đầu nhanh; mọi lựa chọn kỹ thuật cần quyết định riêng.
+- Không âm thầm thay đổi stack đã phê duyệt chỉ để bắt đầu nhanh; mọi thay đổi kỹ thuật cần quyết định riêng.
 
 **Điều kiện hoàn tất:** inventory đủ cho app mẫu và không còn mơ hồ về một lượt được tính khi nào.
 
@@ -592,6 +592,6 @@ Các mục sau phải được chốt trước giai đoạn liên quan; tài li�
 
 ## 19. Giới hạn của tài liệu
 
-Chưa có framework, ngôn ngữ lập trình, database, cloud, CI, payment provider, giao thức API hoặc topology triển khai cụ thể nào được chọn trong tài liệu này. Những lựa chọn đó cần được đánh giá và phê duyệt riêng dựa trên các hợp đồng hành vi đã nêu.
+Tài liệu này không phải nguồn quyết định tech stack hoặc physical schema. Các quyết định đã phê duyệt nằm tại [`stack-tech.md`](./stack-tech.md), đặc tả module tại [`modular.md`](./modular.md), và thiết kế PostgreSQL tại [`database-schema.md`](./database-schema.md). Payment provider cùng các quyết định nghiệp vụ còn mở vẫn cần được phê duyệt riêng.
 
 Tài liệu mô tả **kiến trúc đề xuất**, không tuyên bố Identity/SSO, entitlement, quota, subscription, billing adapter, gateway, middleware, API, datastore hay bất kỳ implementation nào đã tồn tại hoặc đang chạy. Mọi trạng thái triển khai phải được xác minh từ source code, cấu hình và môi trường thực tế ở các giai đoạn sau.
