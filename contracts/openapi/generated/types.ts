@@ -53,10 +53,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Xem tài khoản của chính mình
+         * @description Trả hồ sơ của account gắn với phiên hiện tại. accountId được Control Plane resolve
+         *     từ session token phía server — không có tham số path/query/body nào cho phép hỏi
+         *     account của người khác.
+         */
+        get: operations["getOwnAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Hồ sơ account trả cho chính user. CỐ Ý không có trường quản trị nội bộ
+         *     (disabled_at, updated_at) — user chỉ thấy hồ sơ, không thấy dữ liệu vận hành.
+         */
+        OwnAccount: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "pending" | "active" | "disabled";
+            displayName?: string | null;
+            email?: string | null;
+            emailVerified: boolean;
+            locale?: string | null;
+            timezone?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
         /**
          * @description Hình dạng lỗi ổn định cho MỌI lỗi rời khỏi API, kể cả lỗi không lường trước.
          *
@@ -170,6 +209,35 @@ export interface operations {
                      *       "correlationId": "018f3a2b-7c4d-7000-8000-000000000000"
                      *     }
                      */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getOwnAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Hồ sơ account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnAccount"];
+                };
+            };
+            /** @description Thiếu phiên, phiên sai, hết hạn hoặc đã thu hồi (fail-closed, không phân biệt lý do). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };

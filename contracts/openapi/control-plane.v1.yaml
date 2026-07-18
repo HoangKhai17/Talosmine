@@ -42,6 +42,11 @@ tags:
     description: |
       Endpoint hạ tầng cho orchestrator và reverse proxy.
       Nằm NGOÀI versioning `/v1` vì nó không phải API nghiệp vụ có contract với client.
+  - name: account
+    description: |
+      API tài khoản của chính user (self-service). Bảo vệ bằng web session:
+      BFF forward session token qua header `X-Session-Token`; Control Plane resolve
+      accountId phía server, KHÔNG tin accountId do client khai.
 
 paths:
   /health/live:
@@ -111,8 +116,41 @@ paths:
                 message: Dependency chưa sẵn sàng.
                 correlationId: 018f3a2b-7c4d-7000-8000-000000000000
 
+  /v1/me/account:
+    get:
+      tags: [account]
+      operationId: getOwnAccount
+      summary: Xem tài khoản của chính mình
+      description: |
+        Trả hồ sơ của account gắn với phiên hiện tại. accountId được Control Plane resolve
+        từ session token phía server — không có tham số path/query/body nào cho phép hỏi
+        account của người khác.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Hồ sơ account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnAccount'
+        '401':
+          description: Thiếu phiên, phiên sai, hết hạn hoặc đã thu hồi (fail-closed, không phân biệt lý do).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
 components:
   securitySchemes:
+    webSession:
+      type: apiKey
+      in: header
+      name: X-Session-Token
+      description: |
+        Web session token do BFF forward (từ cookie HttpOnly). Control Plane tra hash
+        trong `web_sessions`, kiểm chưa hết hạn/chưa thu hồi, rồi resolve accountId.
+        Token thô KHÔNG được log. Đây là kênh của NGƯỜI DÙNG — khác `serviceIdentity` (M2M).
     userSession:
       type: http
       scheme: bearer
@@ -130,6 +168,33 @@ components:
         **CHƯA dùng ở P1.**
 
   schemas:
+    OwnAccount:
+      type: object
+      description: |
+        Hồ sơ account trả cho chính user. CỐ Ý không có trường quản trị nội bộ
+        (disabled_at, updated_at) — user chỉ thấy hồ sơ, không thấy dữ liệu vận hành.
+      required: [id, status, emailVerified, createdAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, active, disabled]
+        displayName:
+          type: [string, 'null']
+        email:
+          type: [string, 'null']
+        emailVerified:
+          type: boolean
+        locale:
+          type: [string, 'null']
+        timezone:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
     ErrorEnvelope:
       type: object
       description: |

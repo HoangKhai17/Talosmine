@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { AccountModule } from './modules/account/account.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { DatabaseModule } from './shared/database.module.js';
 
 /**
  * Root module của Control Plane — modular monolith (docs/modular.md mục 1.1).
@@ -13,9 +15,10 @@ import { HealthModule } from './modules/health/health.module.js';
  *      repository/entity của module khác, không HTTP loopback nội bộ.
  *   3. Controller chỉ điều phối use case công khai, không gọi thẳng repository.
  *
- * P1 chỉ có HealthModule. Các module nghiệp vụ được thêm ở P2+.
+ * P2 thêm DatabaseModule (@Global, cung cấp connection pool dùng chung) và AccountModule
+ * (API tài khoản của user, bảo vệ bằng WebSessionGuard).
  */
 @Module({
-  imports: [HealthModule],
+  imports: [DatabaseModule, HealthModule, AccountModule],
 })
 export class AppModule {}

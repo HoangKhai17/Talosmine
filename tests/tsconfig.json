@@ -20,7 +20,15 @@
     // Unit/integration/concurrency vẫn chạy ở Node (`environment: 'node'`) — DOM lib chỉ
     // ảnh hưởng typecheck, không đưa API browser nào vào runtime Node.
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["node"]
+    "types": ["node"],
+
+    // Test e2e import AppModule của Control Plane, kéo theo các controller/service dùng
+    // decorator NestJS. tsc phải hiểu decorator để typecheck các file đó. Ba cờ này khớp
+    // với apps/control-plane/tsconfig.json — verbatimModuleSyntax phải TẮT vì nó xung khắc
+    // với emitDecoratorMetadata (metadata cần type import còn sống ở runtime).
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "verbatimModuleSyntax": false
   },
   "include": ["**/*.ts", "../vitest.config.ts"],
   "exclude": ["node_modules"]
