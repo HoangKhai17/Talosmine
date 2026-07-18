@@ -179,6 +179,74 @@ Mọi version dưới đây được đọc từ registry thật ngày 2026-07-1
   nữa để DEC-T01 chọn 24 — DEC-T02 dựa vào corepack.
 - **Affected phase:** P1+. CI và Docker vẫn pin 24.18.0 độc lập với host nên không lệch.
 
+### DEC-T18 — Vitest dùng `vitest.config.ts` + `test.projects`, không phải `vitest.workspace.ts`
+
+`approved` 2026-07-17, thay cho ý định ban đầu ghi trong phase-1 mục 7.
+
+- **Vấn đề phát hiện khi thực thi:** phase-1 và P1.11 ghi `vitest.workspace.ts`. Cơ chế đó
+  **đã bị gỡ ở Vitest 4** (DEC-T05 pin 4.1.10). Bằng chứng từ source vitest: tham số
+  workspace-path bị hardcode `void 0`, và có dòng ném lỗi *"The test.workspace option was
+  removed in Vitest 4. Please, migrate to test.projects"*.
+- **Hỏng im lặng:** tester đã tạo `vitest.workspace.ts` đúng như plan rồi chạy
+  `pnpm test:concurrency` → `No projects matched the filter "concurrency"`. File bị bỏ qua
+  hoàn toàn, **không một cảnh báo**. `pnpm test` vẫn chạy (vitest rơi về default include)
+  nên nhìn qua tưởng đã wiring xong.
+- **Quyết định:** dùng `vitest.config.ts` với `test.projects` (thay thế 1-1). Ba project:
+  `unit`, `integration`, `concurrency`. **Không đổi tên lệnh nào** của DEC-T15.
+- **Affected phase:** P1+. phase-1 mục 7 và P1.11 cần cập nhật khỏi `vitest.workspace.ts`.
+
+### DEC-T19 — Testcontainers dùng `postgres:17.6-alpine`, không phải `supabase/postgres`
+
+`approved` 2026-07-17.
+
+- **Quyết định:** integration/concurrency test dựng container bằng image chính thức
+  **`postgres:17.6-alpine`** (pin cứng, không dùng tag trôi mặc định của testcontainers).
+- **Vì sao khớp major 17:** DEC-T10 pin `supabase/postgres:17.6.1.136` (PG 17). Row lock,
+  isolation và wait event là hành vi của engine — test trên major khác thì kết luận không
+  chuyển sang production được.
+- **Vì sao KHÔNG dùng `supabase/postgres`:** image đó chạy init chain `migrate.sh` phụ thuộc
+  `POSTGRES_USER=supabase_admin`, trong khi `PostgreSqlContainer` của testcontainers **luôn**
+  set `POSTGRES_USER`. Tổ hợp này làm init chết im lặng — đúng bẫy đã ghi ở
+  [`evidence-p1.md`](./evidence-p1.md). Test cần một PostgreSQL trần để chứng minh baseline
+  apply được từ DB rỗng, không phải để tái tạo toàn bộ Supabase.
+- **Affected phase:** P1 (integration test), P5 (concurrency/hard-quota test).
+
+### DEC-T20 — CSP có `script-src` với nonce cho Next App Router
+
+`approved` 2026-07-17, mở rộng DEC-T12.
+
+- **Vấn đề:** DEC-T12 chốt CSP baseline `default-src 'self'` (cùng `img-src`, `frame-ancestors`,
+  `object-src`, `base-uri`). Nhưng Next.js App Router **chèn script inline** để truyền RSC
+  payload sang client. Với `default-src 'self'` trần, script đó bị chặn và **trang không
+  hydrate** — tức là không tương tác được.
+- **Quyết định:** thêm `script-src 'self' 'nonce-<random>' 'strict-dynamic'`, nonce sinh
+  **theo từng request** ở `apps/web/proxy.ts`. Đây là **thắt chặt**, không phải nới lỏng:
+  không wildcard, không `'unsafe-inline'` cho script trong production.
+- **Ngoại lệ chỉ ở dev:** khi `NODE_ENV !== 'production'`, thêm `'unsafe-eval'` (script) và
+  `'unsafe-inline'` (style) cho React Refresh/HMR. Chúng **không tồn tại** trong production
+  build — có test e2e xác nhận (khi Playwright được bật ở lượt riêng).
+- **Toàn bộ directive baseline của DEC-T12 giữ nguyên.** Record này chỉ bổ sung `script-src`
+  (và `style-src`/`connect-src` cần cho Next hoạt động), không gỡ ràng buộc nào.
+- **Affected phase:** P1, P3 (khi thêm ảnh app phải giữ nguyên kỷ luật này).
+
+### DEC-T21 — Secret scan bằng gitleaks
+
+`approved` 2026-07-17. Đây là tool còn thiếu cho exit gate P1 điều 8.
+
+- **Quyết định:** **`ghcr.io/gitleaks/gitleaks:v8.28.0`** (pin version, chạy qua Docker nên
+  không thêm dependency vào repo). Config tại `.gitleaks.toml`.
+- **Scan ở git-mode**, KHÔNG `--no-git`: git-mode chỉ quét file được git track nên tôn trọng
+  `.gitignore`. `--no-git` quét cả `node_modules/` và `apps/web/.next/` (build artifact có
+  dev preview key) — toàn false positive về thứ không bao giờ được commit.
+- **Allowlist chỉ chứa false positive đã KIỂM CHỨNG bằng tay:** tài liệu tiếng Việt trong
+  `docs/*.md` (chuỗi dấu entropy cao bị `generic-api-key` bắt nhầm), placeholder
+  `CHANGE_ME_*` trong `.env.example`, và password dev-only `devlocal_*`. Không tắt rule.
+- **Đã kiểm chứng bằng thử nghiệm âm bản:** cắm một AWS key giả vào file source →
+  `leaks found: 6`; xoá đi → `no leaks found`. Scan này biết bắt, không chỉ biết báo xanh.
+- **Kết quả 2026-07-17:** full scan 22 commit + working tree → **no leaks found**.
+- **CI:** job `quality` chạy gitleaks git-mode; finding làm fail build.
+- **Affected phase:** P1+.
+
 ## B. Quyết định nghiệp vụ — chờ chủ dự án
 
 Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default hợp lý" vào bất kỳ ô nào dưới đây.
@@ -243,6 +311,7 @@ Mọi file phase tham chiếu bảng này thay vì tự ghi version. Đọc từ
 | @playwright/test | 1.61.1 | E2E | DEC-T05 |
 | testcontainers | 12.0.4 | integration | DEC-T05 |
 | @testcontainers/postgresql | 12.0.4 | integration | DEC-T05 |
+| postgres (image) | 17.6-alpine | testcontainers | DEC-T19 |
 | next | 16.2.10 | apps/web | stack |
 | react / react-dom | 19.2.7 | apps/web | peer của next 16 |
 | @auth0/nextjs-auth0 | 4.25.0 | apps/web | DEC-T08 |

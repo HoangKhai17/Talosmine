@@ -15,10 +15,11 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
 
-    // KHÔNG khai DOM: unit/integration/concurrency đều chạy ở Node (`environment: 'node'`).
-    // Nếu sau này thêm Playwright vào workspace này, callback của `page.evaluate()` chạy
-    // TRONG TRÌNH DUYỆT và sẽ cần `lib: ["ES2023", "DOM", "DOM.Iterable"]` — thiếu nó thì
-    // `document`/`getComputedStyle` báo TS2584.
+    // DOM lib có mặt vì Playwright đã được thêm vào workspace này: callback của
+    // `page.evaluate()` chạy TRONG TRÌNH DUYỆT nên cần `document`/`getComputedStyle`.
+    // Unit/integration/concurrency vẫn chạy ở Node (`environment: 'node'`) — DOM lib chỉ
+    // ảnh hưởng typecheck, không đưa API browser nào vào runtime Node.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
   "include": ["**/*.ts", "../vitest.config.ts"],

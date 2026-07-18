@@ -60,9 +60,7 @@ test.describe('CSP (DEC-T12)', () => {
     expect(csp).toContain("base-uri 'self'");
   });
 
-  test('KHÔNG có wildcard hay unsafe-inline cho script ở production build', async ({
-    request,
-  }) => {
+  test('KHÔNG có wildcard hay unsafe-inline cho script ở production build', async ({ request }) => {
     const response = await request.get('/');
     const csp = response.headers()['content-security-policy'] ?? '';
 

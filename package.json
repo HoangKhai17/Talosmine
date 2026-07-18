@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",
+    "@playwright/test": "1.61.1",
     "@redocly/cli": "2.39.0",
     "@types/node": "^24.10.1",
     "openapi-typescript": "7.13.0",

@@ -2,9 +2,23 @@
 
 ## 1. Trạng thái
 
-`not_started` — **đã được mở**. Cổng P0→P1 đạt 2026-07-17; toàn bộ technical decision gate của phase này đã chốt tại [`decision-register.md`](./decision-register.md) nhóm A.
+`in_progress` — đang thực thi, phần lớn đã có evidence thật. Cổng P0→P1 đạt 2026-07-17; toàn bộ technical decision gate đã chốt tại [`decision-register.md`](./decision-register.md) nhóm A. Bằng chứng chi tiết ở [`evidence-p1.md`](./evidence-p1.md).
 
-Đây là canonical phase status; `TẮC`/`CẠN LƯỢT` nếu xảy ra chỉ là verification outcome metadata. Trước phase này repo chưa có `package.json`, workspace config, script build/test/lint hay bất kỳ command nào — mọi lệnh trong file này **sẽ tồn tại sau bước P1.7**, và chỉ được coi là chạy được khi có evidence ở P1.13.
+**Tiến độ so với 9 điều kiện exit gate (mục 18):**
+
+| # | Điều kiện | Trạng thái |
+|---|---|---|
+| 1 | Node/pnpm nhất quán `.nvmrc`/`engines`/container/CI | ✅ trừ CI (chưa push) |
+| 2 | Toàn bộ lệnh DEC-T15 được QA chạy | ✅ gồm `test:e2e` (30/30) |
+| 3 | Build + typecheck/lint/test/openapi pass | ✅ trên cả thư mục gốc và clean-clone |
+| 4 | Container healthy, chỉ Caddy expose, Supabase private | ✅ |
+| 5 | Migration DB sạch + tách role + spike Supavisor | ✅ có evidence |
+| 6 | Responsive/a11y pass + admin deny server-side | ✅ 30/30 e2e trên 3 viewport |
+| 7 | CI 4 job chạy; GHCR an toàn khi thiếu credential | ⏳ **chỉ verify được sau khi push** |
+| 8 | Secret scan | ✅ gitleaks: no leaks + âm bản PASS (DEC-T21) |
+| 9 | Reviewer độc lập + docs khớp | ✅ reviewer read-only 2026-07-17; mục PHẢI SỬA (digest) đã khép |
+
+Đây là canonical phase status; `TẮC`/`CẠN LƯỢT` nếu xảy ra chỉ là verification outcome metadata. **Chỉ còn điều 7 (CI push) — P1 chuyển `verified` sau khi bạn `git push` và CI chạy xanh.**
 
 ## 2. Mục tiêu
 
@@ -99,7 +113,9 @@ pnpm-workspace.yaml
 pnpm-lock.yaml
 tsconfig.base.json                  # strict
 biome.json
-vitest.workspace.ts
+vitest.config.ts                    # test.projects (DEC-T18 — KHÔNG phải vitest.workspace.ts)
+playwright.config.ts                # web smoke, 3 viewport Chromium
+.gitleaks.toml                      # secret scan (DEC-T21)
 .env.example
 apps/web/
   app/(user)/
@@ -274,7 +290,7 @@ Thứ tự: approval path điều kiện → contract freeze → bootstrap works
 
 **P1.7 — Bootstrap workspace, strict TypeScript và script thật**
 - Hành động: writer được manifest giao khởi tạo root workspace pnpm; `packageManager: "pnpm@11.13.1"`; `engines.node: "24.18.0"`; `pnpm-workspace.yaml` gồm `apps/*`, `contracts`, `tests`; `tsconfig.base.json` với `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`; `biome.json`; và **tạo thật toàn bộ script** ở DEC-T15.
-- Sản phẩm: `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `tsconfig.base.json`, `biome.json`, `vitest.workspace.ts`, `.nvmrc`.
+- Sản phẩm: `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `tsconfig.base.json`, `biome.json`, `vitest.config.ts` (DEC-T18 — `test.projects`, **không** phải `vitest.workspace.ts`), `.nvmrc`.
 - Phụ thuộc: P1.4; approval P1.2 cho root config.
 - Verify: `pnpm install --frozen-lockfile` chạy trên clean clone; `pnpm typecheck` và `pnpm lint` tồn tại và exit 0 trên workspace rỗng. **Đây là bước biến mọi tên lệnh trong plan thành lệnh thật** — trước bước này chúng chỉ tồn tại trên giấy. Evidence thật ở P1.12.
 - Lane: `orchestrator` hoặc agent được manifest giao root/workspace.
@@ -304,7 +320,7 @@ Thứ tự: approval path điều kiện → contract freeze → bootstrap works
 
 **P1.11 — Viết baseline/smoke/migration/contract tests** *(song song với P1.8, P1.9)*
 - Hành động: viết test theo contract đã freeze: clean-install/clean-clone; typecheck + lint; production build web/api/worker; unit error-envelope/correlation/env-schema; web smoke (`(user)`, denied `admin`, loading/error/not-found, keyboard, ba viewport); API liveness/readiness + no-stack/no-secret; worker startup/shutdown + không public port; compose private-network check; migration smoke từ DB sạch qua testcontainers; assertion cho spike Supavisor; OpenAPI lint + drift; secret scan.
-- Sản phẩm: `tests/` và test-only fixture/config; `vitest.workspace.ts` wiring.
+- Sản phẩm: `tests/` và test-only fixture/config; `vitest.config.ts` wiring (`test.projects` — DEC-T18, Vitest 4 đã gỡ `vitest.workspace.ts`).
 - Phụ thuộc: P1.4 (contract freeze). Consume artifact từ P1.8–P1.10 khi tích hợp.
 - Verify: `pnpm test` và `pnpm test:e2e` chạy được; test dùng PostgreSQL thật qua testcontainers cho phần DB, **không mock**. Tester **không** hạ kỳ vọng để pass — test fail nghĩa là bug thuộc code, giao owner sửa (`../../AGENTS.md` mục 4b).
 - Lane: `tester`.
@@ -426,9 +442,12 @@ P1 chỉ `verified` khi có evidence từ **clean clone/environment sạch** r�
 
 | Gate | Trạng thái | Evidence/người ký |
 |---|---|---|
-| QA clean clone, commands, builds, tests, compose, migration, exposure | `pending` | Chưa có implementation để chạy. |
-| Reviewer architecture, module boundary, security, rollback, docs | `pending` | Chưa có implementation để review. |
-| Spike Supavisor transaction pinning | `pending` | Điều kiện cần cho P5; chưa chạy. |
-| Orchestrator xác nhận P1 exit gate | `pending` | Chỉ sau QA PASS và reviewer hết "mục phải sửa". |
+| Clean clone: `install --frozen-lockfile` + commands + builds + tests | `pass` | Chạy thật trên bản copy sạch 2026-07-17; xem [`evidence-p1.md`](./evidence-p1.md). Bắt được 1 lỗi format thư mục gốc che mất. |
+| Reviewer architecture, module boundary, security, docs | `pass` | Reviewer độc lập (read-only) 2026-07-17: code foundation vững; 1 mục PHẢI SỬA (digest pinning) — **đã khép**. |
+| Spike Supavisor transaction pinning | `pass` | `pg_backend_pid()` = 498 hai lần trong cùng transaction. |
+| Secret scan | `pass` | gitleaks: no leaks + âm bản PASS (DEC-T21). |
+| CI 4 job chạy trên GitHub Actions | `pending` | ⏳ **Chỉ verify được sau khi bạn `git push`.** Không chạy được ở máy dev. |
+| Orchestrator xác nhận P1 exit gate | `pending` | Chỉ sau khi CI push xanh (điều 7). Mọi điều kiện khác đã đạt. |
 
-Tác giả implementation không tự thay thế sign-off độc lập.
+Reviewer read-only đã chạy độc lập, nhưng các con số EXIT=0 vẫn do người viết code tự khai
+cho tới khi CI chạy lại từ clean state. Đó là chốt chặn cuối cùng.

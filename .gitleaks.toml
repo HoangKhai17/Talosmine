@@ -1,0 +1,27 @@
+# Cấu hình gitleaks cho Talosmine (DEC-T21).
+#
+# Kế thừa bộ rule mặc định của gitleaks rồi thêm allowlist cho các false positive
+# đã KIỂM CHỨNG bằng tay. Nguyên tắc: chỉ allowlist thứ đã đọc và xác nhận KHÔNG phải
+# secret — không tắt rule để cho scan xanh.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "False positive đã kiểm chứng bằng tay ngày 2026-07-17"
+
+# Tài liệu tiếng Việt trong docs/ có chuỗi dấu entropy cao mà rule `generic-api-key`
+# bắt nhầm. Đã đọc từng dòng: chúng là câu mô tả lifecycle/nghiệp vụ, không có secret.
+# Ví dụ: phase-4 dòng 199 ("mọi transition..."), phase-9 dòng 48 ("Upgrade/downgrade...").
+paths = [
+  '''docs/.*\.md''',
+]
+
+# `.env.example` cố ý chứa placeholder dạng `CHANGE_ME_*` — không phải secret thật.
+# `.env` thật đã nằm trong .gitignore nên không bị scan.
+regexes = [
+  '''CHANGE_ME_[A-Za-z0-9_]*''',
+  # Password dev-only trong evidence/compose ví dụ: `devlocal_*`. Đây là giá trị throwaway
+  # chỉ dùng trên máy cá nhân, không phải credential production.
+  '''devlocal_[A-Za-z0-9_]*''',
+]

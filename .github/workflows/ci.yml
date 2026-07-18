@@ -105,6 +105,20 @@ jobs:
 
       - run: pnpm openapi:drift
 
+      # Secret scan (DEC-T21). Đây là exit gate P1 mục 18 điều 8.
+      # Chạy git-mode (KHÔNG --no-git) để tôn trọng .gitignore — .env thật và
+      # node_modules/.next không bị quét. Config + allowlist ở .gitleaks.toml.
+      # checkout ở trên là shallow (fetch-depth mặc định = 1); với PR, gitleaks
+      # cần đủ lịch sử để scan các commit mới. Lấy full history cho job này.
+      - name: Lấy full git history cho secret scan
+        run: git fetch --unshallow || true
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # Không set GITLEAKS_LICENSE: chỉ bắt buộc cho tổ chức, repo cá nhân không cần.
+
   # ═══════════════════════════════════════════════════════════════════════════
   # 2/4 — test: Vitest (unit + integration)
   # ═══════════════════════════════════════════════════════════════════════════

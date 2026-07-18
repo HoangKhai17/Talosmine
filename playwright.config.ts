@@ -33,9 +33,23 @@ export default defineConfig({
     // Ba viewport: phase-1 mục 10 yêu cầu MỘT codebase chạy được ở desktop,
     // máy tính bảng và điện thoại. Test chạy trên cả ba để "responsive" là điều
     // đo được, không phải lời hứa.
-    { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
-    { name: 'tablet', use: { ...devices['iPad (gen 7)'] } },
-    { name: 'mobile', use: { ...devices['Pixel 5'] } },
+    //
+    // Cả ba đều chạy trên CHROMIUM, chỉ khác `viewport`. Ở P1 ta kiểm KÍCH THƯỚC
+    // MÀN HÌNH (responsive layout), không kiểm khác biệt engine — nên một engine là đủ
+    // và tránh phải cài WebKit/Firefox. Kiểm đa engine (iPad=WebKit, Pixel=Chromium thật)
+    // để dành một lượt riêng khi cần.
+    {
+      name: 'desktop',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: 'tablet',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 } },
+    },
+    {
+      name: 'mobile',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
+    },
   ],
 
   webServer: {

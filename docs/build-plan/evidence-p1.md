@@ -3,6 +3,67 @@
 > Ghi lại ngày 2026-07-17. Mọi khối dưới đây là output **đã chạy thật** trên máy dev.
 > Những gì CHƯA chạy được ghi ở mục cuối, không trộn lẫn với phần đã chạy.
 
+## Cập nhật cuối (việc 2–5 của phần còn lại)
+
+**Hai bug đã vá và chứng minh bằng hành vi thật:**
+
+```
+BUG 1 — env.ts không kiểm scheme URL:
+  'localhost:5432'                    -> chặn ngay: scheme phải là postgresql://...
+  'http://user:sUp3r-s3cr3t@...'      -> chặn, và KHÔNG in password ra thông điệp
+
+BUG 2 — REVOKE trên schema public (init sạch):
+  runtime USAGE public   = false      (trước: true)
+  migration USAGE public = false
+  role Supabase (anon/authenticated/postgres/service_role) = true  (không vạ lây)
+```
+
+Ghi chú BUG 2 — hai no-op liên tiếp trước khi tìm ra chỗ đúng:
+- `REVOKE ... FROM talosmine_runtime` (bản gốc) no-op: USAGE đến từ pseudo-role PUBLIC.
+- `REVOKE ... FROM PUBLIC` đặt trong MIGRATION cũng no-op: schema public thuộc
+  `pg_database_owner`, role migration không có thẩm quyền → chỉ WARNING.
+- Chỗ đúng: infra script chạy bằng `supabase_admin`. Ranh giới nay ghi rõ trong cả hai file.
+- Bài học: testcontainers chạy bằng superuser nên test từng cho màu XANH GIẢ cho câu hỏi
+  quyền của PUBLIC. Test đã sửa để nói thật, kèm cảnh báo.
+
+**Playwright web smoke (DEC-T20):**
+
+```
+pnpm test:e2e -> 30 passed (3 viewport × 10 test)
+  - GET /admin -> 403 server-side (HTTP thuần, không JS)
+  - CSP baseline đủ directive; script-src KHÔNG có unsafe-inline ở production
+  - không tràn ngang ở cả 3 viewport; focus nhìn thấy khi tab
+  - not-found -> 404
+```
+
+**Secret scan (DEC-T21):**
+
+```
+gitleaks v8.28.0, full scan 22 commit + working tree -> no leaks found
+âm bản: cắm AWS key giả -> leaks found: 6 ; xoá -> no leaks
+  (chứng minh scan biết BẮT, không chỉ biết báo xanh)
+allowlist: chỉ false positive đã kiểm tay (docs tiếng Việt entropy cao, CHANGE_ME_*, devlocal_*)
+```
+
+**Clean-clone (việc 5) — chứng minh chạy được ngoài thư mục gốc:**
+
+```
+copy working tree (loại node_modules/.next/dist) -> thư mục sạch
+pnpm install --frozen-lockfile   -> EXIT=0   (KHÔNG có ERR_PNPM_IGNORED_BUILDS như lo ngại)
+typecheck / build / openapi:lint / openapi:drift / test(85) -> tất cả EXIT=0
+lint -> FAIL lần đầu: playwright.config.ts + web-shell.spec.ts chưa format
+        -> format ở gốc -> clean-clone lint EXIT=0
+```
+
+Clean-clone bắt đúng một lỗi thật (2 file chưa format) mà thư mục gốc che mất — đúng mục
+đích của nó.
+
+**Còn lại để P1 `verified`:** điều 7 (push CI, chỉ verify được trên GitHub) và điều 9
+(reviewer độc lập).
+
+---
+
+
 ## P1.3 — Node và pnpm
 
 ```
@@ -205,21 +266,27 @@ Phạm vi spec ở P1 **chỉ có health**. Không khai endpoint nghiệp vụ n
 
 ## CHƯA chạy được / còn lại của P1
 
-Ghi trung thực, không tính vào phần đã đạt:
+> Cập nhật 2026-07-17 sau việc 2–6. Mục này trước đây lỗi thời (reviewer độc lập bắt được):
+> tests/Caddy/CI/Dockerfile **đã tồn tại và đã chạy**. Trạng thái thật giờ như dưới.
 
-- [ ] `tests/` — đang viết ở lane `tester`. `pnpm test`, `pnpm test:e2e`,
-      `pnpm test:concurrency` chưa chạy.
-- [ ] `infra/caddy/Caddyfile` và `.github/workflows/` (4 job DEC-T13) — đang viết ở lane
-      `orchestrator(infra,CI)`.
-- [ ] `pnpm install --frozen-lockfile` trên **clean clone** — chưa kiểm.
-      `allowBuilds` trong `pnpm-workspace.yaml` đã chốt (`esbuild`/`sharp` = true;
-      `ssh2`/`cpu-features`/`protobufjs` = false vì chỉ cần khi nói chuyện với Docker
-      daemon qua SSH — ta dùng npipe/unix socket). Cần clean-clone để xác nhận.
-- [ ] P1.12 integration từ clean clone, P1.13 QA/reviewer độc lập — chưa chạy.
-- [ ] Dockerfile cho web/control-plane — đang viết ở lane infra.
+Đã có evidence thật (xem các mục trên):
+- [x] `tests/` — `pnpm test` (85), `test:concurrency` (5), `test:e2e` (30/30) đều xanh.
+- [x] `infra/caddy/Caddyfile`, `.github/workflows/ci.yml` (4 job), 2 Dockerfile — đã tồn tại;
+      Caddy validate + chạy thật, CI YAML parse đúng 4 job.
+- [x] `pnpm install --frozen-lockfile` trên **clean clone** — EXIT=0, không
+      `ERR_PNPM_IGNORED_BUILDS`.
+- [x] Secret scan gitleaks — no leaks + âm bản PASS.
+- [x] Image Supabase pin **digest** + `infra/compose/IMAGE-PINS.md` (sửa theo reviewer).
 
-**P1 chưa `verified`.** Exit gate mục 18 yêu cầu đủ 9 điều kiện. Phần runtime/DB/contract
-đã có evidence thật; còn thiếu tests, Caddy, CI và clean-clone evidence.
+Còn lại để `verified`:
+- [ ] **Điều 7 — CI push:** `ci.yml` chưa từng chạy trên GitHub Actions (không chạy được ở
+      máy dev). Chỉ verify được sau khi push. Đây là giới hạn môi trường, không phải lỗi.
+- [ ] **P1.12/P1.13 chính thức:** reviewer độc lập đã chạy (việc 6) và kết luận code vững;
+      nhưng mọi con số EXIT=0 vẫn là **tự khai của người viết code** — QA chạy lại từ clean
+      state trên CI mới biến chúng thành evidence kiểm chứng độc lập.
+
+**P1 chưa `verified`.** Phần runtime/DB/contract/test/security đã có evidence thật; chỉ còn
+điều 7 (push CI) là chốt chặn cuối, và nó thuộc về bạn.
 
 ## Lệch khỏi plan cần record
 
