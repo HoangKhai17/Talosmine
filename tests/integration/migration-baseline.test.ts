@@ -1,6 +1,12 @@
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { applyBaseline, connect, type Sql, startPostgres } from '../support/postgres';
+import {
+  applyAllMigrations,
+  applyBaseline,
+  connect,
+  type Sql,
+  startPostgres,
+} from '../support/postgres';
 
 /**
  * DEC-T05: phần DB chạy trên PostgreSQL THẬT qua testcontainers, KHÔNG mock.
@@ -298,5 +304,78 @@ describe('rerun baseline — không để state mơ hồ', () => {
       SELECT has_schema_privilege('talosmine_runtime', 'control_plane', 'CREATE') AS ok
     `;
     expect(canCreate[0]?.ok).toBe(false);
+  }, 120_000);
+});
+
+// Chain đầy đủ (0000 + migration domain P2). Container riêng vì role là đối tượng
+// cấp cluster — DB rỗng mới thật sự rỗng phải là container mới.
+describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', () => {
+  let container: StartedPostgreSqlContainer;
+  let sql: Sql;
+
+  beforeAll(async () => {
+    container = await startPostgres();
+    sql = connect(container);
+  }, 120_000);
+
+  afterAll(async () => {
+    await sql?.end();
+    await container?.stop();
+  });
+
+  it('apply được và tạo đúng 3 bảng identity của P2', async () => {
+    await applyAllMigrations(sql);
+
+    const tables = await sql<{ table_name: string }[]>`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'control_plane'
+      ORDER BY table_name
+    `;
+    // P2 nhóm identity: đúng 3 bảng, không thừa không thiếu.
+    expect(tables.map((t) => t.table_name)).toEqual([
+      'accounts',
+      'external_identities',
+      'web_sessions',
+    ]);
+  }, 120_000);
+
+  it('unique (issuer, subject) chặn trùng danh tính', async () => {
+    // Đây là ràng buộc bảo mật cốt lõi: một (issuer, subject) chỉ map một account.
+    const seeded = await sql<{ id: string }[]>`
+      INSERT INTO control_plane.accounts (id, status)
+      VALUES (gen_random_uuid(), 'active') RETURNING id
+    `;
+    const accountId = seeded[0]?.id;
+    if (!accountId) throw new Error('seed account thất bại');
+
+    await sql`
+      INSERT INTO control_plane.external_identities (id, account_id, provider, issuer, subject)
+      VALUES (gen_random_uuid(), ${accountId}, 'auth0', 'https://t.auth0.com/', 'auth0|dup')
+    `;
+
+    await expect(
+      sql`
+        INSERT INTO control_plane.external_identities (id, account_id, provider, issuer, subject)
+        VALUES (gen_random_uuid(), ${accountId}, 'auth0', 'https://t.auth0.com/', 'auth0|dup')
+      `,
+    ).rejects.toThrow(/external_identities_issuer_subject_key/);
+  }, 120_000);
+
+  it('FK ON DELETE RESTRICT: không xóa được account còn identity', async () => {
+    const seeded = await sql<{ id: string }[]>`
+      INSERT INTO control_plane.accounts (id, status)
+      VALUES (gen_random_uuid(), 'active') RETURNING id
+    `;
+    const accountId = seeded[0]?.id;
+    if (!accountId) throw new Error('seed account thất bại');
+
+    await sql`
+      INSERT INTO control_plane.external_identities (id, account_id, provider, issuer, subject)
+      VALUES (gen_random_uuid(), ${accountId}, 'auth0', 'https://t.auth0.com/', 'auth0|restrict')
+    `;
+
+    await expect(sql`DELETE FROM control_plane.accounts WHERE id = ${accountId}`).rejects.toThrow(
+      /foreign key constraint/,
+    );
   }, 120_000);
 });

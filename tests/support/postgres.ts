@@ -41,21 +41,41 @@ async function readJournal(): Promise<JournalEntry[]> {
 
 /**
  * Drizzle phân tách statement bằng marker `--> statement-breakpoint`, KHÔNG bằng dấu `;`.
- * Tách theo `;` sẽ cắt nát các khối `DO $$ ... END $$;` trong baseline.
+ * Tách theo `;` sẽ cắt nát các khối `DO $$ ... END $$;` trong migration.
+ */
+function splitStatements(raw: string): string[] {
+  return raw
+    .split('--> statement-breakpoint')
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => chunk.length > 0 && !isCommentOnly(chunk));
+}
+
+/**
+ * CHỈ migration baseline (0000). Dùng cho các test khẳng định thuộc về RIÊNG baseline:
+ * "P1 không tạo domain table" và "baseline idempotent khi rerun".
+ *
+ * Vì sao tách khỏi full chain: baseline được viết idempotent (`IF NOT EXISTS`, `DO $$`)
+ * nên rerun được. Migration domain từ P2 (`CREATE TABLE`) là forward-only — rerun sẽ
+ * lỗi "already exists", và đó là ĐÚNG (drizzle track journal nên không bao giờ rerun).
+ * Trộn hai loại vào một hàm sẽ làm test baseline hiểu sai bản chất.
  */
 export async function loadBaselineStatements(): Promise<string[]> {
+  const raw = await readFile(new URL('0000_baseline_schema_roles.sql', MIGRATIONS_DIR), 'utf8');
+  return splitStatements(raw);
+}
+
+/**
+ * TOÀN BỘ chain theo thứ tự journal (0000 + mọi migration domain). Dùng cho test chứng
+ * minh cả chain apply được từ DB rỗng — đọc journal nên tự cập nhật khi P2+ thêm bảng,
+ * không hardcode tên file.
+ */
+export async function loadAllMigrationStatements(): Promise<string[]> {
   const entries = await readJournal();
   const statements: string[] = [];
 
   for (const entry of entries) {
     const raw = await readFile(new URL(`${entry.tag}.sql`, MIGRATIONS_DIR), 'utf8');
-
-    statements.push(
-      ...raw
-        .split('--> statement-breakpoint')
-        .map((chunk) => chunk.trim())
-        .filter((chunk) => chunk.length > 0 && !isCommentOnly(chunk)),
-    );
+    statements.push(...splitStatements(raw));
   }
 
   return statements;
@@ -84,13 +104,20 @@ export function connect(container: StartedPostgreSqlContainer, max = 1): Sql {
   });
 }
 
-/** Apply baseline từ DB rỗng, theo đúng thứ tự statement của file migration. */
+/** Apply RIÊNG baseline (0000) từ DB rỗng. */
 export async function applyBaseline(sql: Sql): Promise<number> {
   const statements = await loadBaselineStatements();
-
   for (const statement of statements) {
     await sql.unsafe(statement);
   }
+  return statements.length;
+}
 
+/** Apply TOÀN BỘ chain (0000 + mọi migration domain) từ DB rỗng, theo thứ tự journal. */
+export async function applyAllMigrations(sql: Sql): Promise<number> {
+  const statements = await loadAllMigrationStatements();
+  for (const statement of statements) {
+    await sql.unsafe(statement);
+  }
   return statements.length;
 }

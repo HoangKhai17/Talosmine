@@ -2,7 +2,16 @@
 
 ## 1. Trạng thái
 
-`blocked` — Phase này phụ thuộc exit gate Phase 1 và các human decision ở mục 3. Đây là kế hoạch, chưa phải implementation; mọi đường dẫn là target dự kiến. `TẮC` và `CẠN LƯỢT` là kết quả của vòng kiểm chứng theo `AGENTS.md`, không phải phase status và không thay thế một trong bốn status canonical.
+`in_progress` — bắt đầu 2026-07-17, chia làm **hai nửa**:
+
+- **Nửa A (không cần Auth0) — đang làm.** DB migrations, backend logic, OpenAPI, test bằng token tự phát.
+  - ✅ **Nhóm identity DB xong**: `accounts`, `external_identities`, `web_sessions` (migration 0001–0003) — apply thật trên DB sạch, verify bằng hành vi: mọi CHECK constraint chặn đúng, unique `(issuer,subject)` chống trùng danh tính, FK `ON DELETE RESTRICT`, tách role (runtime không DELETE). 88 test xanh (thêm 3 test integration P2).
+  - ⏳ Còn: admin RBAC + audit_events (cần chốt **permission catalog**), backend logic (account provisioning, session), OpenAPI contract.
+- **Nửa B (cần Auth0 tenant của chủ dự án) — chờ.** Wiring OIDC callback thật, login E2E, Google login. Chặn bởi `‹cần chốt: DEC-B03 Auth0 tenant/issuer/audience›`.
+
+**Lưu ý kỷ luật:** P1 chưa `verified` chính thức (chờ CI push — điều 7). Nửa A của P2 (DB) bắt đầu song song vì rủi ro thấp và reviewer đã xác nhận code P1 vững; nhưng phần phụ thuộc login sẽ chỉ khép sau khi P1 verified và Auth0 tenant sẵn sàng.
+
+`TẮC`/`CẠN LƯỢT` là kết quả vòng kiểm chứng theo `AGENTS.md`, không phải phase status.
 
 ## 2. Mục tiêu
 
