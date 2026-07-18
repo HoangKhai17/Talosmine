@@ -256,7 +256,7 @@ Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default
 | DEC-B01 | **Danh sách ứng dụng của Hub** và owner từng app | `open` | P3, P6, P7 | Không tồn tại ở bất kỳ đâu trong repo. Blocker lớn nhất còn lại. Không chặn P1/P2. |
 | DEC-B02 | **Sample app** cho P6 và path nào nó đại diện | `open` | P6 | Phụ thuộc DEC-B01. |
 | DEC-B03 | Auth0 tenant/environment thật, issuer, audience | `open` | P2 | Cần tài khoản Auth0 của chủ dự án. Cấu trúc topology đã đề xuất tại DEC-T14. |
-| DEC-B04 | Account activation policy và default plan | `open` | P2, P4 | |
+| DEC-B04 | Account activation policy và default plan | `approved` (một phần) | P2, P4 | Activation đã chốt — xem dưới. Default plan vẫn `open` (thuộc P4). |
 | DEC-B05 | Metric/unit/amount cho từng action | `open` | P3, P5–P7 | Phụ thuộc DEC-B01. |
 | DEC-B06 | Counting point (`start`/`milestone`/`success`) và failure treatment | `open` | P5–P7 | |
 | DEC-B07 | Quota window: calendar hay rolling, timezone, DST | `open` | P5 | |
@@ -266,6 +266,22 @@ Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default
 | DEC-B11 | Retention và privacy matrix | `open` | P2, P5, P8 | |
 | DEC-B12 | RPO/RTO và restore drill cadence | `open` | P8 | |
 | DEC-B13 | Payment provider | `open` | P9 | Deferred có chủ đích. |
+
+### DEC-B04a — Account activation policy
+
+`approved` 2026-07-17 bởi chủ dự án.
+
+- **Quyết định:** khi user login lần đầu, account được tạo và **kích hoạt `active` ngay**
+  (`pending -> active` tự động trong cùng luồng provisioning).
+- **Tính chất tạm thời — có chủ đích:** đây là policy cho giai đoạn đầu. Kế hoạch tương lai
+  (chưa lên lịch, cần record riêng khi làm):
+  - account mới ở `pending`, chỉ `active` sau khi **verify email**;
+  - hoặc `active` ngay khi login qua Google (email đã verified bởi Google).
+- **Vì sao chốt được ngay:** schema `accounts` đã hỗ trợ đủ 3 status; đổi policy sau này là
+  đổi **logic provisioning**, KHÔNG đổi schema — nên không tạo nợ kỹ thuật.
+- **Ràng buộc giữ nguyên:** account `disabled` vẫn luôn deny (không bị policy này ảnh hưởng);
+  và việc đổi sang `pending`-by-default sau này phải là một quyết định có record, không âm thầm.
+- **Affected phase:** P2 (provisioning logic).
 
 ### DEC-T14 — Cấu trúc Auth0 topology *(`proposed` — chờ DEC-B03)*
 

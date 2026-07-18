@@ -127,6 +127,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 4.1.10
         version: 4.1.10(vitest@4.1.10)
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(postgres@3.4.9)
       postgres:
         specifier: 3.4.9
         version: 3.4.9

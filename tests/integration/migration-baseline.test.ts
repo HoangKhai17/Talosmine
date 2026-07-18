@@ -323,7 +323,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
     await container?.stop();
   });
 
-  it('apply được và tạo đúng 3 bảng identity của P2', async () => {
+  it('apply được và tạo đúng tập bảng P2 hiện tại', async () => {
     await applyAllMigrations(sql);
 
     const tables = await sql<{ table_name: string }[]>`
@@ -331,12 +331,41 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
       WHERE table_schema = 'control_plane'
       ORDER BY table_name
     `;
-    // P2 nhóm identity: đúng 3 bảng, không thừa không thiếu.
+    // Danh sách CHÍNH XÁC — không thừa không thiếu. Mỗi lần P2 thêm bảng, cập nhật ở đây
+    // là CÓ CHỦ ĐÍCH: test này bắt "bảng lọt vào ngoài ý muốn". Hiện có identity (3) + audit.
     expect(tables.map((t) => t.table_name)).toEqual([
       'accounts',
+      'audit_events',
       'external_identities',
       'web_sessions',
     ]);
+  }, 120_000);
+
+  it('audit_events là append-only: UPDATE/DELETE bị trigger chặn kể cả superuser', async () => {
+    // testcontainers kết nối bằng superuser. Trigger chặn cả superuser — đó là điểm mấu
+    // chốt: append-only không dựa vào quyền (quyền có thể cấp nhầm), mà vào trigger engine.
+    await sql`
+      INSERT INTO control_plane.audit_events
+        (id, operation_id, sequence, actor_type, action, target_type)
+      VALUES (gen_random_uuid(), gen_random_uuid(), 0, 'system', 'test.append', 'account')
+    `;
+
+    await expect(sql`UPDATE control_plane.audit_events SET action = 'tampered'`).rejects.toThrow(
+      /append-only/,
+    );
+
+    await expect(sql`DELETE FROM control_plane.audit_events`).rejects.toThrow(/append-only/);
+  }, 120_000);
+
+  it('audit_events actor check P2 cấm service actor', async () => {
+    // P2 staging: chỉ 'account'/'system'. Service actor thuộc P3 (khi có service_identities).
+    await expect(
+      sql`
+        INSERT INTO control_plane.audit_events
+          (id, operation_id, sequence, actor_type, actor_service_identity_id, action, target_type)
+        VALUES (gen_random_uuid(), gen_random_uuid(), 0, 'service', gen_random_uuid(), 'x', 'y')
+      `,
+    ).rejects.toThrow(/audit_events_actor_check/);
   }, 120_000);
 
   it('unique (issuer, subject) chặn trùng danh tính', async () => {
