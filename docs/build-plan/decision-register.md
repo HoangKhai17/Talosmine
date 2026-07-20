@@ -83,7 +83,8 @@ Mọi version dưới đây được đọc từ registry thật ngày 2026-07-1
 ### DEC-T08 — Auth0 SDK và xác minh token
 
 - **Quyết định:**
-  - Web/BFF: **`@auth0/nextjs-auth0@4.25.0`** — OIDC Authorization Code + PKCE, `state`, `nonce`, session cookie phía server.
+  - ~~Web/BFF: `@auth0/nextjs-auth0@4.25.0`~~ — **SUPERSEDED bởi DEC-T24**: đã gỡ, thay bằng
+    `openid-client@6.8.4` sau khi DEC-T22 đổi IdP sang Logto.
   - Control Plane: **`jose@6.2.3`** — xác minh JWT (chữ ký, `iss`, `aud`, `exp`) qua JWKS, có cache.
 - **Lý do:** Control Plane không dùng SDK của Next.js; nó chỉ cần verify token của user và của M2M caller. `jose` là thư viện thuần, không kéo theo framework.
 - **Ràng buộc:** Control Plane **không lưu client secret** (`../modular.md` mục 10.1). Secret của BFF nằm trong env của riêng `apps/web`.
@@ -307,6 +308,41 @@ Nửa A đã xây trên **chuẩn OIDC**, không phải trên Auth0:
   **brute-force mật khẩu** thì rate limiting + khóa tài khoản tạm thời hiệu quả hơn nhiều.
   Cần cả hai, đúng chỗ — không coi CAPTCHA là giải pháp vạn năng.
 
+### DEC-T24 — OIDC client cho BFF: **`openid-client@6.8.4`** (thay `@auth0/nextjs-auth0`)
+
+- **Trạng thái:** `approved` — 2026-07-20. Đã cài, đã chạy thật với Logto.
+- **Bối cảnh:** DEC-T22 đổi IdP sang Logto, làm `@auth0/nextjs-auth0` mất lý do tồn tại
+  (nó gắn với Auth0). Cần một client OIDC cho luồng login phía BFF.
+
+**Vì sao `openid-client` chứ không phải SDK `@logto/next`:**
+
+SDK của Logto quản lý session bằng **cookie riêng của nó**. Nửa A của P2 đã có bảng
+`web_sessions` với thu hồi, liệt kê thiết bị và audit. Dùng cả hai sẽ tạo **hai hệ thống
+phiên song song**: trang "phiên của tôi" và nút thu hồi của admin sẽ không nhìn thấy phiên
+do SDK tạo — nghĩa là toàn bộ hạ tầng phiên thành vô dụng, và một tài khoản bị chiếm không
+thể khoá dứt điểm.
+
+`openid-client` chỉ làm đúng phần giao thức (Authorization Code + PKCE + `state` + `nonce`)
+rồi trả `id_token`. Phiên vẫn là của Talosmine.
+
+**Vì sao thư viện này:**
+
+- Là client OIDC chuẩn, **không phụ thuộc nhà cung cấp** — đổi IdP chỉ đổi giá trị env.
+- Cùng tác giả với `jose` (DEC-T08), vốn đã dùng ở Control Plane để verify token.
+- Tự kiểm `state`, `nonce`, PKCE trong `authorizationCodeGrant`. Cố ý **không tự viết** các
+  phép so sánh này: một so sánh bảo mật viết sai rất khó phát hiện bằng test thông thường.
+
+**Ghi chú triển khai:**
+
+- v6 **chặn HTTP** theo mặc định. Ngoại lệ chỉ mở cho hostname loopback lúc dev
+  (`client.allowInsecureRequests`), điều kiện là **hostname**, không phải `NODE_ENV` — một
+  `.env` production trỏ nhầm sang `http://` của host khác vẫn phải bị chặn.
+- Logto "Traditional Web App" dùng `client_secret_basic`.
+- Client secret **chỉ tồn tại phía server**; không biến nào mang tiền tố `NEXT_PUBLIC_`.
+
+**Ảnh hưởng:** `@auth0/nextjs-auth0@4.25.0` đã **gỡ khỏi** `apps/web`. DEC-T08 phần đó
+chính thức khép lại.
+
 ## B. Quyết định nghiệp vụ — chờ chủ dự án
 
 Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default hợp lý" vào bất kỳ ô nào dưới đây.
@@ -390,7 +426,7 @@ Mọi file phase tham chiếu bảng này thay vì tự ghi version. Đọc từ
 | postgres (image) | 17.6-alpine | testcontainers | DEC-T19 |
 | next | 16.2.10 | apps/web | stack |
 | react / react-dom | 19.2.7 | apps/web | peer của next 16 |
-| @auth0/nextjs-auth0 | 4.25.0 | apps/web | DEC-T08 |
+| openid-client | 6.8.4 | apps/web | DEC-T24 |
 | @nestjs/core | 11.1.28 | apps/control-plane | stack |
 | @nestjs/common | 11.1.28 | apps/control-plane | stack |
 | @nestjs/platform-fastify | 11.1.28 | apps/control-plane | stack |
