@@ -1,16 +1,20 @@
 import { Module } from '@nestjs/common';
-import { WebSessionGuard } from '../identity/web-session.guard.js';
+import { IdentityModule } from '../identity/identity.module.js';
 import { AccountController } from './account.controller.js';
 import { AccountService } from './account.service.js';
 
 /**
  * Module Account — sở hữu bảng `accounts` và API tài khoản của user.
  *
- * WebSessionGuard đăng ký ở đây (nó thuộc Identity nhưng được Account dùng làm guard).
+ * Import IdentityModule để dùng WebSessionGuard mà Identity export — guard là capability
+ * của Identity, Account chỉ tiêu thụ. Đây là ranh giới module theo modular.md: không tự
+ * khai lại provider của module khác.
+ *
  * DatabaseModule là @Global nên không cần import; DATABASE_CLIENT có sẵn để inject.
  */
 @Module({
+  imports: [IdentityModule],
   controllers: [AccountController],
-  providers: [AccountService, WebSessionGuard],
+  providers: [AccountService],
 })
 export class AccountModule {}

@@ -47,6 +47,11 @@ tags:
       API tài khoản của chính user (self-service). Bảo vệ bằng web session:
       BFF forward session token qua header `X-Session-Token`; Control Plane resolve
       accountId phía server, KHÔNG tin accountId do client khai.
+  - name: admin
+    description: |
+      API quản trị. DENY-BY-DEFAULT: cần phiên hợp lệ **và** permission tương ứng qua
+      RBAC (role còn `active`, assignment còn hiệu lực và chưa thu hồi). Mọi mutation
+      bắt buộc có `reason` và ghi audit đồng bộ trong cùng transaction.
 
 paths:
   /health/live:
@@ -141,7 +146,235 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /v1/me/account/sessions:
+    get:
+      tags: [account]
+      operationId: listOwnSessions
+      summary: Liệt kê phiên đăng nhập của chính mình
+      description: |
+        Trả các phiên của account hiện tại (trang "thiết bị đang đăng nhập").
+        KHÔNG trả hash token — chỉ metadata đủ để user nhận ra phiên nào là phiên nào.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Danh sách phiên.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionSummary'
+        '401':
+          description: Không có phiên hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/me/account/sessions/all:
+    delete:
+      tags: [account]
+      operationId: revokeAllOwnSessions
+      summary: Đăng xuất mọi nơi
+      description: |
+        Thu hồi TẤT CẢ phiên còn hiệu lực của account, kể cả phiên đang gọi request này.
+        Idempotent: gọi lại khi không còn phiên nào vẫn trả 204.
+      security:
+        - webSession: []
+      responses:
+        '204':
+          description: Đã thu hồi (không có nội dung trả về).
+        '401':
+          description: Không có phiên hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/me/account/sessions/{sessionId}:
+    delete:
+      tags: [account]
+      operationId: revokeOwnSession
+      summary: Thu hồi một phiên của chính mình
+      description: |
+        Chỉ thu hồi được phiên THUỘC account hiện tại. Phiên của người khác, phiên không
+        tồn tại, và phiên đã thu hồi đều trả 404 giống nhau — không tiết lộ sessionId nào
+        là có thật (chống dò).
+      security:
+        - webSession: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Đã thu hồi.
+        '400':
+          description: sessionId không phải UUID hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Không có phiên hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Không tìm thấy phiên thuộc account này.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/accounts/{accountId}:
+    get:
+      tags: [admin]
+      operationId: adminGetAccount
+      summary: Xem account bất kỳ (quản trị)
+      description: |
+        Yêu cầu permission `account:read`. Trả nhiều trường hơn view của user (có `disabledAt`).
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/admin/accounts/{accountId}/disable:
+    post:
+      tags: [admin]
+      operationId: adminDisableAccount
+      summary: Vô hiệu hóa account
+      description: |
+        Yêu cầu permission `account:disable`. Trong MỘT transaction: đổi status sang
+        `disabled`, **thu hồi mọi phiên** của user đó, và ghi audit. Thất bại ở bất kỳ
+        bước nào rollback cả ba.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminReason'
+      responses:
+        '204':
+          description: Đã vô hiệu hóa.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/admin/accounts/{accountId}/enable:
+    post:
+      tags: [admin]
+      operationId: adminEnableAccount
+      summary: Kích hoạt lại account đã bị vô hiệu hóa
+      description: |
+        Yêu cầu permission `account:enable` — TÁCH RIÊNG khỏi `account:disable` vì
+        `disabled -> active` là hành động nhạy cảm hơn. Reason bắt buộc, audit đồng bộ.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminReason'
+      responses:
+        '204':
+          description: Đã kích hoạt lại.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/admin/accounts/{accountId}/revoke-sessions:
+    post:
+      tags: [admin]
+      operationId: adminRevokeAccountSessions
+      summary: Thu hồi toàn bộ phiên của một account
+      description: |
+        Yêu cầu permission `session:revoke`. Dùng khi nghi ngờ tài khoản bị chiếm.
+        Idempotent — không còn phiên nào vẫn trả 204.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminReason'
+      responses:
+        '204':
+          description: Đã thu hồi.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
+  responses:
+    BadRequest:
+      description: Dữ liệu vào không hợp lệ (ví dụ thiếu `reason`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: Chưa xác thực (thiếu/sai/hết hạn/đã thu hồi phiên).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: |
+        Đã xác thực nhưng KHÔNG đủ quyền quản trị. Cố ý không nêu thiếu permission nào —
+        tránh vẽ bản đồ phân quyền cho kẻ dò.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Không tìm thấy tài nguyên trong phạm vi được phép.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
   securitySchemes:
     webSession:
       type: apiKey
@@ -168,6 +401,67 @@ components:
         **CHƯA dùng ở P1.**
 
   schemas:
+    AdminReason:
+      type: object
+      description: |
+        Mọi mutation quản trị BẮT BUỘC có lý do (modular.md mục 11.4). Lý do đi vào audit
+        và là thứ khiến bản ghi audit có giá trị điều tra sau này.
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+    AdminAccount:
+      type: object
+      description: View account cho admin — có thêm `disabledAt` so với view của user.
+      required: [id, status, emailVerified, disabledAt, createdAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, active, disabled]
+        displayName:
+          type: [string, 'null']
+        email:
+          type: [string, 'null']
+        emailVerified:
+          type: boolean
+        disabledAt:
+          type: [string, 'null']
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    SessionSummary:
+      type: object
+      description: |
+        Metadata một phiên đăng nhập. CỐ Ý không có `session_token_hash` hay bất kỳ dạng
+        token nào — hash không bao giờ rời khỏi database.
+      required: [id, createdAt, lastSeenAt, expiresAt, revokedAt, current]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type: [string, 'null']
+          format: date-time
+        current:
+          type: boolean
+          description: Phiên đang dùng để gọi request này (UI cảnh báo trước khi tự thu hồi).
     OwnAccount:
       type: object
       description: |
@@ -233,6 +527,13 @@ components:
           additionalProperties: true
 
   parameters:
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     CorrelationId:
       name: X-Correlation-Id
       in: header

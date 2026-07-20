@@ -332,9 +332,13 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
       ORDER BY table_name
     `;
     // Danh sách CHÍNH XÁC — không thừa không thiếu. Mỗi lần P2 thêm bảng, cập nhật ở đây
-    // là CÓ CHỦ ĐÍCH: test này bắt "bảng lọt vào ngoài ý muốn". Hiện có identity (3) + audit.
+    // là CÓ CHỦ ĐÍCH: test này bắt "bảng lọt vào ngoài ý muốn".
+    // Hiện có: identity (3) + audit (1) + admin RBAC (3) = 7.
     expect(tables.map((t) => t.table_name)).toEqual([
       'accounts',
+      'admin_role_assignments',
+      'admin_role_permissions',
+      'admin_roles',
       'audit_events',
       'external_identities',
       'web_sessions',

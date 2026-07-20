@@ -7,6 +7,13 @@ import { webSessions } from './schema.js';
 type Db = DatabaseClient['db'];
 
 /**
+ * `db` hoặc một transaction. Cho phép module khác (ví dụ Admin khi disable account) gọi
+ * hàm của Identity TRONG transaction của họ — giữ được ranh giới module (Admin không
+ * đụng bảng `web_sessions`) mà vẫn nguyên tử cùng mutation và audit.
+ */
+type Executor = Pick<Db, 'update' | 'select' | 'insert'>;
+
+/**
  * Quản lý phiên đăng nhập phía server (modular.md mục 3, database-schema mục 4.3).
  *
  * NGUYÊN TẮC BẢO MẬT XUYÊN SUỐT FILE:
@@ -117,7 +124,7 @@ export async function revokeSession(db: Db, sessionId: string, reason: string): 
  * account, hoặc khi có tín hiệu bảo mật. Trả số phiên vừa thu hồi.
  */
 export async function revokeAllAccountSessions(
-  db: Db,
+  db: Executor,
   accountId: string,
   reason: string,
 ): Promise<number> {

@@ -75,10 +75,197 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/account/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liệt kê phiên đăng nhập của chính mình
+         * @description Trả các phiên của account hiện tại (trang "thiết bị đang đăng nhập").
+         *     KHÔNG trả hash token — chỉ metadata đủ để user nhận ra phiên nào là phiên nào.
+         */
+        get: operations["listOwnSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/account/sessions/all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Đăng xuất mọi nơi
+         * @description Thu hồi TẤT CẢ phiên còn hiệu lực của account, kể cả phiên đang gọi request này.
+         *     Idempotent: gọi lại khi không còn phiên nào vẫn trả 204.
+         */
+        delete: operations["revokeAllOwnSessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/account/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Thu hồi một phiên của chính mình
+         * @description Chỉ thu hồi được phiên THUỘC account hiện tại. Phiên của người khác, phiên không
+         *     tồn tại, và phiên đã thu hồi đều trả 404 giống nhau — không tiết lộ sessionId nào
+         *     là có thật (chống dò).
+         */
+        delete: operations["revokeOwnSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/accounts/{accountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Xem account bất kỳ (quản trị)
+         * @description Yêu cầu permission `account:read`. Trả nhiều trường hơn view của user (có `disabledAt`).
+         */
+        get: operations["adminGetAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/accounts/{accountId}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vô hiệu hóa account
+         * @description Yêu cầu permission `account:disable`. Trong MỘT transaction: đổi status sang
+         *     `disabled`, **thu hồi mọi phiên** của user đó, và ghi audit. Thất bại ở bất kỳ
+         *     bước nào rollback cả ba.
+         */
+        post: operations["adminDisableAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/accounts/{accountId}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Kích hoạt lại account đã bị vô hiệu hóa
+         * @description Yêu cầu permission `account:enable` — TÁCH RIÊNG khỏi `account:disable` vì
+         *     `disabled -> active` là hành động nhạy cảm hơn. Reason bắt buộc, audit đồng bộ.
+         */
+        post: operations["adminEnableAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/accounts/{accountId}/revoke-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Thu hồi toàn bộ phiên của một account
+         * @description Yêu cầu permission `session:revoke`. Dùng khi nghi ngờ tài khoản bị chiếm.
+         *     Idempotent — không còn phiên nào vẫn trả 204.
+         */
+        post: operations["adminRevokeAccountSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Mọi mutation quản trị BẮT BUỘC có lý do (modular.md mục 11.4). Lý do đi vào audit
+         *     và là thứ khiến bản ghi audit có giá trị điều tra sau này.
+         */
+        AdminReason: {
+            reason: string;
+        };
+        /** @description View account cho admin — có thêm `disabledAt` so với view của user. */
+        AdminAccount: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "pending" | "active" | "disabled";
+            displayName?: string | null;
+            email?: string | null;
+            emailVerified: boolean;
+            /** Format: date-time */
+            disabledAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /**
+         * @description Metadata một phiên đăng nhập. CỐ Ý không có `session_token_hash` hay bất kỳ dạng
+         *     token nào — hash không bao giờ rời khỏi database.
+         */
+        SessionSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastSeenAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            revokedAt: string | null;
+            /** @description Phiên đang dùng để gọi request này (UI cảnh báo trước khi tự thu hồi). */
+            current: boolean;
+        };
         /**
          * @description Hồ sơ account trả cho chính user. CỐ Ý không có trường quản trị nội bộ
          *     (disabled_at, updated_at) — user chỉ thấy hồ sơ, không thấy dữ liệu vận hành.
@@ -127,8 +314,49 @@ export interface components {
             };
         };
     };
-    responses: never;
+    responses: {
+        /** @description Dữ liệu vào không hợp lệ (ví dụ thiếu `reason`). */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description Chưa xác thực (thiếu/sai/hết hạn/đã thu hồi phiên). */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
+         * @description Đã xác thực nhưng KHÔNG đủ quyền quản trị. Cố ý không nêu thiếu permission nào —
+         *     tránh vẽ bản đồ phân quyền cho kẻ dò.
+         */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description Không tìm thấy tài nguyên trong phạm vi được phép. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+    };
     parameters: {
+        AccountId: string;
         /**
          * @description UUID để truy vết. Không gửi thì server tự sinh.
          *     Định dạng sai KHÔNG làm request fail — server bỏ qua và sinh cái mới, vì làm hỏng
@@ -241,6 +469,217 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+        };
+    };
+    listOwnSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sách phiên. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionSummary"][];
+                };
+            };
+            /** @description Không có phiên hợp lệ. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revokeAllOwnSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Đã thu hồi (không có nội dung trả về). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Không có phiên hợp lệ. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    revokeOwnSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Đã thu hồi. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description sessionId không phải UUID hợp lệ. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Không có phiên hợp lệ. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Không tìm thấy phiên thuộc account này. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminGetAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAccount"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminDisableAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReason"];
+            };
+        };
+        responses: {
+            /** @description Đã vô hiệu hóa. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminEnableAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReason"];
+            };
+        };
+        responses: {
+            /** @description Đã kích hoạt lại. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminRevokeAccountSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReason"];
+            };
+        };
+        responses: {
+            /** @description Đã thu hồi. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

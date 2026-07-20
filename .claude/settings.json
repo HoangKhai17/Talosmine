@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -)",
+      "Bash(grep -n '^[a-z]*:$\\\\|^  [a-z]*:$' contracts/openapi/control-plane.v1.yaml)"
+    ]
+  }
+}
