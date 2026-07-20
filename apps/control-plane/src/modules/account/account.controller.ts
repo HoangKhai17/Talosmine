@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject, NotFoundException, Req, UseGuards } from '@nestjs/common';
 import { type AuthenticatedRequest, WebSessionGuard } from '../identity/web-session.guard.js';
 import { AccountService, type OwnAccountView } from './account.service.js';
 
@@ -12,7 +12,9 @@ import { AccountService, type OwnAccountView } from './account.service.js';
 @Controller({ path: 'me/account', version: '1' })
 @UseGuards(WebSessionGuard)
 export class AccountController {
-  constructor(private readonly accountService: AccountService) {}
+  // Token tường minh: dev runner (tsx/esbuild) không sinh `emitDecoratorMetadata`, nên
+  // DI suy luận theo kiểu sẽ nhận `undefined`. Xem admin-permission.guard.ts.
+  constructor(@Inject(AccountService) private readonly accountService: AccountService) {}
 
   @Get()
   async getOwnAccount(@Req() request: AuthenticatedRequest): Promise<OwnAccountView> {

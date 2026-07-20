@@ -3,6 +3,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   ServiceUnavailableException,
   VERSION_NEUTRAL,
 } from '@nestjs/common';
@@ -19,7 +20,9 @@ import { HealthService } from './health.service.js';
  */
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
-  constructor(private readonly health: HealthService) {}
+  // Token tường minh: dev runner (tsx/esbuild) không sinh `emitDecoratorMetadata`, nên
+  // DI suy luận theo kiểu sẽ nhận `undefined`. Xem admin-permission.guard.ts.
+  constructor(@Inject(HealthService) private readonly health: HealthService) {}
 
   /**
    * Liveness: process/event loop còn đáp ứng hay không. KHÔNG chạm DB.

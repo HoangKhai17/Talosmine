@@ -32,8 +32,18 @@ export const RequirePermission = (permission: AdminPermission) =>
  */
 @Injectable()
 export class AdminPermissionGuard implements CanActivate {
+  /**
+   * `@Inject(Reflector)` là TƯỜNG MINH có chủ đích, không thừa.
+   *
+   * Nest suy ra dependency từ `design:paramtypes` — metadata do `emitDecoratorMetadata`
+   * của TypeScript sinh ra. Nhưng dev runner (`tsx`) chạy trên esbuild, mà esbuild KHÔNG
+   * hỗ trợ cờ đó. Không có metadata thì tham số này là `undefined` và app chết lúc khởi
+   * động với thông điệp khó truy ("undefined dependency at index [0]").
+   *
+   * Khai token tường minh làm DI hoạt động giống nhau ở cả `tsc` (build) và esbuild (dev).
+   */
   constructor(
-    private readonly reflector: Reflector,
+    @Inject(Reflector) private readonly reflector: Reflector,
     @Inject(DATABASE_CLIENT) private readonly database: DatabaseClient,
   ) {}
 

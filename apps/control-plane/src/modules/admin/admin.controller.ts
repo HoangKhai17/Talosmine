@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   NotFoundException,
   Param,
   ParseUUIDPipe,
@@ -32,7 +33,9 @@ interface ReasonBody {
 @Controller({ path: 'admin/accounts', version: '1' })
 @UseGuards(WebSessionGuard, AdminPermissionGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  // Token tường minh: dev runner (tsx/esbuild) không sinh `emitDecoratorMetadata`, nên
+  // DI suy luận theo kiểu sẽ nhận `undefined`. Xem admin-permission.guard.ts.
+  constructor(@Inject(AdminService) private readonly adminService: AdminService) {}
 
   @Get(':accountId')
   @RequirePermission('account:read')

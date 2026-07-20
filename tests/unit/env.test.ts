@@ -124,10 +124,10 @@ describe('loadEnv — thông điệp lỗi KHÔNG được lộ giá trị biế
     expect(message).not.toContain(SECRET);
   });
 
-  it('không in giá trị AUTH0_ISSUER_URL sai định dạng', () => {
-    const message = messageOf({ ...baseEnv(), AUTH0_ISSUER_URL: `issuer-invalid-${SECRET}` });
+  it('không in giá trị OIDC_ISSUER_URL sai định dạng', () => {
+    const message = messageOf({ ...baseEnv(), OIDC_ISSUER_URL: `issuer-invalid-${SECRET}` });
 
-    expect(message).toContain('AUTH0_ISSUER_URL');
+    expect(message).toContain('OIDC_ISSUER_URL');
     expect(message).not.toContain(SECRET);
   });
 

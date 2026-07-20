@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuthController } from './auth.controller.js';
 import { SessionController } from './session.controller.js';
 import { SessionService } from './session.service.js';
 import { WebSessionGuard } from './web-session.guard.js';
@@ -10,7 +11,7 @@ import { WebSessionGuard } from './web-session.guard.js';
  * lại provider — guard là capability của Identity, không phải của Account.
  */
 @Module({
-  controllers: [SessionController],
+  controllers: [AuthController, SessionController],
   providers: [SessionService, WebSessionGuard],
   exports: [WebSessionGuard],
 })

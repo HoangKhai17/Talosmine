@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@auth0/nextjs-auth0": "4.25.0",
     "next": "16.2.10",
+    "openid-client": "6.8.4",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "zod": "4.4.3"

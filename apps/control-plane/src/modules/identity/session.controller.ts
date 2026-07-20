@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
   NotFoundException,
   Param,
   ParseUUIDPipe,
@@ -23,7 +24,9 @@ import { type AuthenticatedRequest, WebSessionGuard } from './web-session.guard.
 @Controller({ path: 'me/account/sessions', version: '1' })
 @UseGuards(WebSessionGuard)
 export class SessionController {
-  constructor(private readonly sessionService: SessionService) {}
+  // Token tường minh: dev runner (tsx/esbuild) không sinh `emitDecoratorMetadata`, nên
+  // DI suy luận theo kiểu sẽ nhận `undefined`. Xem admin-permission.guard.ts.
+  constructor(@Inject(SessionService) private readonly sessionService: SessionService) {}
 
   @Get()
   async listOwnSessions(@Req() request: AuthenticatedRequest): Promise<SessionView[]> {

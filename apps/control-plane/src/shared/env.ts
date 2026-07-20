@@ -74,11 +74,18 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 
   /**
-   * Auth0 — P1 chỉ tạo boundary, CHƯA wiring (DEC-B03 chưa chốt tenant thật).
-   * Để optional ở P1; P2 sẽ chuyển thành bắt buộc khi login thật được bật.
+   * OIDC — identity provider (DEC-T22: Logto self-host, thay cho Auth0).
+   *
+   * Tên biến CỐ Ý trung tính (`OIDC_*`, không phải `LOGTO_*`): Control Plane chỉ nói
+   * chuyện bằng chuẩn OIDC và không cần biết nhà cung cấp là ai. Đổi provider = đổi
+   * giá trị biến, không đụng code.
+   *
+   * Vẫn optional: các endpoint không cần đăng nhập (health) phải chạy được kể cả khi
+   * IdP chưa cấu hình. Endpoint nào cần thì tự kiểm và báo lỗi rõ.
    */
-  AUTH0_ISSUER_URL: z.string().url().optional(),
-  AUTH0_AUDIENCE: z.string().min(1).optional(),
+  OIDC_ISSUER_URL: z.string().url().optional(),
+  OIDC_CLIENT_ID: z.string().min(1).optional(),
+  OIDC_AUDIENCE: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

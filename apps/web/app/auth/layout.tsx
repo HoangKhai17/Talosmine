@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
 
 /**
- * Boundary placeholder cho P2.
+ * Layout cho khu vực xác thực.
  *
- * `@auth0/nextjs-auth0` đã là dependency (DEC-T08) nhưng CỐ Ý chưa được import ở đâu:
- * DEC-B03 (tenant/issuer/audience) còn `open`, nên P1 không wiring Auth0 thật và không
- * dùng credential mẫu. Không có route `/auth/login`, `/auth/callback`, `/auth/logout` —
- * tạo chúng bây giờ sẽ là tuyên bố login hoạt động trong khi nó không hoạt động.
+ * Các route thật nằm cạnh page này: `/auth/login` (bắt đầu OIDC), `/auth/callback`
+ * (nhận code, đổi lấy phiên của Talosmine), `/auth/logout` (thu hồi phiên).
+ * Xem `server/oidc.ts` để hiểu vì sao ta không dùng session của SDK IdP.
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
