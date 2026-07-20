@@ -48,7 +48,7 @@ describe('/v1/me/account/sessions', () => {
   /** Tạo một user kèm N phiên; trả token của phiên đầu (dùng làm phiên "hiện tại"). */
   async function seedUser(subject: string, sessionCount = 1) {
     const { accountId } = await provisionByExternalIdentity(client.db, {
-      issuer: 'https://t.auth0.com/',
+      issuer: 'http://localhost:3001/oidc',
       subject,
     });
     const sessions = [];
@@ -59,7 +59,7 @@ describe('/v1/me/account/sessions', () => {
   }
 
   it('liệt kê phiên của mình, đánh dấu đúng phiên hiện tại, KHÔNG lộ hash', async () => {
-    const { sessions } = await seedUser('auth0|list-user', 3);
+    const { sessions } = await seedUser('list-user', 3);
     const current = sessions[0];
 
     const res = await app.inject({
@@ -91,7 +91,7 @@ describe('/v1/me/account/sessions', () => {
   });
 
   it('thu hồi một phiên của mình → 204, phiên đó hết dùng được', async () => {
-    const { sessions } = await seedUser('auth0|revoke-user', 2);
+    const { sessions } = await seedUser('revoke-user', 2);
     const current = sessions[0];
     const other = sessions[1];
 
@@ -120,8 +120,8 @@ describe('/v1/me/account/sessions', () => {
   });
 
   it('KHÔNG thu hồi được phiên của người khác → 404 (không tiết lộ phiên có thật)', async () => {
-    const alice = await seedUser('auth0|alice-sessions', 1);
-    const bob = await seedUser('auth0|bob-sessions', 1);
+    const alice = await seedUser('alice-sessions', 1);
+    const bob = await seedUser('bob-sessions', 1);
 
     // Alice biết đúng sessionId của Bob nhưng vẫn không được phép.
     const res = await app.inject({
@@ -141,7 +141,7 @@ describe('/v1/me/account/sessions', () => {
   });
 
   it('đăng xuất mọi nơi → 204, mọi phiên đều hết dùng được', async () => {
-    const { sessions } = await seedUser('auth0|logout-all', 3);
+    const { sessions } = await seedUser('logout-all', 3);
     const current = sessions[0];
 
     const res = await app.inject({
@@ -167,7 +167,7 @@ describe('/v1/me/account/sessions', () => {
   });
 
   it('sessionId không phải UUID → 400 (validate đầu vào)', async () => {
-    const { sessions } = await seedUser('auth0|bad-uuid', 1);
+    const { sessions } = await seedUser('bad-uuid', 1);
     const res = await app.inject({
       method: 'DELETE',
       url: '/v1/me/account/sessions/khong-phai-uuid',

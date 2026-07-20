@@ -53,7 +53,7 @@ export interface CreatedSession {
 export async function createWebSession(
   db: Db,
   accountId: string,
-  opts: { ttlSeconds: number; auth0Sid?: string | undefined },
+  opts: { ttlSeconds: number; idpSid?: string | undefined },
 ): Promise<CreatedSession> {
   const sessionToken = generateToken();
   const csrfToken = generateToken();
@@ -68,7 +68,7 @@ export async function createWebSession(
       accountId,
       sessionTokenHash: hashToken(sessionToken),
       csrfTokenHash: hashToken(csrfToken),
-      auth0Sid: opts.auth0Sid ?? null,
+      idpSid: opts.idpSid ?? null,
       expiresAt: sql`now() + make_interval(secs => ${opts.ttlSeconds})`,
     })
     .returning({ expiresAt: webSessions.expiresAt });

@@ -55,7 +55,8 @@ export const webSessions = controlPlane.table(
       .references(() => accounts.id, { onDelete: 'restrict' }),
     sessionTokenHash: bytea('session_token_hash').notNull(),
     csrfTokenHash: bytea('csrf_token_hash').notNull(),
-    auth0Sid: text('auth0_sid'),
+    /** Claim `sid` do IdP phát — dùng để propagate logout từ phía IdP về phiên của ta. */
+    idpSid: text('idp_sid'),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),

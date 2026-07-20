@@ -61,7 +61,7 @@ describe('GET /v1/me/account', () => {
   async function seedSession(): Promise<{ accountId: string; token: string }> {
     const { accountId } = await provisionByExternalIdentity(
       client.db,
-      { issuer: 'https://t.auth0.com/', subject: 'auth0|api-user' },
+      { issuer: 'http://localhost:3001/oidc', subject: 'api-user' },
       { displayName: 'Api User', email: 'api@example.com', emailVerified: true },
     );
     const session = await createWebSession(client.db, accountId, { ttlSeconds: 3600 });

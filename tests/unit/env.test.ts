@@ -175,11 +175,12 @@ describe('loadEnv — default chỉ áp cho biến KHÔNG bắt buộc', () => {
     expect(typeof env.API_PORT).toBe('number');
   });
 
-  it('biến Auth0 là optional ở P1 (DEC-B03 chưa chốt tenant thật)', () => {
+  it('biến OIDC là optional — endpoint không cần đăng nhập vẫn chạy khi chưa cấu hình IdP', () => {
     const env = loadEnv(baseEnv());
 
-    expect(env.AUTH0_ISSUER_URL).toBeUndefined();
-    expect(env.AUTH0_AUDIENCE).toBeUndefined();
+    expect(env.OIDC_ISSUER_URL).toBeUndefined();
+    expect(env.OIDC_CLIENT_ID).toBeUndefined();
+    expect(env.OIDC_AUDIENCE).toBeUndefined();
   });
 
   it('từ chối API_PORT ngoài dải hợp lệ', () => {

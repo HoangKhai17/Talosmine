@@ -37,8 +37,8 @@ describe('web session', () => {
   beforeEach(async () => {
     await sql`TRUNCATE control_plane.accounts CASCADE`;
     const provisioned = await provisionByExternalIdentity(db, {
-      issuer: 'https://t.auth0.com/',
-      subject: 'auth0|session-user',
+      issuer: 'http://localhost:3001/oidc',
+      subject: 'session-user',
     });
     accountId = provisioned.accountId;
   });

@@ -50,7 +50,7 @@ describe('/v1/admin/accounts', () => {
 
   async function createUser(subject: string) {
     const { accountId } = await provisionByExternalIdentity(client.db, {
-      issuer: 'https://t.auth0.com/',
+      issuer: 'http://localhost:3001/oidc',
       subject,
     });
     const session = await createWebSession(client.db, accountId, { ttlSeconds: 3600 });
@@ -80,8 +80,8 @@ describe('/v1/admin/accounts', () => {
   }
 
   it('USER THƯỜNG (không có role) → 403, không lộ thiếu quyền nào', async () => {
-    const user = await createUser('auth0|plain-user');
-    const target = await createUser('auth0|target-1');
+    const user = await createUser('plain-user');
+    const target = await createUser('target-1');
 
     const res = await app.inject({
       method: 'GET',
@@ -95,7 +95,7 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('không có phiên → 401 (chưa xác thực, khác với thiếu quyền)', async () => {
-    const target = await createUser('auth0|target-2');
+    const target = await createUser('target-2');
     const res = await app.inject({
       method: 'GET',
       url: `/v1/admin/accounts/${target.accountId}`,
@@ -104,9 +104,9 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('admin có account:read → 200', async () => {
-    const admin = await createUser('auth0|admin-read');
+    const admin = await createUser('admin-read');
     await grantPermissions(admin.accountId, ['account:read']);
-    const target = await createUser('auth0|target-3');
+    const target = await createUser('target-3');
 
     const res = await app.inject({
       method: 'GET',
@@ -119,9 +119,9 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('có account:read nhưng KHÔNG có account:disable → 403 (permission tách biệt)', async () => {
-    const admin = await createUser('auth0|admin-readonly');
+    const admin = await createUser('admin-readonly');
     await grantPermissions(admin.accountId, ['account:read']);
-    const target = await createUser('auth0|target-4');
+    const target = await createUser('target-4');
 
     const res = await app.inject({
       method: 'POST',
@@ -134,9 +134,9 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('disable: đổi status, THU HỒI phiên và GHI AUDIT — tất cả trong một transaction', async () => {
-    const admin = await createUser('auth0|admin-disable');
+    const admin = await createUser('admin-disable');
     await grantPermissions(admin.accountId, ['account:disable']);
-    const target = await createUser('auth0|target-5');
+    const target = await createUser('target-5');
 
     const res = await app.inject({
       method: 'POST',
@@ -174,9 +174,9 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('mutation THIẾU reason → 400 và KHÔNG đổi gì', async () => {
-    const admin = await createUser('auth0|admin-noreason');
+    const admin = await createUser('admin-noreason');
     await grantPermissions(admin.accountId, ['account:disable']);
-    const target = await createUser('auth0|target-6');
+    const target = await createUser('target-6');
 
     const res = await app.inject({
       method: 'POST',
@@ -193,9 +193,9 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('enable: đưa disabled → active và xóa disabled_at', async () => {
-    const admin = await createUser('auth0|admin-enable');
+    const admin = await createUser('admin-enable');
     await grantPermissions(admin.accountId, ['account:disable', 'account:enable']);
-    const target = await createUser('auth0|target-7');
+    const target = await createUser('target-7');
 
     await app.inject({
       method: 'POST',
@@ -221,9 +221,9 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('role bị vô hiệu hóa → quyền mất NGAY, không cần thu hồi từng assignment', async () => {
-    const admin = await createUser('auth0|admin-inactive-role');
+    const admin = await createUser('admin-inactive-role');
     const roleId = await grantPermissions(admin.accountId, ['account:read']);
-    const target = await createUser('auth0|target-8');
+    const target = await createUser('target-8');
 
     // Đang có quyền.
     const before = await app.inject({
@@ -244,9 +244,9 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('assignment ĐÃ THU HỒI → mất quyền', async () => {
-    const admin = await createUser('auth0|admin-revoked');
+    const admin = await createUser('admin-revoked');
     await grantPermissions(admin.accountId, ['account:read']);
-    const target = await createUser('auth0|target-9');
+    const target = await createUser('target-9');
 
     await client.sql`
       UPDATE control_plane.admin_role_assignments
@@ -264,9 +264,9 @@ describe('/v1/admin/accounts', () => {
   });
 
   it('assignment HẾT HẠN → mất quyền', async () => {
-    const admin = await createUser('auth0|admin-expired');
+    const admin = await createUser('admin-expired');
     await grantPermissions(admin.accountId, ['account:read']);
-    const target = await createUser('auth0|target-10');
+    const target = await createUser('target-10');
 
     await client.sql`
       UPDATE control_plane.admin_role_assignments

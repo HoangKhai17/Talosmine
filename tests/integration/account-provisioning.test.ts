@@ -43,7 +43,7 @@ describe('account provisioning', () => {
   it('tạo account ACTIVE ngay + identity + audit trong một lần', async () => {
     const result = await provisionByExternalIdentity(
       db,
-      { issuer: 'https://t.auth0.com/', subject: 'auth0|alice' },
+      { issuer: 'http://localhost:3001/oidc', subject: 'alice' },
       { displayName: 'Alice', email: 'alice@example.com', emailVerified: true },
     );
 
@@ -62,8 +62,8 @@ describe('account provisioning', () => {
       WHERE account_id = ${result.accountId}
     `;
     expect(identity).toHaveLength(1);
-    expect(identity[0]?.provider).toBe('auth0');
-    expect(identity[0]?.subject).toBe('auth0|alice');
+    expect(identity[0]?.provider).toBe('logto');
+    expect(identity[0]?.subject).toBe('alice');
 
     // Audit ghi ĐỒNG BỘ trong cùng transaction.
     const audit = await sql`
@@ -77,12 +77,12 @@ describe('account provisioning', () => {
 
   it('login lần sau cùng (issuer, subject) KHÔNG tạo account thứ hai', async () => {
     const first = await provisionByExternalIdentity(db, {
-      issuer: 'https://t.auth0.com/',
-      subject: 'auth0|bob',
+      issuer: 'http://localhost:3001/oidc',
+      subject: 'bob',
     });
     const second = await provisionByExternalIdentity(db, {
-      issuer: 'https://t.auth0.com/',
-      subject: 'auth0|bob',
+      issuer: 'http://localhost:3001/oidc',
+      subject: 'bob',
     });
 
     expect(first.created).toBe(true);
@@ -97,12 +97,12 @@ describe('account provisioning', () => {
     // Đây là ràng buộc bảo mật cốt lõi (database-schema mục 4.2): email không phải khóa.
     const a = await provisionByExternalIdentity(
       db,
-      { issuer: 'https://t.auth0.com/', subject: 'auth0|user-a' },
+      { issuer: 'http://localhost:3001/oidc', subject: 'user-a' },
       { email: 'same@example.com' },
     );
     const b = await provisionByExternalIdentity(
       db,
-      { issuer: 'https://t.auth0.com/', subject: 'auth0|user-b' },
+      { issuer: 'http://localhost:3001/oidc', subject: 'user-b' },
       { email: 'same@example.com' },
     );
 
@@ -114,7 +114,7 @@ describe('account provisioning', () => {
   it('RACE-SAFE: 8 provisioning đồng thời cùng identity chỉ tạo MỘT account', async () => {
     // Đây là điểm khó nhất: nhiều callback đồng thời cùng (issuer, subject). Kẻ thắng
     // unique constraint tạo account; kẻ thua rollback (không orphan) rồi đọc winner.
-    const identity = { issuer: 'https://t.auth0.com/', subject: 'auth0|concurrent' };
+    const identity = { issuer: 'http://localhost:3001/oidc', subject: 'concurrent' };
     const results = await Promise.all(
       Array.from({ length: 8 }, () => provisionByExternalIdentity(db, identity)),
     );

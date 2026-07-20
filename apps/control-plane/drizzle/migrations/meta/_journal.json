@@ -43,6 +43,13 @@
       "when": 1784200400000,
       "tag": "0005_admin_rbac",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784200500000,
+      "tag": "0006_identity_provider_logto",
+      "breakpoints": true
     }
   ]
 }

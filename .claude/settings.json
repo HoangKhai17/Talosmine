@@ -38,7 +38,10 @@
       "PowerShell(try { $r = Invoke-WebRequest -Uri http://localhost:3000/auth/login -MaximumRedirection 0 -UseBasicParsing -ErrorAction Stop } catch { $r = $_.Exception.Response }; \"Status: \" + $r.StatusCode; \"Location: \" + $r.Headers['Location'])",
       "PowerShell($u = \"http://localhost:3001/oidc/auth?redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fcallback&scope=openid+profile+email+offline_access&code_challenge=dl9Iv_zxrPQ5utTZm8PrsT5cqpnoSe_7D4FSU74GEvE&code_challenge_method=S256&state=dD_NRj0J9qBhFUuWcRFQ2Nfu8BhMVRLfUB6SoePrrW8&nonce=mmjcCoMctoudAiJLkevhotPsHePd_cFkRkPOoMU7NEg&client_id=poqipi6zz4xcf6sb5pmjp&response_type=code\"; try { $r = Invoke-WebRequest -Uri $u -MaximumRedirection 0 -UseBasicParsing -ErrorAction Stop } catch { $r = $_.Exception.Response }; \"Status: \" + $r.StatusCode; \"Location: \" + $r.Headers['Location'])",
       "PowerShell(pnpm biome check apps/web apps/control-plane/src 2>&1)",
-      "Bash(node_modules/.bin/biome check *)"
+      "Bash(node_modules/.bin/biome check *)",
+      "Bash(git checkout *)",
+      "Bash(sed -i \"s#'auth0', 'http://localhost:3001/oidc'#'logto', 'http://localhost:3001/oidc'#g\" tests/integration/migration-baseline.test.ts)",
+      "Bash(sed -i \"s#expect\\(identity\\\\[0\\\\]?.provider\\).toBe\\('auth0'\\)#expect\\(identity[0]?.provider\\).toBe\\('logto'\\)#\" tests/integration/account-provisioning.test.ts)"
     ]
   }
 }

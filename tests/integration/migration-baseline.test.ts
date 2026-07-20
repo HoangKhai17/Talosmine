@@ -383,13 +383,13 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
 
     await sql`
       INSERT INTO control_plane.external_identities (id, account_id, provider, issuer, subject)
-      VALUES (gen_random_uuid(), ${accountId}, 'auth0', 'https://t.auth0.com/', 'auth0|dup')
+      VALUES (gen_random_uuid(), ${accountId}, 'logto', 'http://localhost:3001/oidc', 'dup')
     `;
 
     await expect(
       sql`
         INSERT INTO control_plane.external_identities (id, account_id, provider, issuer, subject)
-        VALUES (gen_random_uuid(), ${accountId}, 'auth0', 'https://t.auth0.com/', 'auth0|dup')
+        VALUES (gen_random_uuid(), ${accountId}, 'logto', 'http://localhost:3001/oidc', 'dup')
       `,
     ).rejects.toThrow(/external_identities_issuer_subject_key/);
   }, 120_000);
@@ -404,7 +404,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
 
     await sql`
       INSERT INTO control_plane.external_identities (id, account_id, provider, issuer, subject)
-      VALUES (gen_random_uuid(), ${accountId}, 'auth0', 'https://t.auth0.com/', 'auth0|restrict')
+      VALUES (gen_random_uuid(), ${accountId}, 'logto', 'http://localhost:3001/oidc', 'restrict')
     `;
 
     await expect(sql`DELETE FROM control_plane.accounts WHERE id = ${accountId}`).rejects.toThrow(

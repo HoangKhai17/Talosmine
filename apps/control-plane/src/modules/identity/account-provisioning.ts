@@ -42,7 +42,7 @@ function hasPgCode(err: unknown, code: string): boolean {
 }
 
 /**
- * Tạo (hoặc lấy) account từ một danh tính Auth0 đã verified.
+ * Tạo (hoặc lấy) account từ một danh tính đã được verify chữ ký (DEC-T22: Logto).
  *
  * Hợp đồng (modular.md mục 3.5, 4.5; database-schema mục 4.2):
  *   • Liên kết DUY NHẤT bằng (issuer, subject) — KHÔNG BAO GIỜ theo email.
@@ -85,7 +85,10 @@ export async function provisionByExternalIdentity(
       await tx.insert(externalIdentities).values({
         id: uuidv7(),
         accountId,
-        provider: 'auth0',
+        // Nhãn nguồn danh tính (DEC-T22). Khóa liên kết vẫn là (issuer, subject) — cột này
+        // chỉ để trả lời "ai đã chứng thực người này" lúc điều tra. Đăng nhập bằng Google
+        // vẫn là 'logto': Logto là issuer, Google chỉ là connector phía sau nó.
+        provider: 'logto',
         issuer: identity.issuer,
         subject: identity.subject,
         lastSeenAt: new Date(),
