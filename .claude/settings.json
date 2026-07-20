@@ -52,7 +52,9 @@
       "Bash(curl -s -X DELETE http://localhost:3000/api/bff/me/account/sessions/all -w \"\\\\nstatus: %{http_code}\\\\n\")",
       "Bash(curl -s -o /dev/null -w \"/admin: %{http_code}\\\\n\" http://localhost:3000/admin)",
       "Bash(curl -s -o /dev/null -w \"GET /v1/me/permissions \\(khong session\\): %{http_code}\\\\n\" http://localhost:3100/v1/me/permissions)",
-      "Bash(curl -s \"http://localhost:3100/v1/admin/accounts?query=test\" -w \"\\\\nsearch khong session: %{http_code}\\\\n\" -o /dev/null)"
+      "Bash(curl -s \"http://localhost:3100/v1/admin/accounts?query=test\" -w \"\\\\nsearch khong session: %{http_code}\\\\n\" -o /dev/null)",
+      "Bash(curl -s \"http://localhost:3001/api/.well-known/sign-in-exp\")",
+      "Bash(curl -s \"http://localhost:3001/sign-in\")"
     ],
     "additionalDirectories": [
       "\\tmp"
