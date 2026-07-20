@@ -3,7 +3,7 @@ import {
   ControlPlaneBoundaryNotWiredError,
   callControlPlane,
 } from '../../../../server/control-plane-boundary';
-import { readSessionToken } from '../../../../server/session';
+import { csrfTokenFromRequest, readSessionToken } from '../../../../server/session';
 
 /**
  * Handler duy nhất của ranh giới BFF (phase-1 mục 10).
@@ -22,11 +22,27 @@ async function handle(request: Request, segments: string[] | undefined): Promise
   // Chỉ đọc body cho method có body. GET/DELETE kèm body là nguồn lỗi khó tìm ở fetch.
   const hasBody = request.method !== 'GET' && request.method !== 'DELETE';
 
+  // Request ghi dữ liệu phải qua cửa CSRF trước khi chạm Control Plane.
+  const isUnsafe = request.method !== 'GET';
+  let csrfToken: string | undefined;
+
+  if (isUnsafe) {
+    const csrf = csrfTokenFromRequest(request);
+    if (!csrf.ok) {
+      return NextResponse.json(
+        { code: 'CSRF_INVALID', message: 'Yêu cầu không hợp lệ. Vui lòng tải lại trang.' },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+    csrfToken = csrf.token;
+  }
+
   try {
     const upstream = await callControlPlane({
       method: request.method,
       path,
       sessionToken: readSessionToken(request.headers.get('cookie')),
+      csrfToken,
       body: hasBody ? await request.text() : undefined,
       contentType: hasBody
         ? (request.headers.get('content-type') ?? 'application/json')

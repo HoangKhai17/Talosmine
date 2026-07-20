@@ -54,7 +54,17 @@ describe('/v1/admin/accounts', () => {
       subject,
     });
     const session = await createWebSession(client.db, accountId, { ttlSeconds: 3600 });
-    return { accountId, token: session.sessionToken };
+    return { accountId, token: session.sessionToken, csrf: session.csrfToken };
+  }
+
+  /**
+   * Header cho mutation quản trị: session token + CSRF token.
+   *
+   * Mọi mutation đều đi qua WebSessionGuard nên đều bắt buộc có CSRF token, kể cả khi
+   * người gọi đã có đủ permission.
+   */
+  function writeHeaders(user: { token: string; csrf: string }) {
+    return { 'x-session-token': user.token, 'x-csrf-token': user.csrf };
   }
 
   /** Gán cho account một role có đúng các permission cho trước. */
@@ -111,7 +121,7 @@ describe('/v1/admin/accounts', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/v1/admin/accounts/${target.accountId}`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
     });
 
     expect(res.statusCode).toBe(200);
@@ -126,7 +136,7 @@ describe('/v1/admin/accounts', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/v1/admin/accounts/${target.accountId}/disable`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
       payload: { reason: 'thử vượt quyền' },
     });
 
@@ -141,7 +151,7 @@ describe('/v1/admin/accounts', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/v1/admin/accounts/${target.accountId}/disable`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
       payload: { reason: 'vi phạm điều khoản' },
     });
     expect(res.statusCode).toBe(204);
@@ -181,7 +191,7 @@ describe('/v1/admin/accounts', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/v1/admin/accounts/${target.accountId}/disable`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
       payload: {},
     });
     expect(res.statusCode).toBe(400);
@@ -200,14 +210,14 @@ describe('/v1/admin/accounts', () => {
     await app.inject({
       method: 'POST',
       url: `/v1/admin/accounts/${target.accountId}/disable`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
       payload: { reason: 'tạm khóa' },
     });
 
     const res = await app.inject({
       method: 'POST',
       url: `/v1/admin/accounts/${target.accountId}/enable`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
       payload: { reason: 'đã xác minh lại' },
     });
     expect(res.statusCode).toBe(204);
@@ -229,7 +239,7 @@ describe('/v1/admin/accounts', () => {
     const before = await app.inject({
       method: 'GET',
       url: `/v1/admin/accounts/${target.accountId}`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
     });
     expect(before.statusCode).toBe(200);
 
@@ -238,7 +248,7 @@ describe('/v1/admin/accounts', () => {
     const after = await app.inject({
       method: 'GET',
       url: `/v1/admin/accounts/${target.accountId}`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
     });
     expect(after.statusCode).toBe(403);
   });
@@ -258,7 +268,7 @@ describe('/v1/admin/accounts', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/v1/admin/accounts/${target.accountId}`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
     });
     expect(res.statusCode).toBe(403);
   });
@@ -277,7 +287,7 @@ describe('/v1/admin/accounts', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/v1/admin/accounts/${target.accountId}`,
-      headers: { 'x-session-token': admin.token },
+      headers: writeHeaders(admin),
     });
     expect(res.statusCode).toBe(403);
   });

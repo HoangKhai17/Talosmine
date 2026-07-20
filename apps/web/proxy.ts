@@ -47,7 +47,7 @@ function buildContentSecurityPolicy(nonce: string): string {
   ].join('; ');
 }
 
-const proxy: NextProxy = (request: NextRequest) => {
+const proxy: NextProxy = async (request: NextRequest) => {
   const nonce = createNonce();
   const contentSecurityPolicy = buildContentSecurityPolicy(nonce);
 
@@ -58,8 +58,22 @@ const proxy: NextProxy = (request: NextRequest) => {
    * Lớp thứ hai nằm ở `app/admin/layout.tsx` để guard vẫn giữ nếu proxy bị bỏ qua.
    */
   if (isAdminPath(request.nextUrl.pathname)) {
-    const decision = decideAdminAccess();
+    const sessionToken = request.cookies.get('__Host-talos_session')?.value;
+    const decision = await decideAdminAccess(sessionToken);
+
     if (!decision.allowed) {
+      // Khách VÃNG LAI (chưa đăng nhập) được đưa về trang chủ, KHÔNG phải trang đăng nhập.
+      //
+      // Vì sao không đá sang `/auth?returnTo=/admin`: làm vậy là xác nhận với người lạ
+      // rằng khu vực quản trị có tồn tại ở đúng đường dẫn đó. Đưa về trang chủ khiến
+      // `/admin` không phân biệt được với một URL không tồn tại.
+      //
+      // Đánh đổi: admin có session hết hạn bấm bookmark `/admin` sẽ về trang chủ mà không
+      // được giải thích. Chấp nhận được — họ đăng nhập từ trang chủ rồi vào lại.
+      if (decision.reason === 'NO_SESSION') {
+        return NextResponse.redirect(new URL('/', request.nextUrl.origin));
+      }
+
       return new NextResponse('403 Forbidden\n', {
         status: 403,
         headers: {

@@ -1,0 +1,170 @@
+/*
+ * Shell của khu quản trị. Xem docs/frontend-css-rules.md — mọi giá trị lấy từ token.
+ *
+ * Bố cục KHÁC hẳn khu người dùng và đó là chủ đích: sidebar cố định, mật độ dày hơn,
+ * nền phụ. Người vận hành phải nhận ra ngay mình đang ở khu quản trị chứ không phải
+ * trang cá nhân — nhầm chỗ ở đây nghĩa là thao tác nhầm lên tài khoản người khác.
+ */
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.header {
+  border-bottom: var(--border-default);
+  background-color: var(--color-bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--space-16);
+  padding-inline: var(--container-gutter);
+}
+
+.brandGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.brand {
+  font-weight: var(--weight-heading);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* Nhãn "QUẢN TRỊ" — tín hiệu thị giác thường trực. Có chữ chứ không chỉ màu. */
+.badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-text-primary);
+  border-radius: var(--radius-tag);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.who {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22ch;
+}
+
+.exitLink {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-button);
+}
+
+.exitLink:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
+}
+
+/*
+ * Mobile trước: sidebar xếp trên nội dung, cuộn ngang trong khung riêng.
+ * Từ 1024px mới tách hai cột — dưới ngưỡng đó sidebar cố định sẽ ăn hết bề ngang.
+ */
+.body {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.sidebar {
+  border-bottom: var(--border-default);
+  background-color: var(--color-bg-secondary);
+  padding: var(--space-4) var(--container-gutter);
+  overflow-x: auto;
+}
+
+.navList {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-2);
+  min-width: max-content;
+}
+
+.navLink {
+  display: block;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-button);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.navLink:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+}
+
+/* Trang đang xem. `aria-current` là nguồn sự thật; CSS chỉ vẽ theo nó, nên trạng thái
+ * này luôn có mặt với cả trình đọc màn hình lẫn người nhìn. */
+.navLink[aria-current="page"] {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  font-weight: var(--weight-caption);
+}
+
+.content {
+  padding: var(--space-8) var(--container-gutter) var(--space-16);
+  min-width: 0; /* cho phép con bên trong co lại thay vì đẩy grid tràn ngang */
+}
+
+@media (min-width: 1024px) {
+  .body {
+    grid-template-columns: 240px 1fr;
+    align-items: start;
+  }
+
+  .sidebar {
+    border-bottom: none;
+    border-right: var(--border-default);
+    position: sticky;
+    top: var(--space-16);
+    height: calc(100vh - var(--space-16));
+    padding: var(--space-6) var(--space-4);
+    overflow-x: visible;
+  }
+
+  .navList {
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .content {
+    padding: var(--space-10) var(--space-10) var(--space-20);
+    max-width: var(--container-max);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .navLink,
+  .exitLink {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease;
+  }
+}

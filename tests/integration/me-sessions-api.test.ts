@@ -58,6 +58,18 @@ describe('/v1/me/account/sessions', () => {
     return { accountId, sessions };
   }
 
+  /**
+   * Header cho request GHI dữ liệu: session token + CSRF token.
+   *
+   * Request đọc chỉ cần session token; request ghi bắt buộc có cả hai (WebSessionGuard).
+   */
+  function writeHeaders(session: { sessionToken: string; csrfToken: string } | undefined) {
+    return {
+      'x-session-token': session?.sessionToken ?? '',
+      'x-csrf-token': session?.csrfToken ?? '',
+    };
+  }
+
   it('liệt kê phiên của mình, đánh dấu đúng phiên hiện tại, KHÔNG lộ hash', async () => {
     const { sessions } = await seedUser('list-user', 3);
     const current = sessions[0];
@@ -98,7 +110,7 @@ describe('/v1/me/account/sessions', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: `/v1/me/account/sessions/${other?.sessionId}`,
-      headers: { 'x-session-token': current?.sessionToken ?? '' },
+      headers: writeHeaders(current),
     });
     expect(res.statusCode).toBe(204);
 
@@ -127,7 +139,7 @@ describe('/v1/me/account/sessions', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: `/v1/me/account/sessions/${bob.sessions[0]?.sessionId}`,
-      headers: { 'x-session-token': alice.sessions[0]?.sessionToken ?? '' },
+      headers: writeHeaders(alice.sessions[0]),
     });
     expect(res.statusCode).toBe(404);
 
@@ -147,7 +159,7 @@ describe('/v1/me/account/sessions', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/v1/me/account/sessions/all',
-      headers: { 'x-session-token': current?.sessionToken ?? '' },
+      headers: writeHeaders(current),
     });
     expect(res.statusCode).toBe(204);
 
@@ -171,7 +183,7 @@ describe('/v1/me/account/sessions', () => {
     const res = await app.inject({
       method: 'DELETE',
       url: '/v1/me/account/sessions/khong-phai-uuid',
-      headers: { 'x-session-token': sessions[0]?.sessionToken ?? '' },
+      headers: writeHeaders(sessions[0]),
     });
     expect(res.statusCode).toBe(400);
   });

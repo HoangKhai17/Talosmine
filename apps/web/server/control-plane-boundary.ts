@@ -24,6 +24,8 @@ export interface ControlPlaneRequest {
   readonly path: string;
   /** Session token lấy từ cookie. Thiếu thì request đi tiếp và Control Plane trả 401. */
   readonly sessionToken?: string | undefined;
+  /** CSRF token — chỉ gắn cho request ghi dữ liệu, sau khi BFF đã đối chiếu xong. */
+  readonly csrfToken?: string | undefined;
   readonly body?: BodyInit | undefined;
   readonly contentType?: string | undefined;
 }
@@ -45,6 +47,7 @@ export async function callControlPlane(request: ControlPlaneRequest): Promise<Re
 
   const headers = new Headers();
   if (request.sessionToken) headers.set('x-session-token', request.sessionToken);
+  if (request.csrfToken) headers.set('x-csrf-token', request.csrfToken);
   if (request.contentType) headers.set('content-type', request.contentType);
 
   return fetch(new URL(request.path, baseUrl), {

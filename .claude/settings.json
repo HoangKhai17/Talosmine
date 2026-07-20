@@ -41,7 +41,21 @@
       "Bash(node_modules/.bin/biome check *)",
       "Bash(git checkout *)",
       "Bash(sed -i \"s#'auth0', 'http://localhost:3001/oidc'#'logto', 'http://localhost:3001/oidc'#g\" tests/integration/migration-baseline.test.ts)",
-      "Bash(sed -i \"s#expect\\(identity\\\\[0\\\\]?.provider\\).toBe\\('auth0'\\)#expect\\(identity[0]?.provider\\).toBe\\('logto'\\)#\" tests/integration/account-provisioning.test.ts)"
+      "Bash(sed -i \"s#expect\\(identity\\\\[0\\\\]?.provider\\).toBe\\('auth0'\\)#expect\\(identity[0]?.provider\\).toBe\\('logto'\\)#\" tests/integration/account-provisioning.test.ts)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(Object.keys\\(p.scripts\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(awk 'NR>=125 && NR<=230' tests/integration/admin-api.test.ts)",
+      "Bash(cp apps/control-plane/src/modules/identity/web-session.ts /tmp/ws.bak)",
+      "Bash(python -c ' *)",
+      "Bash(cd \"d:/WorkSpace_ADA_Bamboo/PROJECT_BBOTECH/Talosmine\" && cp /tmp/ws.bak apps/control-plane/src/modules/identity/web-session.ts && grep -n \"EXISTS\" apps/control-plane/src/modules/identity/web-session.ts)",
+      "Bash(curl -s -o /dev/null -w \"account: %{http_code}\\\\n\" http://localhost:3000/account)",
+      "Bash(curl -s -o /dev/null -w \"sessions: %{http_code}\\\\n\" http://localhost:3000/account/sessions)",
+      "Bash(curl -s -X DELETE http://localhost:3000/api/bff/me/account/sessions/all -w \"\\\\nstatus: %{http_code}\\\\n\")",
+      "Bash(curl -s -o /dev/null -w \"/admin: %{http_code}\\\\n\" http://localhost:3000/admin)",
+      "Bash(curl -s -o /dev/null -w \"GET /v1/me/permissions \\(khong session\\): %{http_code}\\\\n\" http://localhost:3100/v1/me/permissions)",
+      "Bash(curl -s \"http://localhost:3100/v1/admin/accounts?query=test\" -w \"\\\\nsearch khong session: %{http_code}\\\\n\" -o /dev/null)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

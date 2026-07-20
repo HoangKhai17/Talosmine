@@ -53,6 +53,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Đổi ID token của IdP lấy phiên Talosmine
+         * @description Cầu nối giữa OIDC và phiên nội bộ. BFF chạy luồng Authorization Code với IdP rồi
+         *     gửi NGUYÊN `id_token` tới đây.
+         *
+         *     Control Plane **tự xác minh chữ ký** bằng JWKS của issuer — nó không nhận
+         *     `issuer`/`subject`/`accountId` do caller khai. Nếu tin claim của caller thì bất kỳ
+         *     ai gọi được endpoint này đều mạo danh được người khác.
+         *
+         *     Sau khi xác minh: tìm hoặc tạo account theo `(issuer, subject)`, kiểm trạng thái
+         *     account, rồi phát session token. Endpoint này KHÔNG cần phiên có sẵn.
+         */
+        post: operations["exchangeIdTokenForSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/sessions/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Đăng xuất — thu hồi phiên hiện tại
+         * @description Thu hồi đúng phiên đang dùng để gọi request này. `sessionId` lấy từ session token
+         *     phía server, không phải từ body — không ai đăng xuất hộ người khác được.
+         *
+         *     Khác `DELETE /v1/me/account/sessions/all` (đăng xuất mọi thiết bị): đây chỉ là
+         *     thiết bị hiện tại.
+         */
+        delete: operations["logout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Permission quản trị của chính mình
+         * @description Danh sách rỗng nghĩa là không phải admin. Frontend dùng để quyết định có hiện khu
+         *     vực `/admin` hay không.
+         *
+         *     Đây thuần túy là UX — mọi endpoint admin vẫn tự kiểm quyền phía server, nên
+         *     endpoint này có nói dối cũng không cấp thêm quyền nào.
+         */
+        get: operations["getOwnPermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/account": {
         parameters: {
             query?: never;
@@ -72,7 +148,17 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Sửa hồ sơ của chính mình
+         * @description ALLOWLIST ba trường: `displayName`, `locale`, `timezone`. Trường ngoài danh sách bị
+         *     BỎ QUA im lặng — client cũ gửi thừa vẫn chạy, mà field đó vẫn vô tác dụng.
+         *
+         *     `status` chỉ admin đổi qua endpoint riêng có audit. `email` và `emailVerified` do
+         *     IdP sở hữu — tự khai ở đây là tự phong "đã xác minh".
+         *
+         *     Chuỗi rỗng nghĩa là XÓA giá trị (lưu NULL), không lưu chuỗi rỗng.
+         */
+        patch: operations["updateOwnAccount"];
         trace?: never;
     };
     "/v1/me/account/sessions": {
@@ -134,6 +220,56 @@ export interface paths {
          *     là có thật (chống dò).
          */
         delete: operations["revokeOwnSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tìm account (quản trị)
+         * @description Yêu cầu permission `account:read`.
+         *
+         *     CHỐNG DÒ DỮ LIỆU: `query` rỗng trả về danh sách RỖNG, không trả toàn bộ account.
+         *     Đây là công cụ tra một người cụ thể, không phải để tải danh bạ người dùng.
+         *
+         *     Phân trang theo cursor (`createdAt` giảm dần), không dùng offset: offset lớn càng
+         *     sâu càng chậm, và bản ghi chèn vào giữa lúc lật trang sẽ gây nhảy hoặc lặp.
+         */
+        get: operations["adminSearchAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/accounts/{accountId}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liệt kê phiên của một account (quản trị)
+         * @description Yêu cầu permission `session:revoke` — KHÔNG phải `account:read`. Nhìn thấy thiết bị
+         *     và thời điểm hoạt động của người khác là dữ liệu nhạy cảm, và người xem danh sách
+         *     này chính là người sẽ quyết định thu hồi.
+         *
+         *     KHÔNG trả token hay hash dưới bất kỳ dạng nào.
+         */
+        get: operations["adminListAccountSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -442,6 +578,140 @@ export interface operations {
             };
         };
     };
+    exchangeIdTokenForSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description ID token JWT do IdP phát. */
+                    idToken: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Đã tạo phiên. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Token thô. Chỉ trả về MỘT LẦN; DB chỉ lưu hash. */
+                        sessionToken: string;
+                        csrfToken: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                        /** Format: uuid */
+                        accountId: string;
+                        /** @description true nếu account vừa được tạo lần đầu. */
+                        created: boolean;
+                    };
+                };
+            };
+            /** @description Thiếu `idToken`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Token không hợp lệ — sai chữ ký, hết hạn, sai issuer hoặc sai audience. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /**
+             * @description Account không ở trạng thái `active`. Thông điệp cố ý chung chung, không phân
+             *     biệt `pending` với `disabled`.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Đã thu hồi (idempotent — gọi lại không lỗi). */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Thiếu phiên hoặc phiên không hợp lệ. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thiếu hoặc sai CSRF token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getOwnPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sách permission còn hiệu lực. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        permissions: string[];
+                    };
+                };
+            };
+            /** @description Thiếu phiên hoặc phiên không hợp lệ. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     getOwnAccount: {
         parameters: {
             query?: never;
@@ -462,6 +732,61 @@ export interface operations {
             };
             /** @description Thiếu phiên, phiên sai, hết hạn hoặc đã thu hồi (fail-closed, không phân biệt lý do). */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    updateOwnAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    displayName?: string | null;
+                    locale?: string | null;
+                    timezone?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Hồ sơ sau khi cập nhật. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnAccount"];
+                };
+            };
+            /** @description Giá trị sai kiểu hoặc vượt độ dài cho phép. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thiếu phiên hoặc phiên không hợp lệ. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thiếu hoặc sai CSRF token. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -565,6 +890,105 @@ export interface operations {
             };
             /** @description Không tìm thấy phiên thuộc account này. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminSearchAccounts: {
+        parameters: {
+            query?: {
+                /** @description Email, tên hiển thị (khớp một phần) hoặc UUID account (khớp chính xác). */
+                query?: string;
+                limit?: number;
+                /** @description Giá trị `nextCursor` của trang trước. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Kết quả tìm kiếm. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AdminAccount"][];
+                        /** Format: date-time */
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description Thiếu phiên hoặc phiên không hợp lệ. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thiếu permission `account:read`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminListAccountSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: components["parameters"]["AccountId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Metadata phiên. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        lastSeenAt: string;
+                        /** Format: date-time */
+                        expiresAt: string;
+                        /** Format: date-time */
+                        revokedAt: string | null;
+                    }[];
+                };
+            };
+            /** @description Thiếu phiên hoặc phiên không hợp lệ. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thiếu permission `session:revoke`. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

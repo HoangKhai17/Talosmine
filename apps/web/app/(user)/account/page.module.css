@@ -1,0 +1,66 @@
+/*
+ * Trang tài khoản. Chỉ dùng token từ globals.css — không có giá trị màu/khoảng cách
+ * viết cứng (docs/frontend-css-rules.md).
+ */
+
+.card {
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+  background: var(--color-bg-primary);
+}
+
+/*
+ * Danh sách định nghĩa cho cặp nhãn–giá trị.
+ *
+ * Dùng <dl> chứ không phải <table>: đây là thuộc tính của MỘT đối tượng, không phải dữ
+ * liệu hai chiều. Trình đọc màn hình đọc đúng quan hệ "nhãn — giá trị" nhờ vậy.
+ */
+.fields {
+  display: grid;
+  gap: var(--space-5);
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .fields {
+    grid-template-columns: minmax(140px, 200px) 1fr;
+    gap: var(--space-4) var(--space-6);
+    align-items: baseline;
+  }
+}
+
+.label {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.value {
+  margin: 0;
+  /* Email dài không được đẩy layout tràn ngang trên màn hình hẹp. */
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  color: var(--color-text-tertiary);
+  font-style: italic;
+}
+
+/* Nhãn trạng thái. Không chỉ dựa vào màu — luôn có chữ đi kèm. */
+.badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-tag);
+  border: var(--border-default);
+}
+
+.badgeOk {
+  border-color: var(--color-text-primary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+}

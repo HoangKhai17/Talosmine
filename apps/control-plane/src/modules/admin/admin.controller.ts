@@ -10,6 +10,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -37,6 +38,29 @@ export class AdminController {
   // DI suy luận theo kiểu sẽ nhận `undefined`. Xem admin-permission.guard.ts.
   constructor(@Inject(AdminService) private readonly adminService: AdminService) {}
 
+  /**
+   * Tìm account. Đặt TRƯỚC route `:accountId` — nếu không, Fastify khớp chuỗi rỗng hoặc
+   * path khác thành accountId và ParseUUIDPipe trả 400 thay vì chạy handler này.
+   */
+  @Get()
+  @RequirePermission('account:read')
+  async search(
+    @Query('query') query?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ): Promise<{ items: AdminAccountView[]; nextCursor: string | null }> {
+    // Chặn trên 100: một tham số limit tùy ý là cách dễ nhất để biến API tra cứu thành
+    // công cụ tải toàn bộ database.
+    const parsed = Number.parseInt(limit ?? '20', 10);
+    const safeLimit = Number.isNaN(parsed) ? 20 : Math.min(Math.max(parsed, 1), 100);
+
+    return this.adminService.searchAccounts({
+      query: query ?? '',
+      limit: safeLimit,
+      cursor: cursor,
+    });
+  }
+
   @Get(':accountId')
   @RequirePermission('account:read')
   async getAccount(
@@ -47,6 +71,19 @@ export class AdminController {
       throw new NotFoundException('Không tìm thấy tài khoản.');
     }
     return account;
+  }
+
+  /**
+   * Liệt kê phiên của một account.
+   *
+   * Cần permission `session:revoke` chứ không phải `account:read`: nhìn thấy thiết bị và
+   * thời điểm hoạt động của người khác là dữ liệu nhạy cảm, và người xem danh sách này
+   * chính là người sẽ quyết định thu hồi.
+   */
+  @Get(':accountId/sessions')
+  @RequirePermission('session:revoke')
+  async listSessions(@Param('accountId', ParseUUIDPipe) accountId: string) {
+    return this.adminService.listAccountSessions(accountId);
   }
 
   @Post(':accountId/disable')

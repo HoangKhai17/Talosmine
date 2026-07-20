@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   HttpCode,
   HttpStatus,
   Inject,
@@ -12,8 +13,10 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
 import type { DatabaseClient } from '../../shared/database.js';
 import { DATABASE_CLIENT } from '../../shared/database.module.js';
+import { accounts } from '../account/schema.js';
 import { provisionByExternalIdentity } from './account-provisioning.js';
 import { verifyIdToken } from './oidc-verifier.js';
 import { type AuthenticatedRequest, WebSessionGuard } from './web-session.guard.js';
@@ -82,6 +85,18 @@ export class AuthController {
       },
     );
 
+    // CỬA CHẶN: account bị khóa KHÔNG được cấp phiên mới.
+    //
+    // Thiếu bước này thì `disable` vô tác dụng: nó thu hồi mọi phiên hiện có, nhưng người
+    // bị khóa chỉ cần đăng nhập lại là có phiên mới — vì xác thực nằm ở Logto, mà Logto
+    // không biết gì về trạng thái account bên ta.
+    const status = await this.readAccountStatus(accountId);
+    if (status !== 'active') {
+      // Thông điệp CHUNG cho mọi trạng thái không active. Nói rõ "bị khóa" hay "chờ duyệt"
+      // là tiết lộ trạng thái account cho người chưa chứng minh được quyền biết điều đó.
+      throw new ForbiddenException('Tài khoản không sử dụng được. Vui lòng liên hệ hỗ trợ.');
+    }
+
     // Phiên 7 ngày. Hạn tuyệt đối tính bằng DB clock trong createWebSession.
     const session = await createWebSession(this.database.db, accountId, {
       ttlSeconds: 60 * 60 * 24 * 7,
@@ -94,6 +109,17 @@ export class AuthController {
       accountId,
       created,
     };
+  }
+
+  /** Đọc trạng thái account. Tách hàm riêng để cửa chặn ở trên đọc gọn một dòng. */
+  private async readAccountStatus(accountId: string): Promise<string | undefined> {
+    const rows = await this.database.db
+      .select({ status: accounts.status })
+      .from(accounts)
+      .where(eq(accounts.id, accountId))
+      .limit(1);
+
+    return rows[0]?.status;
   }
 
   /**

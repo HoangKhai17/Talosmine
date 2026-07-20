@@ -10,6 +10,7 @@
     "dev:worker": "tsx watch --env-file=../../.env.dev src/main-worker.ts",
     "start:api": "node dist/main-api.js",
     "start:worker": "node dist/main-worker.js",
+    "admin:grant": "tsx --env-file-if-exists=../../.env.dev src/cli/grant-admin.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"

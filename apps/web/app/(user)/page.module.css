@@ -87,6 +87,23 @@
   padding-top: var(--space-4);
 }
 
+/* Tiêu đề bảng điều khiển (trạng thái đã đăng nhập). Hẹp hơn hero vì không có
+ * nhiệm vụ thuyết phục — người dùng đã ở trong hệ thống rồi. */
+.dashboardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-10);
+  max-width: 720px;
+}
+
+/* Đẩy link hành động xuống đáy card để nhiều card cạnh nhau thẳng hàng dù độ dài
+ * mô tả khác nhau. */
+.cardAction {
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+
 .tag {
   display: inline-block;
   padding: var(--space-1) var(--space-3);

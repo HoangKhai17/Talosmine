@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { and, eq, gt, isNull, sql } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
 import type { DatabaseClient } from '../../shared/database.js';
@@ -82,12 +82,20 @@ export async function createWebSession(
 export interface ValidSession {
   sessionId: string;
   accountId: string;
+  /** Hash CSRF của phiên — guard dùng để đối chiếu token client gửi lên. */
+  csrfTokenHash: Buffer;
 }
 
 /**
  * Xác thực token và cập nhật `last_seen_at` trong MỘT query (UPDATE ... RETURNING).
- * Trả null nếu token không khớp, đã hết hạn, hoặc đã thu hồi — gộp cả ba thành "phiên
- * không hợp lệ", không tiết lộ lý do cụ thể cho caller.
+ *
+ * Trả null nếu token không khớp, đã hết hạn, đã thu hồi, HOẶC account không còn active —
+ * gộp tất cả thành "phiên không hợp lệ", không tiết lộ lý do cụ thể cho caller.
+ *
+ * VÌ SAO KIỂM CẢ TRẠNG THÁI ACCOUNT: `disable` có thu hồi mọi phiên hiện có, nhưng nếu
+ * chỉ dựa vào đó thì bảo vệ phụ thuộc việc thao tác disable luôn chạy đúng và trọn vẹn.
+ * Kiểm ở đây khiến một account bị khóa KHÔNG THỂ dùng phiên nào, kể cả phiên lọt lưới.
+ * Phòng thủ nhiều lớp: hai lớp độc lập cùng sai mới thủng.
  */
 export async function validateSession(db: Db, sessionToken: string): Promise<ValidSession | null> {
   const rows = await db
@@ -98,11 +106,35 @@ export async function validateSession(db: Db, sessionToken: string): Promise<Val
         eq(webSessions.sessionTokenHash, hashToken(sessionToken)),
         isNull(webSessions.revokedAt),
         gt(webSessions.expiresAt, sql`now()`),
+        sql`EXISTS (
+          SELECT 1 FROM control_plane.accounts a
+          WHERE a.id = ${webSessions.accountId}
+            AND a.status = 'active'
+        )`,
       ),
     )
-    .returning({ sessionId: webSessions.id, accountId: webSessions.accountId });
+    .returning({
+      sessionId: webSessions.id,
+      accountId: webSessions.accountId,
+      csrfTokenHash: webSessions.csrfTokenHash,
+    });
 
   return rows[0] ?? null;
+}
+
+/**
+ * So sánh CSRF token client gửi lên với hash đã lưu.
+ *
+ * Dùng `timingSafeEqual` chứ không phải `===`: so sánh chuỗi thường thoát ra ngay tại byte
+ * đầu tiên khác nhau, nên thời gian trả lời rò rỉ thông tin về việc đoán đúng được bao
+ * nhiêu ký tự. Với một giá trị bí mật, đó là kênh phụ thật sự khai thác được.
+ */
+export function csrfTokenMatches(csrfToken: string, expectedHash: Buffer): boolean {
+  const actual = hashToken(csrfToken);
+  // timingSafeEqual ném lỗi nếu độ dài khác nhau; hash SHA-256 luôn 32 byte nên chỉ cần
+  // chặn trường hợp hash lưu trong DB bị hỏng.
+  if (actual.length !== expectedHash.length) return false;
+  return timingSafeEqual(actual, expectedHash);
 }
 
 /**

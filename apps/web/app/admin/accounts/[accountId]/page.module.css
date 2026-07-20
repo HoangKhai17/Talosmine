@@ -1,0 +1,138 @@
+/* Chi tiết tài khoản + hành động quản trị. */
+
+.card {
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+}
+
+.fields {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .fields {
+    grid-template-columns: minmax(140px, 200px) 1fr;
+    gap: var(--space-4) var(--space-6);
+    align-items: baseline;
+  }
+}
+
+.label {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.value {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: ui-monospace, monospace;
+}
+
+.tag {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-tag);
+  border: var(--border-default);
+  white-space: nowrap;
+}
+
+/*
+ * Khu vực hành động nhạy cảm. Tách khỏi phần đọc bằng đường kẻ và tiêu đề riêng —
+ * không dùng màu để phân biệt vì bảng màu chưa có token danger, và một mình màu sắc
+ * cũng không đủ khả dụng cho người khó phân biệt màu.
+ */
+.actions {
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 260px;
+}
+
+.input {
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  width: 100%;
+}
+
+.button {
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.table caption {
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text-secondary);
+  border-bottom: var(--border-default);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-default);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table th {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.revoked {
+  color: var(--color-text-tertiary);
+}

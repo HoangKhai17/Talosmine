@@ -42,6 +42,14 @@ tags:
     description: |
       Endpoint hạ tầng cho orchestrator và reverse proxy.
       Nằm NGOÀI versioning `/v1` vì nó không phải API nghiệp vụ có contract với client.
+  - name: auth
+    description: |
+      Cầu nối giữa OIDC và phiên nội bộ. BFF chạy luồng Authorization Code với IdP rồi đổi
+      `id_token` lấy session token của Talosmine tại đây.
+
+      Control Plane TỰ xác minh chữ ký token bằng JWKS — không tin claim do caller khai.
+      Phiên là của Talosmine, không phải của IdP: nhờ vậy nó thu hồi được, liệt kê được và
+      có audit. Xem `docs/identity-provider.md`.
   - name: account
     description: |
       API tài khoản của chính user (self-service). Bảo vệ bằng web session:
@@ -121,7 +129,195 @@ paths:
                 message: Dependency chưa sẵn sàng.
                 correlationId: 018f3a2b-7c4d-7000-8000-000000000000
 
+  /v1/auth/sessions:
+    post:
+      tags: [auth]
+      operationId: exchangeIdTokenForSession
+      summary: Đổi ID token của IdP lấy phiên Talosmine
+      description: |
+        Cầu nối giữa OIDC và phiên nội bộ. BFF chạy luồng Authorization Code với IdP rồi
+        gửi NGUYÊN `id_token` tới đây.
+
+        Control Plane **tự xác minh chữ ký** bằng JWKS của issuer — nó không nhận
+        `issuer`/`subject`/`accountId` do caller khai. Nếu tin claim của caller thì bất kỳ
+        ai gọi được endpoint này đều mạo danh được người khác.
+
+        Sau khi xác minh: tìm hoặc tạo account theo `(issuer, subject)`, kiểm trạng thái
+        account, rồi phát session token. Endpoint này KHÔNG cần phiên có sẵn.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              additionalProperties: false
+              properties:
+                idToken:
+                  type: string
+                  description: ID token JWT do IdP phát.
+      responses:
+        '201':
+          description: Đã tạo phiên.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessionToken, csrfToken, expiresAt, accountId, created]
+                properties:
+                  sessionToken:
+                    type: string
+                    description: Token thô. Chỉ trả về MỘT LẦN; DB chỉ lưu hash.
+                  csrfToken:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  accountId:
+                    type: string
+                    format: uuid
+                  created:
+                    type: boolean
+                    description: true nếu account vừa được tạo lần đầu.
+        '400':
+          description: Thiếu `idToken`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Token không hợp lệ — sai chữ ký, hết hạn, sai issuer hoặc sai audience.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: |
+            Account không ở trạng thái `active`. Thông điệp cố ý chung chung, không phân
+            biệt `pending` với `disabled`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/auth/sessions/current:
+    delete:
+      tags: [auth]
+      operationId: logout
+      summary: Đăng xuất — thu hồi phiên hiện tại
+      description: |
+        Thu hồi đúng phiên đang dùng để gọi request này. `sessionId` lấy từ session token
+        phía server, không phải từ body — không ai đăng xuất hộ người khác được.
+
+        Khác `DELETE /v1/me/account/sessions/all` (đăng xuất mọi thiết bị): đây chỉ là
+        thiết bị hiện tại.
+      security:
+        - webSession: []
+      responses:
+        '204':
+          description: Đã thu hồi (idempotent — gọi lại không lỗi).
+        '401':
+          description: Thiếu phiên hoặc phiên không hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thiếu hoặc sai CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/me/permissions:
+    get:
+      tags: [account]
+      operationId: getOwnPermissions
+      summary: Permission quản trị của chính mình
+      description: |
+        Danh sách rỗng nghĩa là không phải admin. Frontend dùng để quyết định có hiện khu
+        vực `/admin` hay không.
+
+        Đây thuần túy là UX — mọi endpoint admin vẫn tự kiểm quyền phía server, nên
+        endpoint này có nói dối cũng không cấp thêm quyền nào.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Danh sách permission còn hiệu lực.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [permissions]
+                properties:
+                  permissions:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          description: Thiếu phiên hoặc phiên không hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /v1/me/account:
+    patch:
+      tags: [account]
+      operationId: updateOwnAccount
+      summary: Sửa hồ sơ của chính mình
+      description: |
+        ALLOWLIST ba trường: `displayName`, `locale`, `timezone`. Trường ngoài danh sách bị
+        BỎ QUA im lặng — client cũ gửi thừa vẫn chạy, mà field đó vẫn vô tác dụng.
+
+        `status` chỉ admin đổi qua endpoint riêng có audit. `email` và `emailVerified` do
+        IdP sở hữu — tự khai ở đây là tự phong "đã xác minh".
+
+        Chuỗi rỗng nghĩa là XÓA giá trị (lưu NULL), không lưu chuỗi rỗng.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: [string, 'null']
+                  maxLength: 100
+                locale:
+                  type: [string, 'null']
+                  maxLength: 35
+                timezone:
+                  type: [string, 'null']
+                  maxLength: 64
+      responses:
+        '200':
+          description: Hồ sơ sau khi cập nhật.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnAccount'
+        '400':
+          description: Giá trị sai kiểu hoặc vượt độ dài cho phép.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Thiếu phiên hoặc phiên không hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thiếu hoặc sai CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
     get:
       tags: [account]
       operationId: getOwnAccount
@@ -227,6 +423,109 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '404':
           description: Không tìm thấy phiên thuộc account này.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/accounts:
+    get:
+      tags: [admin]
+      operationId: adminSearchAccounts
+      summary: Tìm account (quản trị)
+      description: |
+        Yêu cầu permission `account:read`.
+
+        CHỐNG DÒ DỮ LIỆU: `query` rỗng trả về danh sách RỖNG, không trả toàn bộ account.
+        Đây là công cụ tra một người cụ thể, không phải để tải danh bạ người dùng.
+
+        Phân trang theo cursor (`createdAt` giảm dần), không dùng offset: offset lớn càng
+        sâu càng chậm, và bản ghi chèn vào giữa lúc lật trang sẽ gây nhảy hoặc lặp.
+      security:
+        - webSession: []
+      parameters:
+        - name: query
+          in: query
+          required: false
+          schema: { type: string }
+          description: Email, tên hiển thị (khớp một phần) hoặc UUID account (khớp chính xác).
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: Giá trị `nextCursor` của trang trước.
+      responses:
+        '200':
+          description: Kết quả tìm kiếm.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminAccount'
+                  nextCursor:
+                    type: [string, 'null']
+                    format: date-time
+        '401':
+          description: Thiếu phiên hoặc phiên không hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thiếu permission `account:read`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/accounts/{accountId}/sessions:
+    get:
+      tags: [admin]
+      operationId: adminListAccountSessions
+      summary: Liệt kê phiên của một account (quản trị)
+      description: |
+        Yêu cầu permission `session:revoke` — KHÔNG phải `account:read`. Nhìn thấy thiết bị
+        và thời điểm hoạt động của người khác là dữ liệu nhạy cảm, và người xem danh sách
+        này chính là người sẽ quyết định thu hồi.
+
+        KHÔNG trả token hay hash dưới bất kỳ dạng nào.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Metadata phiên.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, createdAt, lastSeenAt, expiresAt, revokedAt]
+                  properties:
+                    id: { type: string, format: uuid }
+                    createdAt: { type: string, format: date-time }
+                    lastSeenAt: { type: string, format: date-time }
+                    expiresAt: { type: string, format: date-time }
+                    revokedAt: { type: [string, 'null'], format: date-time }
+        '401':
+          description: Thiếu phiên hoặc phiên không hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thiếu permission `session:revoke`.
           content:
             application/json:
               schema:

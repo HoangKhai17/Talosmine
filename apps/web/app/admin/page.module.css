@@ -1,0 +1,103 @@
+/* Màn hình tra cứu tài khoản. Chỉ dùng token từ globals.css. */
+
+.searchForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 280px;
+}
+
+.input {
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  width: 100%;
+}
+
+.input:hover {
+  border-color: var(--color-border-hover);
+}
+
+.button {
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-button-primary);
+  color: var(--color-button-text);
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.buttonSecondary {
+  composes: button;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.table caption {
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text-secondary);
+  border-bottom: var(--border-default);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-default);
+  vertical-align: baseline;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table th {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.mono {
+  font-family: ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+.tag {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-tag);
+  border: var(--border-default);
+  white-space: nowrap;
+}
+
+.empty {
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
