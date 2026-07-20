@@ -27,6 +27,7 @@ sau khi pull. Chỉ hai service được giữ theo DEC-T10 (`db` + `supavisor`)
 |---|---|---|---|
 | `db` | `supabase/postgres` | `17.6.1.136` | `sha256:f371b5f3f2ac0a05703f33d6e6134515fb2498cab708fb948a0aeb7481467c00` |
 | `supavisor` | `supabase/supavisor` | `2.9.5` | `sha256:31c2f05b13b11069660fdfae2f6cfd37b509748d2710aca121cfee8b16cb8b07` |
+| `logto` | `svhd/logto` | `1.41.0` | `sha256:7f79547e3d1fe569a3ecae757968a7cfc579687aa8164eec35113c0adc983c5b` |
 
 ## Cách cập nhật khi nâng version
 

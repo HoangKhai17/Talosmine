@@ -1,0 +1,64 @@
+/*
+ * Shell của route group (user). Xem docs/frontend-css-rules.md.
+ * Mọi giá trị lấy từ token — không có màu/px thô ở đây.
+ */
+
+.header {
+  border-bottom: var(--border-default);
+  background-color: var(--color-bg-primary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  min-height: var(--space-16);
+}
+
+.brand {
+  font-weight: var(--weight-heading);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.navList {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.navLink {
+  display: inline-block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-button);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.navLink:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
+}
+
+.main {
+  min-height: 60vh;
+}
+
+.footer {
+  border-top: var(--border-default);
+  background-color: var(--color-bg-secondary);
+  padding-block: var(--space-10);
+  margin-top: var(--space-24);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .navLink {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease;
+  }
+}

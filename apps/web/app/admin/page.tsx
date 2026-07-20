@@ -9,7 +9,9 @@ export default function AdminHomePage() {
   return (
     <div className="stack">
       <h1>Quản trị</h1>
-      <p className="muted">Khung quản trị. Chưa có chức năng nào được hiện thực.</p>
+      <p className="typeBody textSecondary">
+        Khung quản trị. Chưa có chức năng nào được hiện thực.
+      </p>
     </div>
   );
 }

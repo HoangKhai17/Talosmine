@@ -22,17 +22,17 @@ export default function RouteError({
   }, [error.digest]);
 
   return (
-    <main id="main" className="shell-main">
+    <main id="main" className="container section">
       <div className="stack" role="alert">
         <h1>Đã xảy ra lỗi</h1>
         <p>Không hiển thị được nội dung này. Bạn có thể thử lại.</p>
         {error.digest !== undefined ? (
-          <p className="muted">
+          <p className="typeBody textSecondary">
             Mã tham chiếu: <code>{error.digest}</code>
           </p>
         ) : null}
         <p>
-          <button type="button" className="action-button" onClick={reset}>
+          <button type="button" className="typeBody" onClick={reset}>
             Thử lại
           </button>
         </p>

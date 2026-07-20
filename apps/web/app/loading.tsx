@@ -4,7 +4,7 @@
  */
 export default function Loading() {
   return (
-    <main id="main" className="shell-main">
+    <main id="main" className="container section">
       <p role="status" aria-live="polite">
         Đang tải…
       </p>

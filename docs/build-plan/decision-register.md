@@ -247,6 +247,66 @@ Mọi version dưới đây được đọc từ registry thật ngày 2026-07-1
 - **CI:** job `quality` chạy gitleaks git-mode; finding làm fail build.
 - **Affected phase:** P1+.
 
+### DEC-T22 — Identity provider: **Logto self-host** (SUPERSEDES DEC-T08 phần Auth0)
+
+`approved` 2026-07-18 bởi chủ dự án. **Đây là thay đổi stack** — `../stack-tech.md` phải
+được cập nhật (đang ghi "Auth0 managed").
+
+- **Vì sao đổi:** chủ dự án nêu lo ngại về việc dữ liệu xác thực và credential nằm ở hạ tầng
+  nước ngoài, và khả năng không phù hợp yêu cầu pháp lý Việt Nam về dữ liệu. Đây là quyết
+  định **nghiệp vụ/pháp lý của chủ dự án**, không phải agent tự chọn.
+  Agent **không** tư vấn pháp lý; việc xác định dự án có thuộc diện phải lưu dữ liệu trong
+  nước hay không cần luật sư/chuyên gia tuân thủ xác nhận.
+- **Quyết định:** **Logto v1.41.0**, self-host bằng Docker trên VPS do chủ dự án kiểm soát.
+- **License: MPL-2.0.** File-level copyleft — chỉ ràng buộc nếu SỬA source của Logto thì
+  phải mở file đó. Talosmine là ứng dụng riêng gọi qua OIDC nên **không bị ảnh hưởng**.
+
+**Các phương án đã cân nhắc và loại (đọc số liệu thật từ GitHub API 2026-07-18):**
+
+| Phương án | License | Lý do loại |
+|---|---|---|
+| Zitadel v4.16.1 | **AGPL-3.0** | Copyleft mạnh — rủi ro lan sang sản phẩm thương mại. Agent từng nghiêng về nó **trước khi kiểm license**, và đã rút lại. |
+| Authentik | NOASSERTION | License không rõ ràng. |
+| Ory Hydra | Apache-2.0 | Chỉ là OAuth2 server, **không có quản lý user** — phải ghép thêm Kratos, quá phức tạp cho dự án solo. |
+| Keycloak 26.7.0 | Apache-2.0 | Ứng viên tốt (license sạch nhất, chuẩn công nghiệp) nhưng chạy Java, ~1GB RAM. Chủ dự án chọn Logto vì nhẹ hơn và cùng ngôn ngữ TypeScript. |
+
+**VÌ SAO ĐỔI NÀY KHÔNG PHÁ KIẾN TRÚC — điểm quan trọng nhất:**
+
+Nửa A đã xây trên **chuẩn OIDC**, không phải trên Auth0:
+
+- `external_identities` khoá bằng `(issuer, subject)` — chuẩn OIDC, đúng với mọi provider.
+- Verify token bằng `jose` + JWKS — chuẩn OIDC thuần.
+- Session, RBAC, audit là **của Talosmine**, nằm trong PostgreSQL self-hosted.
+
+Đổi provider chỉ cần: đổi issuer URL trong env, và đổi CHECK
+`external_identities_provider_check` (hiện khoá `'auth0'`). **Không phải viết lại logic nào.**
+
+**Thay đổi kéo theo:**
+- `../stack-tech.md`: dòng Identity/SSO đổi từ Auth0 managed sang Logto self-host.
+- DEC-T08: phần `@auth0/nextjs-auth0` **bị superseded** — BFF sẽ dùng client OIDC chuẩn.
+  Phần `jose@6.2.3` cho verify token **giữ nguyên** (chuẩn OIDC, không phụ thuộc provider).
+- DEC-B03 (Auth0 tenant) **không còn là blocker** — thay bằng cấu hình Logto local.
+- Migration mới cần mở rộng `external_identities_provider_check` cho `'logto'`.
+
+**Còn phải làm khi triển khai:**
+- Pin image Logto theo **digest**, ghi vào `infra/compose/IMAGE-PINS.md` (DEC-T10 quy tắc).
+- Logto dùng PostgreSQL — dùng lại service `db` đã có, **database riêng** để tách dữ liệu
+  IdP khỏi `control_plane`.
+- Affected phase: P2 nửa B.
+
+### DEC-T23 — CAPTCHA chống spam *(`proposed` — chốt sau khi dựng Logto)*
+
+- **Yêu cầu:** chủ dự án muốn thêm lớp CAPTCHA chống spam (2026-07-18).
+- **Chưa chốt công cụ** vì Logto có thể đã tích hợp sẵn — kiểm tra thực tế trước rồi quyết,
+  tránh thêm dependency thừa.
+- Hai ứng viên khi tới đó:
+  - **Altcha** — self-host, proof-of-work, không gửi dữ liệu ra ngoài. Nhất quán với hướng
+    "dữ liệu trong nước". Đổi lại: chống bot yếu hơn với bot chịu tốn CPU.
+  - **Cloudflare Turnstile** — dễ nhất, ít phiền người dùng, nhưng là dịch vụ nước ngoài.
+- **Ghi chú kỹ thuật quan trọng:** CAPTCHA chống **bot đăng ký hàng loạt**. Chống
+  **brute-force mật khẩu** thì rate limiting + khóa tài khoản tạm thời hiệu quả hơn nhiều.
+  Cần cả hai, đúng chỗ — không coi CAPTCHA là giải pháp vạn năng.
+
 ## B. Quyết định nghiệp vụ — chờ chủ dự án
 
 Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default hợp lý" vào bất kỳ ô nào dưới đây.

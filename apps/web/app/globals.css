@@ -1,41 +1,141 @@
 /*
- * Accessibility/responsive foundation cho shell P1 (phase-1 mục 10).
- * CSS thuần: bảng D không có UI library nào, thêm một cái là lệch DEC.
+ * Design token + base style — Talosmine.
+ *
+ * NGUỒN SỰ THẬT: quy chuẩn UI do chủ dự án cung cấp.
+ * Quy tắc sử dụng: docs/frontend-css-rules.md
+ *
+ * ĐÂY LÀ FILE DUY NHẤT được phép chứa giá trị thô (màu, px). Mọi component dùng var().
+ * Đổi quy chuẩn = sửa file này, component không đụng tới.
  */
 
 :root {
-  --color-bg: #ffffff;
-  --color-surface: #f4f5f7;
-  --color-border: #c9ced6;
-  /* Contrast trên nền --color-bg: #40474f ~ 8.6:1, đạt WCAG AA cho text thường. */
-  --color-text: #14181d;
-  --color-text-muted: #40474f;
-  --color-accent: #14181d;
-  --color-focus: #0b5cd5;
+  /* ── Màu ──────────────────────────────────────────────────────────────────
+   * Chủ dự án ghi bảng màu "đang chỉnh lại" — dự kiến sẽ đổi. Vì component chỉ
+   * dùng var() nên lúc đó chỉ cần sửa ở đây.
+   */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f7f7f5;
+  --color-text-primary: #111111;
+  --color-text-secondary: #62625f;
+  --color-text-tertiary: #8a8a86;
+  --color-border-default: #e5e5e1;
+  --color-border-hover: #c9c9c4;
+  --color-button-primary: #111111;
+  --color-button-text: #ffffff;
 
-  --space-1: 0.5rem;
-  --space-2: 1rem;
-  --space-3: 1.5rem;
-  --space-4: 2rem;
+  /* Focus ring: KHÔNG có trong quy chuẩn nhưng bắt buộc phải nhìn thấy được
+   * (phase-1 mục 10, có test Playwright kiểm). Dùng text-primary để hợp tông
+   * đơn sắc của bảng màu thay vì thêm một màu lạ. */
+  --color-focus: var(--color-text-primary);
 
-  --max-content-width: 72rem;
+  /* ── Spacing ──────────────────────────────────────────────────────────────
+   * Thang đã duyệt. KHÔNG dùng giá trị ngoài danh sách này. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-30: 120px;
 
-  color-scheme: light dark;
+  /* ── Bo góc ───────────────────────────────────────────────────────────── */
+  --radius-button: 8px;
+  --radius-input: 8px;
+  --radius-card: 12px;
+  --radius-cta: 16px;
+  --radius-tag: 999px;
+
+  /* ── Border ───────────────────────────────────────────────────────────── */
+  --border-default: 1px solid var(--color-border-default);
+  --border-hover: 1px solid var(--color-border-hover);
+
+  /* ── Font ─────────────────────────────────────────────────────────────────
+   * Biến do next/font đặt trong layout.tsx (self-host, không gọi Google CDN
+   * nên không phải nới CSP font-src). */
+  --font-sans: var(--font-montserrat), var(--font-inter), system-ui, sans-serif;
+
+  /* ── Layout (mobile mặc định — mobile first) ───────────────────────────── */
+  --container-max: 1200px;
+  --container-gutter: 20px;
+  --grid-columns: 4;
+  --grid-gap: 16px;
+  --section-padding-y: 64px;
+
+  /* ── Typography (mobile mặc định) ─────────────────────────────────────── */
+  --type-hero-size: 40px;
+  --type-hero-line: 46px;
+  --type-h1-size: 36px;
+  --type-h1-line: 42px;
+  --type-h2-size: 30px;
+  --type-h2-line: 38px;
+  --type-h3-size: 24px;
+  --type-h3-line: 32px;
+  --type-card-title-size: 18px;
+  --type-card-title-line: 26px;
+  --type-body-large-size: 16px;
+  --type-body-large-line: 24px;
+  --type-body-size: 16px;
+  --type-body-line: 24px;
+  --type-body-small-size: 14px;
+  --type-body-small-line: 20px;
+  --type-caption-size: 12px;
+  --type-caption-line: 16px;
+
+  --weight-heading: 600;
+  --weight-body: 400;
+  --weight-caption: 500;
+
+  /* Quy chuẩn chỉ định nghĩa bảng màu sáng. Chưa có dark palette nên khoá ở
+   * light — bật dark mà tự bịa màu sẽ lệch thiết kế. Cần chủ dự án cung cấp
+   * bảng dark thì mới thêm. */
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
+/* ── Tablet (từ 768px) ─────────────────────────────────────────────────────
+ * Breakpoint là quyết định của tôi, không có trong quy chuẩn (quy chuẩn chỉ nêu
+ * frame thiết kế 390/1024/1920). Xem docs/frontend-css-rules.md mục 3.
+ * Typography chuyển sang thang desktop từ đây vì quy chuẩn không có thang riêng
+ * cho tablet. */
+@media (min-width: 768px) {
   :root {
-    --color-bg: #101317;
-    --color-surface: #191d23;
-    --color-border: #3a424c;
-    /* #e6e9ee trên #101317 ~ 14.3:1. */
-    --color-text: #e6e9ee;
-    --color-text-muted: #b3bbc6;
-    --color-accent: #e6e9ee;
-    --color-focus: #7fb0ff;
+    --container-gutter: 32px;
+    --grid-columns: 8;
+    --grid-gap: 20px;
+    --section-padding-y: 80px;
+
+    --type-hero-size: 64px;
+    --type-hero-line: 68px;
+    --type-h1-size: 52px;
+    --type-h1-line: 60px;
+    --type-h2-size: 40px;
+    --type-h2-line: 48px;
+    --type-h3-size: 28px;
+    --type-h3-line: 36px;
+    --type-body-large-size: 18px;
+    --type-body-large-line: 28px;
+    --type-body-small-size: 14px;
+    --type-body-small-line: 21px;
   }
 }
 
+/* ── Desktop (từ 1280px) ───────────────────────────────────────────────────
+ * 1280 để container 1200 + gutter 120 hai bên có chỗ thở. */
+@media (min-width: 1280px) {
+  :root {
+    --container-gutter: 120px;
+    --grid-columns: 12;
+    --grid-gap: 24px;
+    --section-padding-y: 96px;
+  }
+}
+
+/* ── Reset ────────────────────────────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -43,142 +143,200 @@
 }
 
 html {
+  /* Không đặt font-size khác 100%: nó phá cỡ chữ mà người dùng tự chỉnh trong
+   * trình duyệt — một lỗi accessibility phổ biến. */
   -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
-  min-height: 100dvh;
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  font-size: 1rem;
-  line-height: 1.6;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--weight-body);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Focus phải nhìn thấy được ở mọi control có thể tab tới. Không bao giờ outline: none. */
-:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
-  border-radius: 2px;
+h1,
+h2,
+h3,
+h4,
+p,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+img,
+picture,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
 }
 
 a {
   color: inherit;
 }
 
-img,
-svg {
-  max-width: 100%;
-  height: auto;
+/* ── Focus ────────────────────────────────────────────────────────────────
+ * BẮT BUỘC nhìn thấy được (phase-1 mục 10). `:focus-visible` chỉ hiện khi điều
+ * hướng bằng bàn phím, không làm phiền người dùng chuột. */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
-/* Skip link: hiện ra khi nhận focus bằng bàn phím. */
-.skip-link {
+/* ── Typography utilities ─────────────────────────────────────────────────
+ * Dùng các class này thay vì tự set font-size trong component (rules mục 2.3). */
+.typeHero {
+  font-size: var(--type-hero-size);
+  line-height: var(--type-hero-line);
+  font-weight: var(--weight-heading);
+  letter-spacing: -0.02em;
+}
+
+.typeH1 {
+  font-size: var(--type-h1-size);
+  line-height: var(--type-h1-line);
+  font-weight: var(--weight-heading);
+  letter-spacing: -0.02em;
+}
+
+.typeH2 {
+  font-size: var(--type-h2-size);
+  line-height: var(--type-h2-line);
+  font-weight: var(--weight-heading);
+  letter-spacing: -0.01em;
+}
+
+.typeH3 {
+  font-size: var(--type-h3-size);
+  line-height: var(--type-h3-line);
+  font-weight: var(--weight-heading);
+}
+
+.typeCardTitle {
+  font-size: var(--type-card-title-size);
+  line-height: var(--type-card-title-line);
+  font-weight: var(--weight-heading);
+}
+
+.typeBodyLarge {
+  font-size: var(--type-body-large-size);
+  line-height: var(--type-body-large-line);
+  font-weight: var(--weight-body);
+}
+
+.typeBody {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--weight-body);
+}
+
+.typeBodySmall {
+  font-size: var(--type-body-small-size);
+  line-height: var(--type-body-small-line);
+  font-weight: var(--weight-body);
+}
+
+.typeCaption {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--weight-caption);
+}
+
+/* Màu chữ tiện ích — dùng kèm class typography. */
+.textSecondary {
+  color: var(--color-text-secondary);
+}
+
+.textTertiary {
+  color: var(--color-text-tertiary);
+}
+
+/* ── Layout utilities ─────────────────────────────────────────────────────── */
+.container {
+  width: 100%;
+  max-width: calc(var(--container-max) + var(--container-gutter) * 2);
+  margin-inline: auto;
+  padding-inline: var(--container-gutter);
+}
+
+.section {
+  padding-block: var(--section-padding-y);
+}
+
+/* Skip link — nằm ở root layout nên là global thật sự (không phải của component nào).
+ * Ẩn khỏi tầm nhìn cho tới khi được focus bằng bàn phím: người dùng chuột không thấy,
+ * người dùng bàn phím nhảy thẳng tới nội dung chính thay vì tab qua cả menu. */
+.skipLink {
   position: absolute;
-  left: var(--space-2);
-  top: -4rem;
-  z-index: 10;
-  padding: var(--space-1) var(--space-2);
-  background-color: var(--color-bg);
-  border: 2px solid var(--color-accent);
-  border-radius: 4px;
+  left: var(--space-4);
+  top: calc(var(--space-4) * -4);
+  z-index: 100;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-button-primary);
+  color: var(--color-button-text);
+  border-radius: var(--radius-button);
   text-decoration: none;
-  transition: top 120ms ease-in-out;
+  transition: top 120ms ease;
 }
 
-.skip-link:focus-visible {
-  top: var(--space-2);
+.skipLink:focus-visible {
+  top: var(--space-4);
 }
 
-.shell-header {
-  border-bottom: 1px solid var(--color-border);
-  background-color: var(--color-surface);
-}
-
-.shell-bar {
+/* Xếp dọc với khoảng cách chuẩn. Dùng cho các trang đơn giản (loading, 404, placeholder)
+ * không đáng có file .module.css riêng. Trang có layout thật thì dùng CSS Module. */
+.stack {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  width: 100%;
-  max-width: var(--max-content-width);
-  margin-inline: auto;
-  padding: var(--space-2);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
 }
 
-.shell-brand {
-  font-weight: 600;
-  font-size: 1.125rem;
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
-.shell-nav-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.shell-nav-link {
-  display: inline-block;
-  padding: var(--space-1);
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-}
-
-.shell-nav-link:hover {
-  border-bottom-color: var(--color-accent);
-}
-
-.shell-main {
-  width: 100%;
-  max-width: var(--max-content-width);
-  margin-inline: auto;
-  padding: var(--space-3) var(--space-2) var(--space-4);
-}
-
-.shell-footer {
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-}
-
-.stack > * + * {
-  margin-top: var(--space-2);
-}
-
-.muted {
-  color: var(--color-text-muted);
-}
-
+/* Khối thông báo trung tính — viền + nền phụ, không dùng màu trạng thái vì bảng màu
+ * chưa có token success/warning/danger. */
 .notice {
-  border: 1px solid var(--color-border);
-  border-left: 4px solid var(--color-accent);
-  border-radius: 4px;
-  background-color: var(--color-surface);
-  padding: var(--space-2);
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-bg-secondary);
 }
 
-.action-button {
-  font: inherit;
-  color: var(--color-bg);
-  background-color: var(--color-accent);
-  border: 1px solid var(--color-accent);
-  border-radius: 4px;
-  padding: var(--space-1) var(--space-3);
-  min-height: 44px; /* Vùng chạm tối thiểu trên mobile. */
-  cursor: pointer;
+/* Ẩn khỏi màn hình nhưng screen reader vẫn đọc — dùng cho nhãn phụ trợ. */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-/* Người dùng bật "reduce motion" thì tắt hẳn animation/transition, không chỉ làm nhanh hơn. */
+/* ── Reduced motion ───────────────────────────────────────────────────────
+ * Người bật "giảm chuyển động" thường vì chóng mặt/tiền đình. Tắt gần hết
+ * animation thay vì chỉ giảm. */
 @media (prefers-reduced-motion: reduce) {
-  /* biome-ignore-start lint/complexity/noImportantStyles: đây là reset accessibility toàn cục,
-     nó phải thắng mọi khai báo animation/transition đặt sau nó. Bỏ !important sẽ làm
-     preference của người dùng bị component ghi đè — đó chính là lỗi cần tránh. */
   *,
   *::before,
   *::after {
@@ -187,5 +345,4 @@ svg {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  /* biome-ignore-end lint/complexity/noImportantStyles: hết phạm vi reset. */
 }

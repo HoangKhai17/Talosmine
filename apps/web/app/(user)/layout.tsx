@@ -1,31 +1,34 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import styles from './layout.module.css';
 
 /**
  * Layout của route group `(user)`.
  *
- * Navigation cố ý trung tính: chỉ có route đã tồn tại thật ở P1. Không có mục
- * catalog/plan/usage/account vì các capability đó chưa được implement (phase-1 mục 5 và 10)
- * — một menu trỏ tới trang không tồn tại là fake capability, không phải placeholder.
+ * Navigation cố ý trung tính: chỉ có route đã tồn tại thật. Không có mục catalog/plan/usage
+ * vì các capability đó chưa được implement — một menu trỏ tới trang không tồn tại là fake
+ * capability, không phải placeholder.
  *
- * Không có link tới `/admin`: P1 không cấp quyền admin. (Ẩn/hiện menu chỉ là UX,
- * enforcement thật nằm ở proxy + guard server-side.)
+ * Không có link tới `/admin`: ẩn/hiện menu chỉ là UX, enforcement thật nằm ở proxy +
+ * guard server-side.
  */
 export default function UserLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <header className="shell-header">
-        <div className="shell-bar">
-          <p className="shell-brand">Talosmine</p>
+      <header className={styles.header}>
+        <div className={`container ${styles.bar}`}>
+          <Link className={`typeCardTitle ${styles.brand}`} href="/">
+            Talosmine
+          </Link>
           <nav aria-label="Điều hướng chính">
-            <ul className="shell-nav-list">
+            <ul className={styles.navList}>
               <li>
-                <Link className="shell-nav-link" href="/">
+                <Link className={`typeBodySmall ${styles.navLink}`} href="/">
                   Trang chính
                 </Link>
               </li>
               <li>
-                <Link className="shell-nav-link" href="/auth">
+                <Link className={`typeBodySmall ${styles.navLink}`} href="/auth">
                   Tài khoản
                 </Link>
               </li>
@@ -34,13 +37,15 @@ export default function UserLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main id="main" className="shell-main">
+      <main id="main" className={styles.main}>
         {children}
       </main>
 
-      <footer className="shell-footer">
-        <div className="shell-bar">
-          <p>Talosmine — bản dựng nền tảng, chưa có tính năng nghiệp vụ.</p>
+      <footer className={styles.footer}>
+        <div className="container">
+          <p className="typeBodySmall textSecondary">
+            Talosmine — bản dựng nền tảng, chưa có tính năng nghiệp vụ.
+          </p>
         </div>
       </footer>
     </>

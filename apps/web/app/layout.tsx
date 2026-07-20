@@ -1,6 +1,28 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter, Montserrat } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './globals.css';
+
+/**
+ * Font theo quy chuẩn UI: Montserrat chính, Inter dự phòng.
+ *
+ * `next/font/google` SELF-HOST font lúc build — không gọi Google CDN ở runtime. Nhờ vậy
+ * CSP `font-src 'self'` (DEC-T12) không phải nới, và không rò referrer sang Google.
+ * `display: swap` để chữ hiện ngay bằng font hệ thống thay vì màn hình trắng.
+ */
+const montserrat = Montserrat({
+  subsets: ['latin', 'vietnamese'],
+  weight: ['400', '500', '600'],
+  variable: '--font-montserrat',
+  display: 'swap',
+});
+
+const inter = Inter({
+  subsets: ['latin', 'vietnamese'],
+  weight: ['400', '500', '600'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Talosmine',
@@ -20,9 +42,9 @@ export const viewport: Viewport = {
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="vi">
+    <html lang="vi" className={`${montserrat.variable} ${inter.variable}`}>
       <body>
-        <a className="skip-link" href="#main">
+        <a className="skipLink" href="#main">
           Bỏ qua tới nội dung chính
         </a>
         {children}

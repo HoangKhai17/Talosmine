@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <main id="main" className="shell-main">
+    <main id="main" className="container section">
       {children}
     </main>
   );

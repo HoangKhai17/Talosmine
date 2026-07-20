@@ -1,0 +1,111 @@
+/*
+ * Trang chính (demo). Xem docs/frontend-css-rules.md.
+ *
+ * Đây là DEMO layout do tôi tự dựng theo quy chuẩn UI — chủ dự án sẽ thay bằng Figma sau.
+ * Cấu trúc bám token nên đổi layout không phải viết lại CSS từ đầu.
+ */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* Heading → Description: 16–24px theo quy chuẩn. */
+  gap: var(--space-6);
+  max-width: 720px;
+}
+
+/* Description → Button: 24–32px. Dùng margin riêng vì gap của hero là 24px. */
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.buttonPrimary {
+  display: inline-block;
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--color-button-primary);
+  border-radius: var(--radius-button);
+  background-color: var(--color-button-primary);
+  color: var(--color-button-text);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.buttonSecondary {
+  display: inline-block;
+  padding: var(--space-3) var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.buttonSecondary:hover {
+  border: var(--border-hover);
+}
+
+/* Section header → Card grid: 40px theo quy chuẩn. */
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-10);
+  max-width: 720px;
+}
+
+.cardGrid {
+  display: grid;
+  gap: var(--grid-gap);
+  /* Mobile 4 cột → mỗi card chiếm cả hàng. Tablet 8 → 2 card. Desktop 12 → 3 card.
+   * Viết bằng token nên không cần media query ở đây. */
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+}
+
+.card {
+  /* Card chiếm trọn số cột của breakpoint hiện tại: mobile 4/4, tablet 4/8 (2 card),
+   * desktop 4/12 (3 card). Một dòng, không media query. */
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
+}
+
+.card:hover {
+  border: var(--border-hover);
+}
+
+.cardMeta {
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+
+.tag {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-tag);
+  color: var(--color-text-secondary);
+  width: fit-content;
+}
+
+.callout {
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-bg-secondary);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card,
+  .buttonSecondary {
+    transition: border-color 150ms ease;
+  }
+}

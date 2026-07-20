@@ -43,6 +43,8 @@ services:
       # và phải nằm ở migrations/ để chạy bằng supabase_admin — user `postgres`
       # đã bị demote ở post-setup nên không tạo được role.
       - ./volumes/db/talosmine-roles.sql:/docker-entrypoint-initdb.d/migrations/99-talosmine-roles.sql:Z
+      # Database riêng cho Logto (DEC-T22). Chạy sau role Talosmine.
+      - ./volumes/db/logto-database.sql:/docker-entrypoint-initdb.d/migrations/99b-logto-database.sql:Z
       # Named volume: KHÔNG dùng hậu tố `:Z` (đó là tuỳ chọn SELinux của bind mount).
       - db-data:/var/lib/postgresql/data
       # BẮT BUỘC: giữ pgsodium decryption key qua các lần restart.
@@ -73,6 +75,7 @@ services:
       # `supabase_admin` không bao giờ tồn tại, migrate.sh chết ở dòng 1 và KHÔNG
       # init script nào được áp dụng — thất bại im lặng, container vẫn báo healthy.
       # Compose chính thức cũng cố ý không set biến này.
+      LOGTO_DB_PASSWORD: ${LOGTO_DB_PASSWORD:?bắt buộc}
       TALOSMINE_MIGRATION_PASSWORD: ${TALOSMINE_MIGRATION_PASSWORD:?bắt buộc}
       TALOSMINE_RUNTIME_PASSWORD: ${TALOSMINE_RUNTIME_PASSWORD:?bắt buộc}
     command:
@@ -125,6 +128,34 @@ services:
       - /bin/sh
       - -c
       - /app/bin/migrate && /app/bin/supavisor eval "$$(cat /etc/pooler/pooler.exs)" && /app/bin/server
+    networks: [talosmine-internal]
+
+  # ── Logto — identity provider self-host (DEC-T22) ──────────────────────────
+  # Thay cho Auth0 managed: credential và dữ liệu xác thực nằm trên hạ tầng do dự án
+  # kiểm soát. Vẫn là OIDC chuẩn nên Control Plane không cần biết đây là Logto.
+  logto:
+    container_name: talosmine-logto
+    image: svhd/logto:1.41.0@sha256:7f79547e3d1fe569a3ecae757968a7cfc579687aa8164eec35113c0adc983c5b
+    restart: unless-stopped
+    # KHÔNG có `ports:` — giống mọi service khác, chỉ Caddy expose (DEC-T10/T11).
+    # Dev overlay mở port để làm việc ở local.
+    depends_on:
+      db:
+        condition: service_healthy
+    # Lần chạy đầu cần seed schema của Logto. `db seed` idempotent: đã seed rồi thì bỏ qua,
+    # nên để nguyên trong entrypoint cũng không hỏng ở các lần khởi động sau.
+    entrypoint: ['sh', '-c', 'npm run cli db seed -- --swe && npm start']
+    environment:
+      NODE_ENV: production
+      DB_URL: postgres://logto:${LOGTO_DB_PASSWORD:?bắt buộc}@db:5432/logto
+      # URL mà BROWSER dùng để tới Logto. Ở dev là localhost qua dev overlay; lên
+      # production đổi sang domain thật đứng sau Caddy.
+      ENDPOINT: ${LOGTO_ENDPOINT:-http://localhost:3001}
+      ADMIN_ENDPOINT: ${LOGTO_ADMIN_ENDPOINT:-http://localhost:3002}
+      TRUST_PROXY_HEADER: 1
+      # Tắt telemetry gửi ra ngoài. Image mặc định trỏ tới một endpoint khảo sát của
+      # Logto — không phù hợp với lý do ta tự host (giữ dữ liệu trong tầm kiểm soát).
+      LOGTO_OSS_SURVEY_ENDPOINT: ''
     networks: [talosmine-internal]
 
 volumes:

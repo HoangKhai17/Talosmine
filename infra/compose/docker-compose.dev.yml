@@ -34,3 +34,12 @@ services:
       # 56543 -> transaction pooler. Đây là đường RUNTIME mà API/worker dùng.
       # Dùng cho: chạy API ở host và mọi test cần đi đúng đường như production.
       - '127.0.0.1:56543:6543'
+
+  logto:
+    ports:
+      # 3001 -> trang đăng nhập (browser của user tới đây khi login).
+      # 3002 -> Admin Console của Logto (tạo application, cấu hình connector).
+      # Dùng cổng gốc vì chúng không đụng dịch vụ nào khác trên máy này; vẫn bind
+      # loopback nên không lộ ra LAN.
+      - '127.0.0.1:3001:3001'
+      - '127.0.0.1:3002:3002'

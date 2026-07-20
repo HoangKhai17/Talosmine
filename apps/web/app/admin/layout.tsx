@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { decideAdminAccess } from '../../server/admin-authorization';
+import styles from '../(user)/layout.module.css';
 
 /**
  * Lớp chặn admin thứ hai, chạy phía server trong React Server Component.
@@ -21,12 +22,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <header className="shell-header">
-        <div className="shell-bar">
-          <p className="shell-brand">Talosmine — Quản trị</p>
+      <header className={styles.header}>
+        <div className={`container ${styles.bar}`}>
+          <p className="typeCardTitle">Talosmine — Quản trị</p>
         </div>
       </header>
-      <main id="main" className="shell-main">
+      <main id="main" className="container section">
         {children}
       </main>
     </>

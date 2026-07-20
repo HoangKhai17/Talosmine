@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(python -)",
-      "Bash(grep -n '^[a-z]*:$\\\\|^  [a-z]*:$' contracts/openapi/control-plane.v1.yaml)"
+      "Bash(grep -n '^[a-z]*:$\\\\|^  [a-z]*:$' contracts/openapi/control-plane.v1.yaml)",
+      "Bash(grep -vE '^\\\\s*\\(//|\\\\*|/\\\\*|$\\)' apps/web/server/env.ts)",
+      "Bash(node -e 'const j=require\\(\"./package.json\"\\);[\"dev:web\",\"dev:api\",\"dev:worker\"].forEach\\(k=>console.log\\(\" \",k,\"->\",j.scripts[k]\\)\\)')",
+      "Bash(node -e 'const j=require\\(\"./package.json\"\\);console.log\\(JSON.stringify\\(j.devDependencies,null,0\\)\\)')",
+      "Bash(cat)",
+      "Bash(node -e ' *)"
     ]
   }
 }
