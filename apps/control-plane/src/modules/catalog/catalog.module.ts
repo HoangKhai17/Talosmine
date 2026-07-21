@@ -4,6 +4,9 @@ import { IdentityModule } from '../identity/identity.module.js';
 import { CatalogController } from './catalog.controller.js';
 import { CatalogService } from './catalog.service.js';
 import { CatalogAdminController } from './catalog-admin.controller.js';
+import { CatalogSubresourceController } from './catalog-subresource.controller.js';
+import { FeatureService } from './feature.service.js';
+import { RedirectUriService } from './redirect-uri.service.js';
 
 /**
  * Module Catalog (P3) — sở hữu `applications`, `application_redirect_uris`, `features`,
@@ -19,9 +22,13 @@ import { CatalogAdminController } from './catalog-admin.controller.js';
  */
 @Module({
   imports: [IdentityModule, AdminModule],
-  controllers: [CatalogController, CatalogAdminController],
-  providers: [CatalogService],
+  // Thứ tự QUAN TRỌNG: `CatalogAdminController` khai `:applicationId` ở gốc, còn
+  // `CatalogSubresourceController` khai các route con dưới nó. Fastify khớp theo thứ tự
+  // đăng ký, nên controller cụ thể hơn phải đứng sau — nếu không `/features` sẽ bị khớp
+  // thành một `applicationId`.
+  controllers: [CatalogController, CatalogAdminController, CatalogSubresourceController],
+  providers: [CatalogService, RedirectUriService, FeatureService],
   // Export để P4 (entitlement) dùng lại mà không phải đụng vào bảng của Catalog.
-  exports: [CatalogService],
+  exports: [CatalogService, FeatureService],
 })
 export class CatalogModule {}

@@ -55,6 +55,12 @@ tags:
       API tài khoản của chính user (self-service). Bảo vệ bằng web session:
       BFF forward session token qua header `X-Session-Token`; Control Plane resolve
       accountId phía server, KHÔNG tin accountId do client khai.
+  - name: catalog
+    description: |
+      Danh muc ung dung cho nguoi dung cuoi. Chi tra app `active`.
+
+      Thay app KHONG co nghia la duoc dung app — catalog visibility khac authorization.
+      Quyen su dung thuoc entitlement (P4), va ung dung dich van phai tu xac thuc.
   - name: admin
     description: |
       API quản trị. DENY-BY-DEFAULT: cần phiên hợp lệ **và** permission tương ứng qua
@@ -423,6 +429,632 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '404':
           description: Không tìm thấy phiên thuộc account này.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/catalog/applications:
+    get:
+      tags: [catalog]
+      operationId: listPublicApplications
+      summary: Danh muc ung dung cho nguoi dung
+      description: |
+        CHI tra app `active`. App `draft` va `inactive` khong xuat hien, ke ca khi nguoi
+        dung doan dung `key`.
+
+        QUAN TRONG: **thay app KHONG co nghia la duoc dung app.** Endpoint nay tra loi
+        "app nao ton tai va dang phat hanh", KHONG tra loi "nguoi nay co quyen mo no".
+        Cau do thuoc entitlement (P4). Ung dung dich van phai tu xac thuc va phan quyen.
+
+        Yeu cau phien dang nhap: danh muc app noi bo khong phai thong tin cong khai.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Danh sach app dang phat hanh, sap theo ten hien thi.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicApplication'
+        '401':
+          description: Thieu phien hoac phien khong hop le.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/catalog/applications/{key}:
+    get:
+      tags: [catalog]
+      operationId: getPublicApplication
+      summary: Chi tiet mot ung dung
+      description: |
+        Tra theo `key` chu khong phai `id`: `key` la dinh danh on dinh ma con nguoi doc
+        duoc va URL dung duoc. `id` la chi tiet noi bo.
+
+        App chua phat hanh tra 404 GIONG HET app khong ton tai. Phan biet hai truong hop
+        cho phep do xem he thong dang chuan bi nhung app nao.
+      security:
+        - webSession: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Chi tiet app.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicApplication'
+        '401':
+          description: Thieu phien hoac phien khong hop le.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay, HOAC ton tai nhung chua phat hanh.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications:
+    get:
+      tags: [admin]
+      operationId: adminListApplications
+      summary: Danh muc ung dung (quan tri)
+      description: Yeu cau `catalog:read`. Tra MOI trang thai, ke ca `draft`.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Danh sach app, sap theo `key`.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminApplication'
+        '403':
+          description: Thieu permission `catalog:read`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [admin]
+      operationId: adminCreateApplication
+      summary: Tao ung dung moi
+      description: |
+        Yeu cau `catalog:manage`. App moi LUON o trang thai `draft` — khong tao thang
+        `active`. Phat hanh la hanh dong rieng can `catalog:publish`.
+
+        `launchUrl` va `imageUrl` di qua CHINH SACH URL truoc khi cham database: bat buoc
+        https, host phai trong allowlist, chan dia chi noi bo. Xem `docs/url-policy.md`.
+
+        URL duoc luu o DANG CHUAN HOA, khong phai chuoi goc.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key, displayName, launchUrl, reason]
+              properties:
+                key:
+                  type: string
+                  maxLength: 64
+                  pattern: '^[a-z][a-z0-9-]*$'
+                  description: |
+                    Machine key ON DINH va BAT BIEN. Policy request, plan grant va du lieu
+                    usage tham chieu no. Khong co duong sua sau khi tao, ke ca cho quan tri.
+                displayName: { type: string, maxLength: 120 }
+                description: { type: [string, 'null'], maxLength: 2000 }
+                imageUrl: { type: [string, 'null'], maxLength: 2048 }
+                launchUrl: { type: string, maxLength: 2048 }
+                reason:
+                  type: string
+                  minLength: 1
+                  description: Bat buoc — ghi vao nhat ky kiem toan.
+      responses:
+        '201':
+          description: Da tao, o trang thai `draft`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+        '400':
+          description: |
+            Thieu `reason`, `key` sai dinh dang, hoac URL khong dat chinh sach (khong phai
+            https / host chua allowlist / co userinfo).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: '`key` da duoc dung. Key KHONG tai su dung duoc.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications/{applicationId}:
+    get:
+      tags: [admin]
+      operationId: adminGetApplication
+      summary: Chi tiet ung dung (quan tri)
+      description: Yeu cau `catalog:read`.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        '200':
+          description: Chi tiet app.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminApplication'
+        '403':
+          description: Thieu permission `catalog:read`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    patch:
+      tags: [admin]
+      operationId: adminUpdateApplication
+      summary: Sua metadata ung dung
+      description: |
+        Yeu cau `catalog:manage`.
+
+        KHONG sua duoc `key` (bat bien) va KHONG sua duoc `status` (co duong rieng, can
+        permission khac). Truong la trong body bi BO QUA im lang.
+
+        URL moi van di qua chinh sach URL.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                displayName: { type: string, maxLength: 120 }
+                description: { type: [string, 'null'], maxLength: 2000 }
+                imageUrl: { type: [string, 'null'], maxLength: 2048 }
+                launchUrl: { type: string, maxLength: 2048 }
+                reason: { type: string, minLength: 1 }
+      responses:
+        '204':
+          description: Da cap nhat.
+        '400':
+          description: Thieu `reason` hoac URL khong dat chinh sach.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:manage`, hoac thieu/sai CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications/{applicationId}/status:
+    post:
+      tags: [admin]
+      operationId: adminChangeApplicationStatus
+      summary: Doi trang thai vong doi
+      description: |
+        Yeu cau `catalog:publish` — permission RIENG, khong phai `catalog:manage`.
+
+        Vi sao tach: dua app sang `active` la mo mot `launch_url` cho nguoi dung bam vao.
+        Do la hanh dong co he qua ben ngoai, khac han viec sua mo ta o trang thai nhap.
+        Nguoi soan noi dung va nguoi quyet dinh phat hanh khong nhat thiet la mot.
+
+        Chuyen tiep hop le:
+            draft  -> active
+            active -> inactive
+            inactive -> active
+
+        KHONG quay lai `draft`: app da tung `active` nghia la nguoi dung da thay no va co
+        the da co du lieu usage. Dua ve `draft` tao ra trang thai "chua tung phat hanh"
+        cho mot thu da phat hanh — dau vet lich su noi doi. Muon go thi dung `inactive`.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, reason]
+              properties:
+                status: { type: string, enum: [active, inactive] }
+                reason: { type: string, minLength: 1 }
+      responses:
+        '204':
+          description: Da doi trang thai.
+        '400':
+          description: Chuyen tiep khong hop le, hoac thieu `reason`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:publish`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications/{applicationId}/redirect-uris:
+    get:
+      tags: [admin]
+      operationId: adminListRedirectUris
+      summary: Allowlist redirect URI cua mot ung dung
+      description: Yeu cau `catalog:read`.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        '200':
+          description: Danh sach URI.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RedirectUri'
+        '403':
+          description: Thieu permission `catalog:read`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [admin]
+      operationId: adminAddRedirectUri
+      summary: Them mot redirect URI vao allowlist
+      description: |
+        Yeu cau `catalog:manage`.
+
+        DAY LA BE MAT NHAY CAM NHAT CUA CATALOG. Redirect URI quyet dinh noi authorization
+        code duoc gui toi sau khi nguoi dung dang nhap. Mot entry sai nghia la code — va
+        qua do la phien cua nguoi dung — roi vao tay nguoi khac.
+
+        So khop CHINH XAC tung ky tu: khong wildcard, khong prefix, khong subdomain.
+        URI di qua cung chinh sach URL nhu `launchUrl` va duoc luu o DANG CHUAN HOA —
+        neu khong, phep so khop cua IdP se truot khi chuoi khac nhau nhung tro cung noi.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose, uri, reason]
+              properties:
+                purpose: { type: string, enum: [login, logout] }
+                uri: { type: string, maxLength: 2048 }
+                reason: { type: string, minLength: 1 }
+      responses:
+        '201':
+          description: Da them.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+        '400':
+          description: URI khong dat chinh sach, `purpose` sai, hoac thieu `reason`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay ung dung.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: URI da co trong allowlist voi cung `purpose`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications/{applicationId}/redirect-uris/{redirectUriId}:
+    delete:
+      tags: [admin]
+      operationId: adminRemoveRedirectUri
+      summary: Go mot redirect URI khoi allowlist
+      description: |
+        Yeu cau `catalog:manage`.
+
+        Day la cho DUY NHAT trong catalog thuc su XOA dong — moi noi khac doi `status`.
+        Ly do: allowlist la tap gia tri duoc phep O THOI DIEM HIEN TAI, khong phai lich su.
+        Giu mot URI "da go" trong bang se doi moi truy van so khop phai nho loc no ra, va
+        quen mot lan la lo hong.
+
+        Dau vet lich su nam o `audit_events` — gia tri da xoa duoc ghi vao `details`.
+
+        Request mang BODY du la `DELETE`: `reason` bat buoc cho nhat ky kiem toan.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - name: redirectUriId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1 }
+      responses:
+        '204':
+          description: Da go.
+        '400':
+          description: Thieu `reason`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: |
+            Khong tim thay URI TRONG ung dung nay. Tra 404 ca khi URI ton tai nhung thuoc
+            ung dung khac — moi route rang buoc theo `applicationId`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications/{applicationId}/features:
+    get:
+      tags: [admin]
+      operationId: adminListFeatures
+      summary: Feature cua mot ung dung
+      description: Yeu cau `catalog:read`.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        '200':
+          description: Danh sach feature, sap theo `key`.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feature'
+        '403':
+          description: Thieu permission `catalog:read`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [admin]
+      operationId: adminCreateFeature
+      summary: Tao feature moi
+      description: |
+        Yeu cau `catalog:manage`. Feature moi luon o trang thai `draft`.
+
+        Feature la thu ma ENTITLEMENT o P4 se cap quyen len: plan khong cap "toan bo app A"
+        ma cap tung feature. Vi vay `key` cua feature cung BAT BIEN, cung ly do voi `key`
+        cua application.
+
+        `key` on dinh TRONG PHAM VI app — hai app khac nhau duoc phep trung key.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key, displayName, reason]
+              properties:
+                key:
+                  type: string
+                  maxLength: 64
+                  pattern: '^[a-z][a-z0-9-]*$'
+                displayName: { type: string, maxLength: 120 }
+                description: { type: [string, 'null'], maxLength: 2000 }
+                reason: { type: string, minLength: 1 }
+      responses:
+        '201':
+          description: Da tao, o trang thai `draft`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+        '400':
+          description: '`key` sai dinh dang hoac thieu `reason`.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay ung dung.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: '`key` da ton tai TRONG ung dung nay.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications/{applicationId}/features/{featureId}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateFeature
+      summary: Sua metadata feature
+      description: |
+        Yeu cau `catalog:manage`. KHONG sua duoc `key` va `status`.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                displayName: { type: string, maxLength: 120 }
+                description: { type: [string, 'null'], maxLength: 2000 }
+                reason: { type: string, minLength: 1 }
+      responses:
+        '204':
+          description: Da cap nhat.
+        '400':
+          description: Thieu `reason`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay feature TRONG ung dung nay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications/{applicationId}/features/{featureId}/status:
+    post:
+      tags: [admin]
+      operationId: adminChangeFeatureStatus
+      summary: Doi trang thai feature
+      description: |
+        Yeu cau `catalog:publish` — cung ly do voi application: bat mot feature nghia la
+        plan co the cap quyen len no va nguoi dung co the dung no.
+
+        Dung CHUNG may trang thai voi application: `draft` -> `active` <-> `inactive`,
+        khong quay lai `draft`.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/FeatureId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, reason]
+              properties:
+                status: { type: string, enum: [active, inactive] }
+                reason: { type: string, minLength: 1 }
+      responses:
+        '204':
+          description: Da doi trang thai.
+        '400':
+          description: Chuyen tiep khong hop le hoac thieu `reason`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:publish`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay feature TRONG ung dung nay.
           content:
             application/json:
               schema:
@@ -967,6 +1599,63 @@ components:
         reason:
           type: string
           minLength: 1
+    PublicApplication:
+      type: object
+      required: [id, key, displayName, description, imageUrl, launchUrl]
+      description: |
+        View cho nguoi dung cuoi. CO Y khong co `status`: nguoi dung chi thay app `active`,
+        nen truong do khong mang thong tin gi ngoai viec lo ra he thong co trang thai khac.
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        displayName: { type: string }
+        description: { type: [string, 'null'] }
+        imageUrl: { type: [string, 'null'] }
+        launchUrl:
+          type: string
+          description: |
+            Da qua chinh sach URL va da chuan hoa. Frontend dung NGUYEN chuoi nay, khong
+            ghep host/path tu input nguoi dung.
+
+    AdminApplication:
+      type: object
+      required: [id, key, displayName, description, imageUrl, launchUrl, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        displayName: { type: string }
+        description: { type: [string, 'null'] }
+        imageUrl: { type: [string, 'null'] }
+        launchUrl: { type: string }
+        status: { type: string, enum: [draft, active, inactive] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    RedirectUri:
+      type: object
+      required: [id, purpose, uri, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        purpose: { type: string, enum: [login, logout] }
+        uri:
+          type: string
+          description: Da chuan hoa. So khop CHINH XAC tung ky tu, khong wildcard.
+        createdAt: { type: string, format: date-time }
+
+    Feature:
+      type: object
+      required: [id, key, displayName, description, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        key:
+          type: string
+          description: On dinh trong PHAM VI application va bat bien. Entitlement (P4) tham chieu no.
+        displayName: { type: string }
+        description: { type: [string, 'null'] }
+        status: { type: string, enum: [draft, active, inactive] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
     AuditEvent:
       type: object
       required: [id, action, actorType, actorAccountId, targetType, targetId, reason, createdAt]
@@ -1133,6 +1822,18 @@ components:
           additionalProperties: true
 
   parameters:
+    FeatureId:
+      name: featureId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+    ApplicationId:
+      name: applicationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
     AccountId:
       name: accountId
       in: path

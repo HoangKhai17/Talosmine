@@ -225,6 +225,284 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalog/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Danh muc ung dung cho nguoi dung
+         * @description CHI tra app `active`. App `draft` va `inactive` khong xuat hien, ke ca khi nguoi
+         *     dung doan dung `key`.
+         *
+         *     QUAN TRONG: **thay app KHONG co nghia la duoc dung app.** Endpoint nay tra loi
+         *     "app nao ton tai va dang phat hanh", KHONG tra loi "nguoi nay co quyen mo no".
+         *     Cau do thuoc entitlement (P4). Ung dung dich van phai tu xac thuc va phan quyen.
+         *
+         *     Yeu cau phien dang nhap: danh muc app noi bo khong phai thong tin cong khai.
+         */
+        get: operations["listPublicApplications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalog/applications/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chi tiet mot ung dung
+         * @description Tra theo `key` chu khong phai `id`: `key` la dinh danh on dinh ma con nguoi doc
+         *     duoc va URL dung duoc. `id` la chi tiet noi bo.
+         *
+         *     App chua phat hanh tra 404 GIONG HET app khong ton tai. Phan biet hai truong hop
+         *     cho phep do xem he thong dang chuan bi nhung app nao.
+         */
+        get: operations["getPublicApplication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Danh muc ung dung (quan tri)
+         * @description Yeu cau `catalog:read`. Tra MOI trang thai, ke ca `draft`.
+         */
+        get: operations["adminListApplications"];
+        put?: never;
+        /**
+         * Tao ung dung moi
+         * @description Yeu cau `catalog:manage`. App moi LUON o trang thai `draft` — khong tao thang
+         *     `active`. Phat hanh la hanh dong rieng can `catalog:publish`.
+         *
+         *     `launchUrl` va `imageUrl` di qua CHINH SACH URL truoc khi cham database: bat buoc
+         *     https, host phai trong allowlist, chan dia chi noi bo. Xem `docs/url-policy.md`.
+         *
+         *     URL duoc luu o DANG CHUAN HOA, khong phai chuoi goc.
+         */
+        post: operations["adminCreateApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications/{applicationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Chi tiet ung dung (quan tri)
+         * @description Yeu cau `catalog:read`.
+         */
+        get: operations["adminGetApplication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Sua metadata ung dung
+         * @description Yeu cau `catalog:manage`.
+         *
+         *     KHONG sua duoc `key` (bat bien) va KHONG sua duoc `status` (co duong rieng, can
+         *     permission khac). Truong la trong body bi BO QUA im lang.
+         *
+         *     URL moi van di qua chinh sach URL.
+         */
+        patch: operations["adminUpdateApplication"];
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications/{applicationId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Doi trang thai vong doi
+         * @description Yeu cau `catalog:publish` — permission RIENG, khong phai `catalog:manage`.
+         *
+         *     Vi sao tach: dua app sang `active` la mo mot `launch_url` cho nguoi dung bam vao.
+         *     Do la hanh dong co he qua ben ngoai, khac han viec sua mo ta o trang thai nhap.
+         *     Nguoi soan noi dung va nguoi quyet dinh phat hanh khong nhat thiet la mot.
+         *
+         *     Chuyen tiep hop le:
+         *         draft  -> active
+         *         active -> inactive
+         *         inactive -> active
+         *
+         *     KHONG quay lai `draft`: app da tung `active` nghia la nguoi dung da thay no va co
+         *     the da co du lieu usage. Dua ve `draft` tao ra trang thai "chua tung phat hanh"
+         *     cho mot thu da phat hanh — dau vet lich su noi doi. Muon go thi dung `inactive`.
+         */
+        post: operations["adminChangeApplicationStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications/{applicationId}/redirect-uris": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Allowlist redirect URI cua mot ung dung
+         * @description Yeu cau `catalog:read`.
+         */
+        get: operations["adminListRedirectUris"];
+        put?: never;
+        /**
+         * Them mot redirect URI vao allowlist
+         * @description Yeu cau `catalog:manage`.
+         *
+         *     DAY LA BE MAT NHAY CAM NHAT CUA CATALOG. Redirect URI quyet dinh noi authorization
+         *     code duoc gui toi sau khi nguoi dung dang nhap. Mot entry sai nghia la code — va
+         *     qua do la phien cua nguoi dung — roi vao tay nguoi khac.
+         *
+         *     So khop CHINH XAC tung ky tu: khong wildcard, khong prefix, khong subdomain.
+         *     URI di qua cung chinh sach URL nhu `launchUrl` va duoc luu o DANG CHUAN HOA —
+         *     neu khong, phep so khop cua IdP se truot khi chuoi khac nhau nhung tro cung noi.
+         */
+        post: operations["adminAddRedirectUri"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications/{applicationId}/redirect-uris/{redirectUriId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Go mot redirect URI khoi allowlist
+         * @description Yeu cau `catalog:manage`.
+         *
+         *     Day la cho DUY NHAT trong catalog thuc su XOA dong — moi noi khac doi `status`.
+         *     Ly do: allowlist la tap gia tri duoc phep O THOI DIEM HIEN TAI, khong phai lich su.
+         *     Giu mot URI "da go" trong bang se doi moi truy van so khop phai nho loc no ra, va
+         *     quen mot lan la lo hong.
+         *
+         *     Dau vet lich su nam o `audit_events` — gia tri da xoa duoc ghi vao `details`.
+         *
+         *     Request mang BODY du la `DELETE`: `reason` bat buoc cho nhat ky kiem toan.
+         */
+        delete: operations["adminRemoveRedirectUri"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications/{applicationId}/features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Feature cua mot ung dung
+         * @description Yeu cau `catalog:read`.
+         */
+        get: operations["adminListFeatures"];
+        put?: never;
+        /**
+         * Tao feature moi
+         * @description Yeu cau `catalog:manage`. Feature moi luon o trang thai `draft`.
+         *
+         *     Feature la thu ma ENTITLEMENT o P4 se cap quyen len: plan khong cap "toan bo app A"
+         *     ma cap tung feature. Vi vay `key` cua feature cung BAT BIEN, cung ly do voi `key`
+         *     cua application.
+         *
+         *     `key` on dinh TRONG PHAM VI app — hai app khac nhau duoc phep trung key.
+         */
+        post: operations["adminCreateFeature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications/{applicationId}/features/{featureId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Sua metadata feature
+         * @description Yeu cau `catalog:manage`. KHONG sua duoc `key` va `status`.
+         */
+        patch: operations["adminUpdateFeature"];
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications/{applicationId}/features/{featureId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Doi trang thai feature
+         * @description Yeu cau `catalog:publish` — cung ly do voi application: bat mot feature nghia la
+         *     plan co the cap quyen len no va nguoi dung co the dung no.
+         *
+         *     Dung CHUNG may trang thai voi application: `draft` -> `active` <-> `inactive`,
+         *     khong quay lai `draft`.
+         */
+        post: operations["adminChangeFeatureStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/audit": {
         parameters: {
             query?: never;
@@ -490,6 +768,62 @@ export interface components {
         AdminReason: {
             reason: string;
         };
+        /**
+         * @description View cho nguoi dung cuoi. CO Y khong co `status`: nguoi dung chi thay app `active`,
+         *     nen truong do khong mang thong tin gi ngoai viec lo ra he thong co trang thai khac.
+         */
+        PublicApplication: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            displayName: string;
+            description: string | null;
+            imageUrl: string | null;
+            /**
+             * @description Da qua chinh sach URL va da chuan hoa. Frontend dung NGUYEN chuoi nay, khong
+             *     ghep host/path tu input nguoi dung.
+             */
+            launchUrl: string;
+        };
+        AdminApplication: {
+            /** Format: uuid */
+            id: string;
+            key: string;
+            displayName: string;
+            description: string | null;
+            imageUrl: string | null;
+            launchUrl: string;
+            /** @enum {string} */
+            status: "draft" | "active" | "inactive";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        RedirectUri: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            purpose: "login" | "logout";
+            /** @description Da chuan hoa. So khop CHINH XAC tung ky tu, khong wildcard. */
+            uri: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        Feature: {
+            /** Format: uuid */
+            id: string;
+            /** @description On dinh trong PHAM VI application va bat bien. Entitlement (P4) tham chieu no. */
+            key: string;
+            displayName: string;
+            description: string | null;
+            /** @enum {string} */
+            status: "draft" | "active" | "inactive";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         AuditEvent: {
             /** Format: uuid */
             id: string;
@@ -663,6 +997,8 @@ export interface components {
         };
     };
     parameters: {
+        FeatureId: string;
+        ApplicationId: string;
         AccountId: string;
         /**
          * @description UUID để truy vết. Không gửi thì server tự sinh.
@@ -1060,6 +1396,696 @@ export interface operations {
                 };
             };
             /** @description Không tìm thấy phiên thuộc account này. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listPublicApplications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sach app dang phat hanh, sap theo ten hien thi. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicApplication"][];
+                };
+            };
+            /** @description Thieu phien hoac phien khong hop le. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getPublicApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chi tiet app. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicApplication"];
+                };
+            };
+            /** @description Thieu phien hoac phien khong hop le. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay, HOAC ton tai nhung chua phat hanh. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminListApplications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sach app, sap theo `key`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApplication"][];
+                };
+            };
+            /** @description Thieu permission `catalog:read`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminCreateApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description Machine key ON DINH va BAT BIEN. Policy request, plan grant va du lieu
+                     *     usage tham chieu no. Khong co duong sua sau khi tao, ke ca cho quan tri.
+                     */
+                    key: string;
+                    displayName: string;
+                    description?: string | null;
+                    imageUrl?: string | null;
+                    launchUrl: string;
+                    /** @description Bat buoc — ghi vao nhat ky kiem toan. */
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da tao, o trang thai `draft`. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+            /**
+             * @description Thieu `reason`, `key` sai dinh dang, hoac URL khong dat chinh sach (khong phai
+             *     https / host chua allowlist / co userinfo).
+             */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description `key` da duoc dung. Key KHONG tai su dung duoc. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminGetApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Chi tiet app. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminApplication"];
+                };
+            };
+            /** @description Thieu permission `catalog:read`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminUpdateApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    displayName?: string;
+                    description?: string | null;
+                    imageUrl?: string | null;
+                    launchUrl?: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da cap nhat. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Thieu `reason` hoac URL khong dat chinh sach. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:manage`, hoac thieu/sai CSRF token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminChangeApplicationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "active" | "inactive";
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da doi trang thai. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Chuyen tiep khong hop le, hoac thieu `reason`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:publish`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminListRedirectUris: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sach URI. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectUri"][];
+                };
+            };
+            /** @description Thieu permission `catalog:read`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminAddRedirectUri: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    purpose: "login" | "logout";
+                    uri: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da them. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+            /** @description URI khong dat chinh sach, `purpose` sai, hoac thieu `reason`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay ung dung. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description URI da co trong allowlist voi cung `purpose`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminRemoveRedirectUri: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+                redirectUriId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da go. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Thieu `reason`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /**
+             * @description Khong tim thay URI TRONG ung dung nay. Tra 404 ca khi URI ton tai nhung thuoc
+             *     ung dung khac — moi route rang buoc theo `applicationId`.
+             */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminListFeatures: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sach feature, sap theo `key`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Feature"][];
+                };
+            };
+            /** @description Thieu permission `catalog:read`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminCreateFeature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    key: string;
+                    displayName: string;
+                    description?: string | null;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da tao, o trang thai `draft`. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+            /** @description `key` sai dinh dang hoac thieu `reason`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay ung dung. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description `key` da ton tai TRONG ung dung nay. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminUpdateFeature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+                featureId: components["parameters"]["FeatureId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    displayName?: string;
+                    description?: string | null;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da cap nhat. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Thieu `reason`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay feature TRONG ung dung nay. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminChangeFeatureStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+                featureId: components["parameters"]["FeatureId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "active" | "inactive";
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da doi trang thai. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Chuyen tiep khong hop le hoac thieu `reason`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:publish`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay feature TRONG ung dung nay. */
             404: {
                 headers: {
                     [name: string]: unknown;
