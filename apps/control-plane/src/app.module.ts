@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AccountModule } from './modules/account/account.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
+import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { DatabaseModule } from './shared/database.module.js';
@@ -21,6 +22,13 @@ import { DatabaseModule } from './shared/database.module.js';
  * (API tài khoản của user, bảo vệ bằng WebSessionGuard).
  */
 @Module({
-  imports: [DatabaseModule, HealthModule, IdentityModule, AccountModule, AdminModule],
+  imports: [
+    DatabaseModule,
+    HealthModule,
+    IdentityModule,
+    AccountModule,
+    AdminModule,
+    CatalogModule,
+  ],
 })
 export class AppModule {}

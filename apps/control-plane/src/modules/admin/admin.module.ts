@@ -17,5 +17,8 @@ import { RbacService } from './rbac.service.js';
   imports: [IdentityModule],
   controllers: [AdminController, AuditController, RbacController],
   providers: [AdminService, RbacService, AdminPermissionGuard],
+  // Export guard để module khác (Catalog) dùng làm guard mà không phải khai lại provider —
+  // guard là capability của Admin, module khác chỉ tiêu thụ.
+  exports: [AdminPermissionGuard],
 })
 export class AdminModule {}

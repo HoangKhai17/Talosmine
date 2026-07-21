@@ -13,6 +13,13 @@ export interface AuditEntry {
   action: string;
   targetType: string;
   targetId?: string | undefined;
+  /**
+   * Định danh con người đọc được của đối tượng (ví dụ `key` của application).
+   *
+   * Lưu KÈM `targetId` chứ không thay thế: id là khoá liên kết, còn key là thứ đọc log
+   * mà hiểu ngay đang nói về app nào mà không phải tra bảng.
+   */
+  targetKey?: string | undefined;
   reason?: string | undefined;
   correlationId?: string | undefined;
   details?: Record<string, unknown> | undefined;
@@ -41,6 +48,7 @@ export async function appendAuditEvent(executor: Executor, entry: AuditEntry): P
     action: entry.action,
     targetType: entry.targetType,
     targetId: entry.targetId ?? null,
+    targetKey: entry.targetKey ?? null,
     reason: entry.reason ?? null,
     correlationId: entry.correlationId ?? null,
     details: entry.details ?? null,
