@@ -1,128 +1,540 @@
 /*
- * Trang chính (demo). Xem docs/frontend-css-rules.md.
+ * Trang chủ — bố cục theo wireframe Figma của chủ dự án.
  *
- * Đây là DEMO layout do tôi tự dựng theo quy chuẩn UI — chủ dự án sẽ thay bằng Figma sau.
- * Cấu trúc bám token nên đổi layout không phải viết lại CSS từ đầu.
+ * Mọi giá trị lấy từ token trong globals.css. Không có màu/px thô ở đây
+ * (docs/frontend-css-rules.md). Đổi quy chuẩn = sửa globals.css, file này giữ nguyên.
+ *
+ * Quy ước lưới: --grid-columns là 4 (mobile) / 8 (tablet) / 12 (desktop). Nhờ đó phần lớn
+ * khối chỉ cần MỘT dòng `grid-column: span N` là tự đổi số cột theo breakpoint, không cần
+ * media query riêng.
  */
 
+/* ── Thông báo bản dựng ───────────────────────────────────────────────────────
+ * Dải này tồn tại vì nội dung bên dưới là dữ liệu mẫu. Xoá nó khi danh mục ứng dụng
+ * thật (DEC-B01) đã có. */
+.draftBanner {
+  background-color: var(--color-bg-secondary);
+  border-bottom: var(--border-default);
+  padding-block: var(--space-3);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
 .hero {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  /* Heading → Description: 16–24px theo quy chuẩn. */
   gap: var(--space-6);
   max-width: 720px;
 }
 
-/* Description → Button: 24–32px. Dùng margin riêng vì gap của hero là 24px. */
-.heroActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
+.heroLead {
+  max-width: 560px;
 }
 
-.buttonPrimary {
-  display: inline-block;
-  padding: var(--space-3) var(--space-6);
-  border: 1px solid var(--color-button-primary);
+/* Thẻ <search> là landmark, không mang bố cục — nó chỉ cần chiếm đủ bề ngang cho form. */
+.searchWrap {
+  display: block;
+  width: 100%;
+}
+
+.searchForm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 640px;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-bg-primary);
+}
+
+.searchForm:focus-within {
+  border-color: var(--color-border-hover);
+}
+
+.searchIcon {
+  flex: none;
+  color: var(--color-text-tertiary);
+}
+
+/* Input trần: viền và bo góc thuộc về khung bao ngoài, nếu không sẽ có hai đường viền
+ * lồng nhau. */
+.searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding-block: var(--space-2);
+  outline: none;
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.searchSubmit {
+  flex: none;
+  border: none;
   border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-5);
   background-color: var(--color-button-primary);
   color: var(--color-button-text);
-  text-decoration: none;
   cursor: pointer;
 }
 
-.buttonSecondary {
-  display: inline-block;
-  padding: var(--space-3) var(--space-6);
+.popular {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.popularLabel {
+  color: var(--color-text-secondary);
+  margin-right: var(--space-1);
+}
+
+/* Chip cũng là thẻ <button>: chúng sẽ điền vào ô tìm kiếm khi có backend. Dùng <span>
+ * thì bàn phím không tới được. */
+.chip {
   border: var(--border-default);
-  border-radius: var(--radius-button);
-  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-tag);
+  padding: var(--space-1) var(--space-3);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip:hover {
+  border-color: var(--color-border-hover);
   color: var(--color-text-primary);
-  text-decoration: none;
+}
+
+/* ── Dải logo đối tác ─────────────────────────────────────────────────────── */
+.partnerStrip {
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+  padding: var(--space-5) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* Vùng cuộn ngang. Wireframe có mũi tên hai bên; ở bản thô này dùng cuộn tự nhiên —
+ * carousel có nút cần JS và state, để lại khi chốt tương tác. */
+.partnerTrack {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  gap: var(--space-8);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.partnerTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.partnerItem {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 220px;
+  color: var(--color-text-tertiary);
+}
+
+.partnerLogo {
+  flex: none;
+  width: var(--space-10);
+  height: var(--space-10);
+  border-radius: var(--radius-button);
+  background-color: var(--color-border-default);
+}
+
+.partnerArrow {
+  flex: none;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: var(--border-default);
+  border-radius: var(--radius-tag);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  display: grid;
+  place-items: center;
   cursor: pointer;
 }
 
-.buttonSecondary:hover {
-  border: var(--border-hover);
+.partnerArrow:hover {
+  border-color: var(--color-border-hover);
 }
 
-/* Section header → Card grid: 40px theo quy chuẩn. */
+/* ── Chip thống kê ────────────────────────────────────────────────────────── */
+.statsRow {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-6);
+}
+
+.statsChip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  border: var(--border-default);
+  border-radius: var(--radius-tag);
+  padding: var(--space-2) var(--space-5);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+.statsDivider {
+  color: var(--color-text-tertiary);
+}
+
+/* ── Tiêu đề section ──────────────────────────────────────────────────────── */
 .sectionHeader {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin-bottom: var(--space-10);
-  max-width: 720px;
 }
 
-.cardGrid {
+.sectionHeaderCenter {
+  composes: sectionHeader;
+  align-items: center;
+  text-align: center;
+}
+
+/* Hàng tiêu đề có link "Xem tất cả" ở mép phải. */
+.sectionHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.viewAll {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.viewAll:hover {
+  color: var(--color-text-primary);
+}
+
+/* ── Lưới chung ───────────────────────────────────────────────────────────── */
+.grid {
   display: grid;
   gap: var(--grid-gap);
-  /* Mobile 4 cột → mỗi card chiếm cả hàng. Tablet 8 → 2 card. Desktop 12 → 3 card.
-   * Viết bằng token nên không cần media query ở đây. */
   grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
 }
 
-.card {
-  /* Card chiếm trọn số cột của breakpoint hiện tại: mobile 4/4, tablet 4/8 (2 card),
-   * desktop 4/12 (3 card). Một dòng, không media query. */
+/* 1 cột mobile (4/4) · 2 cột tablet (4/8) · 3 cột desktop (4/12) — không media query. */
+.colThird {
   grid-column: span 4;
+}
+
+/* 1 · 2 · 4 cột. */
+.colQuarter {
+  grid-column: span 4;
+}
+
+@media (min-width: 1280px) {
+  .colQuarter {
+    grid-column: span 3;
+  }
+}
+
+/* ── Thẻ ──────────────────────────────────────────────────────────────────── */
+.card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-6);
   border: var(--border-default);
   border-radius: var(--radius-card);
   background-color: var(--color-bg-primary);
+  overflow: hidden;
 }
 
 .card:hover {
-  border: var(--border-hover);
+  border-color: var(--color-border-hover);
+}
+
+/* Khung ảnh. `aspect-ratio` giữ mọi thẻ cùng chiều cao ảnh mà không cần ảnh thật —
+ * quan trọng ở bản thô này vì chưa có ảnh nào. */
+.thumb {
+  aspect-ratio: 16 / 10;
+  background-color: var(--color-bg-secondary);
+  border-bottom: var(--border-default);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-tertiary);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  flex: 1 1 auto;
 }
 
 .cardMeta {
   margin-top: auto;
   padding-top: var(--space-4);
-}
-
-/* Tiêu đề bảng điều khiển (trạng thái đã đăng nhập). Hẹp hơn hero vì không có
- * nhiệm vụ thuyết phục — người dùng đã ở trong hệ thống rồi. */
-.dashboardHeader {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-bottom: var(--space-10);
-  max-width: 720px;
-}
-
-/* Đẩy link hành động xuống đáy card để nhiều card cạnh nhau thẳng hàng dù độ dài
- * mô tả khác nhau. */
-.cardAction {
-  margin-top: auto;
-  padding-top: var(--space-4);
+  color: var(--color-text-tertiary);
 }
 
 .tag {
-  display: inline-block;
-  padding: var(--space-1) var(--space-3);
+  align-self: flex-start;
   border: var(--border-default);
   border-radius: var(--radius-tag);
+  padding: var(--space-1) var(--space-3);
+  background-color: var(--color-bg-secondary);
   color: var(--color-text-secondary);
-  width: fit-content;
 }
 
-.callout {
-  padding: var(--space-6);
+/* ── Ô danh mục ───────────────────────────────────────────────────────────── */
+.categoryCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-5);
+  background-color: var(--color-bg-primary);
+  text-decoration: none;
+}
+
+.categoryCard:hover {
+  border-color: var(--color-border-hover);
+}
+
+.categoryThumb {
+  aspect-ratio: 3 / 2;
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-secondary);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-tertiary);
+}
+
+/* ── Blog: 1 thẻ lớn + 2 thẻ xếp chồng ────────────────────────────────────── */
+.blogGrid {
+  display: grid;
+  gap: var(--grid-gap);
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+}
+
+.blogFeature {
+  grid-column: span 4;
+}
+
+.blogSide {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--grid-gap);
+}
+
+@media (min-width: 768px) {
+  .blogFeature {
+    grid-column: span 8;
+  }
+  .blogSide {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .blogFeature {
+    grid-column: span 7;
+  }
+  .blogSide {
+    grid-column: span 5;
+  }
+}
+
+/* Thẻ blog phụ: ảnh bên trái, chữ bên phải. */
+.blogSideCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background-color: var(--color-bg-primary);
+  flex: 1 1 0;
+}
+
+.blogSideCard:hover {
+  border-color: var(--color-border-hover);
+}
+
+@media (min-width: 480px) {
+  .blogSideCard {
+    grid-template-columns: 40% minmax(0, 1fr);
+  }
+
+  .blogSideCard .thumb {
+    aspect-ratio: auto;
+    height: 100%;
+    border-bottom: none;
+    border-right: var(--border-default);
+  }
+}
+
+/* ── FAQ ──────────────────────────────────────────────────────────────────── */
+.faqGrid {
+  display: grid;
+  gap: var(--grid-gap);
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  align-items: start;
+}
+
+.faqIntro {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.faqList {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .faqIntro {
+    grid-column: span 8;
+  }
+  .faqList {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .faqIntro {
+    grid-column: span 5;
+  }
+  .faqList {
+    grid-column: span 7;
+  }
+}
+
+/* Dùng <details>/<summary> thay vì tự dựng accordion bằng JS: mở/đóng, bàn phím và
+ * trình đọc màn hình đều có sẵn và đúng chuẩn. */
+.faqItem {
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
+  padding: var(--space-5);
+}
+
+.faqItem[open] {
+  background-color: var(--color-bg-secondary);
+}
+
+.faqQuestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  cursor: pointer;
+  list-style: none;
+  font-weight: var(--weight-caption);
+}
+
+/* Ẩn mũi tên mặc định của trình duyệt để dùng icon riêng. */
+.faqQuestion::-webkit-details-marker {
+  display: none;
+}
+
+.faqMarker {
+  flex: none;
+  color: var(--color-text-secondary);
+  transition: transform 150ms ease;
+}
+
+.faqItem[open] .faqMarker {
+  transform: rotate(180deg);
+}
+
+.faqAnswer {
+  padding-top: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.askButton {
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.askButton:hover {
+  border-color: var(--color-border-hover);
+}
+
+/* ── CTA gửi công cụ ──────────────────────────────────────────────────────── */
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
   border: var(--border-default);
   border-radius: var(--radius-cta);
   background-color: var(--color-bg-secondary);
+  padding: var(--space-6);
+}
+
+.ctaThumb {
+  flex: none;
+  width: var(--space-20);
+  height: var(--space-16);
+  border-radius: var(--radius-button);
+  background-color: var(--color-border-default);
+  display: grid;
+  place-items: center;
+  color: var(--color-text-tertiary);
+}
+
+.ctaText {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ctaButton {
+  flex: none;
+  border: none;
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-button-primary);
+  color: var(--color-button-text);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .card,
-  .buttonSecondary {
+  .categoryCard,
+  .blogSideCard,
+  .chip {
     transition: border-color 150ms ease;
   }
 }

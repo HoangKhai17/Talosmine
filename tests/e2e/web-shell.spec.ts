@@ -29,13 +29,21 @@ test.describe('(user) shell', () => {
 });
 
 test.describe('admin bị deny tại server', () => {
-  test('request trực tiếp /admin trả 403, KHÔNG phải redirect', async ({ request }) => {
+  test('khách chưa đăng nhập bị đưa về trang chủ NGAY TẠI SERVER', async ({ request }) => {
     // Dùng `request` (HTTP thuần, không chạy JS) để chứng minh việc chặn xảy ra ở
     // SERVER. Nếu chỉ ẩn ở client thì request này sẽ trả 200 và test fail — đó chính
     // là điều cần bắt.
+    //
+    // Vì sao về `/` chứ không phải `/auth?returnTo=/admin`: đá sang trang đăng nhập là
+    // xác nhận với người lạ rằng khu quản trị nằm đúng đường dẫn đó. Về trang chủ khiến
+    // `/admin` không phân biệt được với một URL không tồn tại.
+    //
+    // Người ĐÃ đăng nhập nhưng thiếu permission nhận 403 — ca đó cần một phiên hợp lệ
+    // nên được kiểm ở test integration, không phải ở đây.
     const response = await request.get('/admin', { maxRedirects: 0 });
 
-    expect(response.status()).toBe(403);
+    expect(response.status()).toBe(307);
+    expect(new URL(response.headers().location, 'http://localhost').pathname).toBe('/');
   });
 
   test('/admin không trả nội dung admin nào', async ({ request }) => {
@@ -43,7 +51,7 @@ test.describe('admin bị deny tại server', () => {
     const body = (await response.text()).toLowerCase();
 
     // Trang deny không được lộ cấu trúc admin cho người chưa có quyền.
-    expect(body).not.toContain('dashboard');
+    expect(body).not.toContain('quản trị');
     expect(body).not.toContain('<nav');
   });
 });

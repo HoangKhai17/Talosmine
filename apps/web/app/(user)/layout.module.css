@@ -1,8 +1,9 @@
 /*
- * Shell của route group (user). Xem docs/frontend-css-rules.md.
- * Mọi giá trị lấy từ token — không có màu/px thô ở đây.
+ * Shell của route group (user) — header + footer.
+ * Xem docs/frontend-css-rules.md. Mọi giá trị lấy từ token, không có màu/px thô.
  */
 
+/* ── Header ───────────────────────────────────────────────────────────────── */
 .header {
   border-bottom: var(--border-default);
   background-color: var(--color-bg-primary);
@@ -11,32 +12,54 @@
   z-index: 10;
 }
 
+/*
+ * Mobile: xếp thành hai hàng (thương hiệu + tài khoản ở trên, nav cuộn ngang ở dưới).
+ * Từ 768px trở lên mới xếp một hàng — dưới ngưỡng đó nhồi hết vào một hàng sẽ vỡ.
+ */
 .bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-6);
+  gap: var(--space-3) var(--space-6);
   min-height: var(--space-16);
+  padding-block: var(--space-3);
 }
 
 .brand {
   font-weight: var(--weight-heading);
   letter-spacing: -0.01em;
   text-decoration: none;
+  margin-right: auto;
+}
+
+.primaryNav {
+  order: 3;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.primaryNav::-webkit-scrollbar {
+  display: none;
 }
 
 .navList {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: max-content;
 }
 
 .navLink {
   display: inline-block;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-button);
+  border: none;
+  background: none;
   color: var(--color-text-secondary);
   text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .navLink:hover {
@@ -44,21 +67,147 @@
   background-color: var(--color-bg-secondary);
 }
 
+.accountArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Nút hành động chính của header — viền thay vì nền đặc, khớp wireframe. */
+.submitButton {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.submitButton:hover {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-bg-secondary);
+}
+
+@media (min-width: 768px) {
+  .bar {
+    flex-wrap: nowrap;
+  }
+
+  .primaryNav {
+    order: 0;
+    width: auto;
+    overflow-x: visible;
+  }
+
+  /* Nav về giữa: thương hiệu đẩy trái, khu tài khoản đẩy phải. */
+  .brand {
+    margin-right: 0;
+  }
+
+  .primaryNav {
+    margin-inline: auto;
+  }
+}
+
 .main {
   min-height: 60vh;
 }
 
+/* ── Footer ───────────────────────────────────────────────────────────────── */
 .footer {
   border-top: var(--border-default);
   background-color: var(--color-bg-secondary);
-  padding-block: var(--space-10);
-  margin-top: var(--space-24);
+  padding-block: var(--space-16);
+  margin-top: var(--space-20);
+}
+
+.footerInner {
+  display: grid;
+  gap: var(--space-10) var(--grid-gap);
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+}
+
+/* Cột thương hiệu rộng gấp đôi cột link — khớp wireframe. */
+.footerBrand {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 320px;
+}
+
+.footerCol {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .footerBrand {
+    grid-column: span 8;
+  }
+  .footerCol {
+    grid-column: span 2;
+  }
+}
+
+@media (min-width: 1280px) {
+  .footerBrand {
+    grid-column: span 4;
+  }
+  .footerCol {
+    grid-column: span 2;
+  }
+}
+
+.footerLinks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.footerLink {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.footerLink:hover {
+  color: var(--color-text-primary);
+}
+
+/*
+ * Mục chưa có trang tương ứng. Hiển thị mờ hơn và KHÔNG phải link — một link dẫn tới 404
+ * tệ hơn một dòng chữ không bấm được.
+ */
+.footerPending {
+  color: var(--color-text-tertiary);
+}
+
+.socialList {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.socialIcon {
+  display: grid;
+  place-items: center;
+  width: var(--space-10);
+  height: var(--space-10);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-secondary);
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .navLink {
+  .navLink,
+  .submitButton,
+  .footerLink {
     transition:
       color 150ms ease,
-      background-color 150ms ease;
+      background-color 150ms ease,
+      border-color 150ms ease;
   }
 }

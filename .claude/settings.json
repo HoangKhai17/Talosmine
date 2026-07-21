@@ -54,7 +54,20 @@
       "Bash(curl -s -o /dev/null -w \"GET /v1/me/permissions \\(khong session\\): %{http_code}\\\\n\" http://localhost:3100/v1/me/permissions)",
       "Bash(curl -s \"http://localhost:3100/v1/admin/accounts?query=test\" -w \"\\\\nsearch khong session: %{http_code}\\\\n\" -o /dev/null)",
       "Bash(curl -s \"http://localhost:3001/api/.well-known/sign-in-exp\")",
-      "Bash(curl -s \"http://localhost:3001/sign-in\")"
+      "Bash(curl -s \"http://localhost:3001/sign-in\")",
+      "Bash(curl -s http://localhost:3100/health/live)",
+      "Bash(curl -s -o /dev/null -w \"health: %{http_code}\\\\n\" http://localhost:3100/health/ready)",
+      "Bash(curl -s -o /dev/null -w \"/account: %{http_code}\\\\n\" http://localhost:3000/account)",
+      "Bash(curl -s -o /dev/null --max-time 2 http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"3000: %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"3100: %{http_code}\\\\n\" http://localhost:3100/health/ready)",
+      "PowerShell(foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { $procId = $c[0].OwningProcess; Write-Output \"Ha tien trinh mo coi PID $procId tren cong $port\"; & taskkill /PID $procId /T /F 2>&1 | Out-Null } }; Start-Sleep -Seconds 2; foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; Write-Output \"cong $port : $\\(if \\($c\\) {'VAN BI CHIEM'} else {'trong'}\\)\" })",
+      "Bash(curl -s -o /dev/null --max-time 2 http://localhost:3100/health/ready)",
+      "Bash(curl -s -o /dev/null -w \"web 3000        : %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"admin           : %{http_code}\\\\n\" http://localhost:3000/admin)",
+      "Bash(curl -s -o /dev/null -w \"api health      : %{http_code}\\\\n\" http://localhost:3100/health/ready)",
+      "PowerShell(Start-Sleep -Seconds 3; foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { & taskkill /PID $c[0].OwningProcess /T /F 2>&1 | Out-Null } }; Start-Sleep -Seconds 2; foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; Write-Output \"cong $port : $\\(if \\($c\\) {'con chiem'} else {'trong'}\\)\" })",
+      "PowerShell(foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { & taskkill /PID $c[0].OwningProcess /T /F 2>&1 | Out-Null } }; Start-Sleep -Seconds 2; foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; Write-Output \"cong $port : $\\(if \\($c\\) {'con chiem'} else {'trong'}\\)\" })"
     ],
     "additionalDirectories": [
       "\\tmp"

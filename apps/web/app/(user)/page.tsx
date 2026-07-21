@@ -1,237 +1,443 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import Link from 'next/link';
-import { callControlPlane } from '../../server/control-plane-boundary';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
-  title: 'Talosmine — Trang chính',
+  title: 'Talosmine — Khám phá công cụ để xây dựng và phát triển',
 };
 
 /**
- * Trang chính. Hiển thị KHÁC NHAU tuỳ đã đăng nhập hay chưa:
+ * Trang chủ — bố cục thô theo wireframe Figma của chủ dự án.
  *
- *   - Khách vãng lai: giới thiệu + nút đăng nhập.
- *   - Đã đăng nhập: bảng điều khiển với lối tắt tới tài khoản và phiên.
+ * TRẠNG THÁI: đây là BẢN DỰNG BỐ CỤC. Mọi nội dung trong các lưới là dữ liệu mẫu, đúng
+ * như wireframe ("Tool name", "Lorem ipsum"). Nguồn dữ liệu thật là Catalog — thuộc P3,
+ * và còn chờ DEC-B01 (danh sách ứng dụng của Hub).
  *
- * Vì sao không tách thành hai route: `/` là nơi người dùng quay về sau khi đăng nhập và
- * sau khi đăng xuất. Một route duy nhất tự đổi nội dung tránh được vòng redirect và tránh
- * việc bookmark trỏ tới trang "sai vai".
+ * Vì sao dữ liệu mẫu được đặt thành hằng số có tiền tố `PLACEHOLDER_` và dùng nhãn trung
+ * tính ("Tên công cụ") thay vì bịa tên thương hiệu: để không ai — kể cả người review sau
+ * này — nhầm nó là dữ liệu thật. Khi Catalog sẵn sàng, thay ba mảng dưới đây bằng lời gọi
+ * API là xong; bố cục không phải sửa.
  *
- * Nội dung cố ý chỉ mô tả capability ĐÃ TỒN TẠI THẬT. Không dựng danh sách ứng dụng giả:
- * danh sách app là dữ liệu của Catalog (chưa implement), và dữ liệu giả sẽ che mất việc
- * backend chưa có contract.
+ * Trang này là Server Component thuần: không đọc phiên đăng nhập. Trạng thái đăng nhập
+ * do header trong `layout.tsx` xử lý.
  */
-export default async function UserHomePage() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('__Host-talos_session')?.value;
-  const viewer = await readViewer(sessionToken);
 
-  if (viewer) {
-    return <SignedInHome name={viewer.name} isAdmin={viewer.isAdmin} />;
-  }
+const PLACEHOLDER_POPULAR = ['Từ khoá 1', 'Từ khoá 2', 'Từ khoá 3', 'Từ khoá 4', 'Từ khoá 5'];
 
-  return <PublicHome />;
+const PLACEHOLDER_TOOLS = [
+  { id: 't1', name: 'Tên công cụ' },
+  { id: 't2', name: 'Tên công cụ' },
+  { id: 't3', name: 'Tên công cụ' },
+];
+
+const PLACEHOLDER_CATEGORIES = [
+  { id: 'c1', name: 'Danh mục' },
+  { id: 'c2', name: 'Danh mục' },
+  { id: 'c3', name: 'Danh mục' },
+  { id: 'c4', name: 'Danh mục' },
+  { id: 'c5', name: 'Danh mục' },
+  { id: 'c6', name: 'Danh mục' },
+  { id: 'c7', name: 'Danh mục' },
+];
+
+const PLACEHOLDER_NEWS = [
+  { id: 'n1' },
+  { id: 'n2' },
+  { id: 'n3' },
+  { id: 'n4' },
+  { id: 'n5' },
+  { id: 'n6' },
+];
+
+const PLACEHOLDER_FAQ = [
+  'Talosmine là gì và hoạt động thế nào?',
+  'Làm sao để gửi công cụ của tôi lên đây?',
+  'Danh mục được kiểm duyệt như thế nào?',
+  'Tôi có cần tài khoản để sử dụng không?',
+];
+
+export default function UserHomePage() {
+  return (
+    <>
+      <div className={styles.draftBanner}>
+        <p className="container typeBodySmall">
+          Bản dựng bố cục — nội dung trong các lưới là dữ liệu mẫu, chưa nối danh mục thật.
+        </p>
+      </div>
+
+      <Hero />
+      <PartnerStrip />
+      <ToolsSection />
+      <CategoriesSection />
+      <WhatsNewSection />
+      <BlogSection />
+      <FaqSection />
+      <SubmitCta />
+    </>
+  );
 }
 
-function SignedInHome({ name, isAdmin }: { name: string | null; isAdmin: boolean }) {
+function Hero() {
   return (
     <section className="section">
       <div className="container">
-        <div className={styles.dashboardHeader}>
-          <h1 className="typeH1">{name ? `Chào ${name}` : 'Chào bạn'}</h1>
-          <p className="typeBodyLarge textSecondary">Đây là bảng điều khiển tài khoản của bạn.</p>
-        </div>
+        <div className={styles.hero}>
+          <h1 className="typeHero">Khám phá công cụ tốt nhất để xây dựng và phát triển</h1>
 
-        <ul className={styles.cardGrid}>
-          <li className={styles.card}>
-            <h2 className="typeCardTitle">Hồ sơ tài khoản</h2>
-            <p className="typeBodySmall textSecondary">
-              Xem và sửa tên hiển thị, ngôn ngữ, múi giờ. Địa chỉ thư điện tử do hệ thống đăng nhập
-              quản lý.
-            </p>
-            <p className={styles.cardAction}>
-              <Link className="typeBodySmall" href="/account">
-                Mở hồ sơ →
-              </Link>
-            </p>
-          </li>
-
-          <li className={styles.card}>
-            <h2 className="typeCardTitle">Phiên đăng nhập</h2>
-            <p className="typeBodySmall textSecondary">
-              Xem các thiết bị đang đăng nhập và thu hồi phiên lạ. Thu hồi có hiệu lực ngay trên máy
-              chủ.
-            </p>
-            <p className={styles.cardAction}>
-              <Link className="typeBodySmall" href="/account/sessions">
-                Xem phiên →
-              </Link>
-            </p>
-          </li>
+          <p className={`typeBodyLarge textSecondary ${styles.heroLead}`}>
+            Danh mục được tuyển chọn gồm những công cụ và tài nguyên tốt nhất dành cho người sáng
+            tạo, lập trình viên và đội ngũ đang tăng trưởng.
+          </p>
 
           {/*
-            Ô quản trị chỉ hiện với người có quyền. Đây thuần tuý là UX — gõ thẳng `/admin`
-            vẫn bị proxy, RSC layout và Control Plane chặn độc lập.
+            Form tìm kiếm chưa có đích đến: Catalog thuộc P3. Để `action` trống thì trình
+            duyệt sẽ gửi về chính trang này thay vì báo lỗi — hành vi vô hại cho bản dựng.
           */}
-          {isAdmin ? (
-            <li className={styles.card}>
-              <h2 className="typeCardTitle">Khu quản trị</h2>
-              <p className="typeBodySmall textSecondary">
-                Tra cứu tài khoản, khoá hoặc mở khoá, thu hồi phiên. Mọi thao tác cần lý do và được
-                ghi nhật ký.
-              </p>
-              <p className={styles.cardAction}>
-                <Link className="typeBodySmall" href="/admin">
-                  Vào khu quản trị →
-                </Link>
-              </p>
-            </li>
-          ) : null}
-        </ul>
+          {/* `<search>` là landmark chuẩn — tương đương role="search" nhưng bằng thẻ thật. */}
+          <search className={styles.searchWrap}>
+            <form className={styles.searchForm}>
+              <SearchIcon />
+              <input
+                className={`typeBody ${styles.searchInput}`}
+                type="search"
+                name="q"
+                placeholder="Tìm công cụ, danh mục hoặc từ khoá…"
+                aria-label="Tìm kiếm công cụ"
+              />
+              <button type="submit" className={`typeBodySmall ${styles.searchSubmit}`}>
+                Tìm
+              </button>
+            </form>
+          </search>
 
-        <div className={styles.callout}>
-          <h2 className="typeH3">Ứng dụng sẽ xuất hiện ở đây</h2>
-          <p className="typeBody textSecondary">
-            Danh mục ứng dụng, gói dịch vụ và hạn mức sử dụng thuộc các giai đoạn sau. Hiện tại nền
-            tảng mới có danh tính, tài khoản và phiên làm việc.
-          </p>
+          <div className={styles.popular}>
+            <span className={`typeBodySmall ${styles.popularLabel}`}>Tìm nhiều:</span>
+            {PLACEHOLDER_POPULAR.map((term) => (
+              <button key={term} type="button" className={`typeBodySmall ${styles.chip}`}>
+                {term}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function PublicHome() {
+function PartnerStrip() {
   return (
-    <>
-      <section className="section">
-        <div className="container">
-          <div className={styles.hero}>
-            <span className={`typeCaption ${styles.tag}`}>Bản dựng nền tảng</span>
-            <h1 className="typeHero">Một tài khoản cho mọi công cụ</h1>
-            <p className="typeBodyLarge textSecondary">
-              Talosmine là điểm truy cập tập trung: đăng nhập một lần, quản lý tài khoản và phiên
-              làm việc ở một nơi, rồi mở các công cụ được cấp quyền.
-            </p>
-            <div className={styles.heroActions}>
-              <Link className={`typeBody ${styles.buttonPrimary}`} href="/auth">
-                Đăng nhập
-              </Link>
+    <div className="container">
+      <div className={styles.partnerStrip}>
+        <button type="button" className={styles.partnerArrow} aria-label="Xem các mục trước">
+          <ChevronIcon direction="left" />
+        </button>
+
+        {/*
+          `aria-hidden` vì đây hoàn toàn là chỗ giữ chỗ: chưa có đối tác thật nào. Trình đọc
+          màn hình đọc "Logo, Lorem ipsum" bảy lần là nhiễu chứ không phải thông tin.
+        */}
+        <div className={styles.partnerTrack} aria-hidden="true">
+          {['p1', 'p2', 'p3', 'p4', 'p5'].map((id) => (
+            <div key={id} className={styles.partnerItem}>
+              <div className={styles.partnerLogo} />
+              <div>
+                <p className="typeBodySmall">Logo</p>
+                <p className="typeCaption">Mô tả ngắn về đối tác</p>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
-      </section>
 
-      <section className="section">
-        <div className="container">
-          <div className={styles.sectionHeader}>
-            <h2 className="typeH2">Nền tảng đã sẵn sàng</h2>
-            <p className="typeBody textSecondary">
-              Những phần dưới đây đã được xây và kiểm chứng. Các tính năng còn lại sẽ bổ sung theo
-              từng giai đoạn.
-            </p>
-          </div>
-
-          <ul className={styles.cardGrid}>
-            <li className={styles.card}>
-              <h3 className="typeCardTitle">Tài khoản tập trung</h3>
-              <p className="typeBodySmall textSecondary">
-                Mỗi người dùng có một hồ sơ duy nhất, liên kết an toàn với nhà cung cấp danh tính.
-                Không ghép tài khoản theo địa chỉ thư điện tử.
-              </p>
-              <p className={`typeCaption textTertiary ${styles.cardMeta}`}>Đã hoàn thành</p>
-            </li>
-
-            <li className={styles.card}>
-              <h3 className="typeCardTitle">Phiên làm việc</h3>
-              <p className="typeBodySmall textSecondary">
-                Xem các thiết bị đang đăng nhập và thu hồi bất kỳ phiên nào. Máy chủ chỉ lưu dấu vân
-                của phiên, không lưu mã phiên.
-              </p>
-              <p className={`typeCaption textTertiary ${styles.cardMeta}`}>Đã hoàn thành</p>
-            </li>
-
-            <li className={styles.card}>
-              <h3 className="typeCardTitle">Quản trị và nhật ký</h3>
-              <p className="typeBodySmall textSecondary">
-                Phân quyền theo vai trò, mặc định từ chối. Mọi thao tác quản trị đều cần lý do và
-                được ghi lại để đối soát.
-              </p>
-              <p className={`typeCaption textTertiary ${styles.cardMeta}`}>Đã hoàn thành</p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="container">
-          <div className={styles.callout}>
-            <h2 className="typeH3">Đang trong quá trình xây dựng</h2>
-            <p className="typeBody textSecondary">
-              Giao diện này là bản dựng để kiểm chứng hệ thống thiết kế. Bố cục sẽ được thay bằng
-              thiết kế chính thức.
-            </p>
-          </div>
-        </div>
-      </section>
-    </>
+        <button type="button" className={styles.partnerArrow} aria-label="Xem các mục tiếp theo">
+          <ChevronIcon direction="right" />
+        </button>
+      </div>
+    </div>
   );
 }
 
-interface Viewer {
-  name: string | null;
-  isAdmin: boolean;
+function ToolsSection() {
+  return (
+    <section className="section">
+      <div className="container">
+        <div className={styles.statsRow}>
+          <p className={`typeBodySmall ${styles.statsChip}`}>
+            <span>10.000+ công cụ</span>
+            <span className={styles.statsDivider}>·</span>
+            <span>500+ danh mục</span>
+            <span className={styles.statsDivider}>·</span>
+            <span>Cập nhật mỗi ngày</span>
+          </p>
+        </div>
+
+        <div className={styles.sectionHeaderCenter}>
+          <h2 className="typeH2">Tìm đúng công cụ cho mọi công việc</h2>
+          <p className="typeBody textSecondary">
+            Khám phá, tìm kiếm và chọn ra công cụ phù hợp cho công việc, học tập, sáng tạo và phát
+            triển sản phẩm.
+          </p>
+        </div>
+
+        <ul className={styles.grid}>
+          {PLACEHOLDER_TOOLS.map((tool) => (
+            <li key={tool.id} className={styles.colThird}>
+              <article className={styles.card}>
+                <div className={styles.thumb}>
+                  <ImageIcon />
+                </div>
+                <div className={styles.cardBody}>
+                  <h3 className="typeCardTitle">{tool.name}</h3>
+                  <p className="typeBodySmall textSecondary">
+                    Mô tả ngắn về công cụ sẽ hiển thị ở đây khi danh mục được kết nối.
+                  </p>
+                  <p className={`typeCaption ${styles.cardMeta}`}>Danh mục · Lượt dùng</p>
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
 }
 
-/**
- * Đọc danh tính người xem cho trang chủ.
+function CategoriesSection() {
+  return (
+    <section className="section">
+      <div className="container">
+        <div className={styles.sectionHeaderRow}>
+          <h2 className="typeH2">Khám phá danh mục</h2>
+          <Link className={`typeBodySmall ${styles.viewAll}`} href="/categories">
+            Xem tất cả →
+          </Link>
+        </div>
+
+        <ul className={styles.grid}>
+          {PLACEHOLDER_CATEGORIES.map((category) => (
+            <li key={category.id} className={styles.colQuarter}>
+              <div className={styles.categoryCard}>
+                <div className={styles.categoryThumb}>
+                  <ImageIcon />
+                </div>
+                <h3 className="typeBodySmall">{category.name}</h3>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function WhatsNewSection() {
+  return (
+    <section className="section">
+      <div className="container">
+        <div className={styles.sectionHeaderCenter}>
+          <h2 className="typeH2">Có gì mới</h2>
+          <p className="typeBody textSecondary">
+            Mỗi ngày chúng tôi bổ sung công cụ và nền tảng mới để bạn không bỏ lỡ thứ đáng thử.
+          </p>
+        </div>
+
+        <ul className={styles.grid}>
+          {PLACEHOLDER_NEWS.map((item) => (
+            <li key={item.id} className={styles.colThird}>
+              <article className={styles.card}>
+                <div className={styles.thumb}>
+                  <ImageIcon />
+                </div>
+                <div className={styles.cardBody}>
+                  <span className={`typeCaption ${styles.tag}`}>Nhãn</span>
+                  <h3 className="typeBodySmall">
+                    Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật
+                  </h3>
+                  <p className="typeCaption textTertiary">Ngày đăng · Tác giả</p>
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function BlogSection() {
+  return (
+    <section className="section">
+      <div className="container">
+        <div className={styles.sectionHeaderRow}>
+          <h2 className="typeH2">Blog</h2>
+          <Link className={`typeBodySmall ${styles.viewAll}`} href="/blog">
+            Xem tất cả →
+          </Link>
+        </div>
+
+        <div className={styles.blogGrid}>
+          <article className={`${styles.card} ${styles.blogFeature}`}>
+            <div className={styles.thumb}>
+              <ImageIcon />
+            </div>
+            <div className={styles.cardBody}>
+              <p className="typeCaption textTertiary">Ngày đăng</p>
+              <h3 className="typeCardTitle">
+                Tiêu đề bài viết nổi bật sẽ hiển thị ở đây khi có nội dung thật
+              </h3>
+              <p className="typeBodySmall textSecondary">
+                Đoạn mở đầu của bài viết. Nội dung này đến từ hệ thống blog, sẽ được kết nối ở giai
+                đoạn sau.
+              </p>
+            </div>
+          </article>
+
+          <div className={styles.blogSide}>
+            {['b1', 'b2'].map((id) => (
+              <article key={id} className={styles.blogSideCard}>
+                <div className={styles.thumb}>
+                  <ImageIcon />
+                </div>
+                <div className={styles.cardBody}>
+                  <p className="typeCaption textTertiary">Ngày đăng</p>
+                  <h3 className="typeBodySmall">
+                    Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật
+                  </h3>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FaqSection() {
+  return (
+    <section className="section">
+      <div className="container">
+        <div className={styles.faqGrid}>
+          <div className={styles.faqIntro}>
+            <h2 className="typeH2">Câu hỏi thường gặp</h2>
+            <p className="typeBody textSecondary">
+              Giải đáp nhanh những thắc mắc phổ biến, tập hợp ở một nơi.
+            </p>
+            <button type="button" className={`typeBody ${styles.askButton}`}>
+              Đặt câu hỏi
+            </button>
+          </div>
+
+          <div className={styles.faqList}>
+            {PLACEHOLDER_FAQ.map((question, index) => (
+              // Mục đầu mở sẵn (theo wireframe) để người dùng thấy ngay dạng câu trả lời.
+              <details key={question} className={styles.faqItem} open={index === 0}>
+                <summary className={`typeBody ${styles.faqQuestion}`}>
+                  {question}
+                  <ChevronIcon direction="down" className={styles.faqMarker} />
+                </summary>
+                <p className={`typeBodySmall ${styles.faqAnswer}`}>
+                  Nội dung trả lời sẽ được biên soạn khi hệ thống có đủ tính năng. Phần này hiện chỉ
+                  minh hoạ bố cục.
+                </p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SubmitCta() {
+  return (
+    <section className="section">
+      <div className="container">
+        <div className={styles.cta}>
+          <div className={styles.ctaThumb} aria-hidden="true">
+            <ImageIcon />
+          </div>
+          <div className={styles.ctaText}>
+            <h2 className="typeCardTitle">Đăng công cụ của bạn để được tìm thấy</h2>
+            <p className="typeBodySmall textSecondary">
+              Tiếp cận hàng nghìn người đang tìm kiếm giải pháp phù hợp.
+            </p>
+          </div>
+          <Link className={`typeBody ${styles.ctaButton}`} href="/submit">
+            Gửi công cụ
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── Icon ───────────────────────────────────────────────────────────────────
+ * SVG viết thẳng tại chỗ thay vì cài thư viện icon: chỉ cần ba hình, và mọi thư viện
+ * icon đều nằm ngoài bảng D của decision register.
  *
- * Mọi lỗi đều trả `null` = coi như khách vãng lai. Trang chủ KHÔNG được sập chỉ vì Control
- * Plane chậm hay phiên vừa hết hạn — nó là nơi người dùng quay về khi có sự cố.
+ * `currentColor` để icon ăn theo màu chữ của phần tử cha — đổi token màu là icon đổi theo.
  */
-async function readViewer(sessionToken: string | undefined): Promise<Viewer | null> {
-  if (!sessionToken) return null;
 
-  try {
-    const accountResponse = await callControlPlane({
-      method: 'GET',
-      path: '/v1/me/account',
-      sessionToken,
-    });
-    if (!accountResponse.ok) return null;
+function SearchIcon() {
+  return (
+    <svg
+      className={styles.searchIcon}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-    const account = (await accountResponse.json()) as {
-      displayName?: unknown;
-      email?: unknown;
-    };
+function ImageIcon() {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="m4 17 5-5 4 4 3-2 4 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
-    const name =
-      typeof account.displayName === 'string' && account.displayName !== ''
-        ? account.displayName
-        : typeof account.email === 'string' && account.email !== ''
-          ? account.email
-          : null;
+function ChevronIcon({
+  direction,
+  className,
+}: {
+  direction: 'left' | 'right' | 'down';
+  // `| undefined` tường minh: tsconfig bật `exactOptionalPropertyTypes`, nên "có thể bỏ
+  // qua" và "có thể là undefined" là hai chuyện khác nhau.
+  className?: string | undefined;
+}) {
+  const rotation = direction === 'left' ? 90 : direction === 'right' ? -90 : 0;
 
-    // Quyền admin quyết định có hiện ô "Khu quản trị". Lỗi ở bước này chỉ làm ẩn ô đó,
-    // không ảnh hưởng phần còn lại của trang.
-    let isAdmin = false;
-    try {
-      const permissionsResponse = await callControlPlane({
-        method: 'GET',
-        path: '/v1/me/permissions',
-        sessionToken,
-      });
-      if (permissionsResponse.ok) {
-        const data = (await permissionsResponse.json()) as { permissions?: unknown };
-        isAdmin = Array.isArray(data.permissions) && data.permissions.length > 0;
-      }
-    } catch {
-      isAdmin = false;
-    }
-
-    return { name, isAdmin };
-  } catch {
-    return null;
-  }
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+      style={{ transform: `rotate(${rotation}deg)` }}
+    >
+      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
