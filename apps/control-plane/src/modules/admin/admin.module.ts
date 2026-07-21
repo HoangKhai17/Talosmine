@@ -3,6 +3,9 @@ import { IdentityModule } from '../identity/identity.module.js';
 import { AdminController } from './admin.controller.js';
 import { AdminService } from './admin.service.js';
 import { AdminPermissionGuard } from './admin-permission.guard.js';
+import { AuditController } from './audit.controller.js';
+import { RbacController } from './rbac.controller.js';
+import { RbacService } from './rbac.service.js';
 
 /**
  * Module Admin — RBAC và API quản trị (modular.md mục 11.7).
@@ -12,7 +15,7 @@ import { AdminPermissionGuard } from './admin-permission.guard.js';
  */
 @Module({
   imports: [IdentityModule],
-  controllers: [AdminController],
-  providers: [AdminService, AdminPermissionGuard],
+  controllers: [AdminController, AuditController, RbacController],
+  providers: [AdminService, RbacService, AdminPermissionGuard],
 })
 export class AdminModule {}

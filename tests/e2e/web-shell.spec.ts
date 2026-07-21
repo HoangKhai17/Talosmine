@@ -94,6 +94,26 @@ test.describe('CSP (DEC-T12)', () => {
     expect(csp).not.toContain('*');
   });
 
+  test('KHÔNG có vi phạm CSP nào khi render trang', async ({ page }) => {
+    // Vì sao cần: các test CSP khác chỉ đọc HEADER — chúng chứng minh chính sách được gửi
+    // đi, chứ không chứng minh trang tuân thủ nó. Một `style={{ }}` inline vẫn lọt qua
+    // typecheck, lint và mọi test hiện có, rồi im lặng bị chặn ở production.
+    //
+    // Đó là chuyện đã xảy ra thật (2026-07-21): icon dùng inline transform nên mũi tên FAQ
+    // không xoay ở production build, và không test nào bắt được.
+    const violations: string[] = [];
+    page.on('console', (message) => {
+      if (/Content Security Policy/i.test(message.text())) {
+        violations.push(message.text());
+      }
+    });
+
+    await page.goto('/');
+    await expect(page.locator('main')).toHaveCount(1);
+
+    expect(violations, ['Vi phạm CSP:', ...violations].join('\n')).toEqual([]);
+  });
+
   test('có header an toàn cơ bản', async ({ request }) => {
     const response = await request.get('/');
     expect(response.headers()['x-content-type-options']).toBe('nosniff');

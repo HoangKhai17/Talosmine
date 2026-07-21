@@ -87,7 +87,8 @@ export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
-  delete: <T>(path: string) => request<T>('DELETE', path),
+  // DELETE có body: thu hồi phân quyền bắt buộc kèm `reason` cho nhật ký kiểm toán.
+  delete: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),
 };
 
 /** Khớp `OwnAccountView` của Control Plane (apps/control-plane/.../account.service.ts). */
@@ -131,5 +132,39 @@ export interface AdminSessionView {
   createdAt: string;
   lastSeenAt: string;
   expiresAt: string;
+  revokedAt: string | null;
+}
+
+/** Một dòng nhật ký kiểm toán. Khớp `AuditEventView` của Control Plane. */
+export interface AuditEventView {
+  id: string;
+  action: string;
+  actorType: string;
+  actorAccountId: string | null;
+  targetType: string;
+  targetId: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface AdminRoleView {
+  id: string;
+  key: string;
+  displayName: string;
+  description: string | null;
+  status: string;
+  permissions: string[];
+}
+
+export interface AdminAssignmentView {
+  id: string;
+  accountId: string;
+  accountEmail: string | null;
+  accountDisplayName: string | null;
+  roleId: string;
+  roleKey: string;
+  validFrom: string;
+  validUntil: string | null;
+  reason: string;
   revokedAt: string | null;
 }

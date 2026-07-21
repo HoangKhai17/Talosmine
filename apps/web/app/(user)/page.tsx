@@ -344,7 +344,7 @@ function FaqSection() {
             <details key={question} className={styles.faqItem} open={index === 0}>
               <summary className={`typeBody ${styles.faqQuestion}`}>
                 {question}
-                <ChevronIcon direction="down" className={styles.faqMarker} />
+                <ChevronIcon className={styles.faqMarker} />
               </summary>
               <p className={`typeBodySmall ${styles.faqAnswer}`}>
                 Nội dung trả lời sẽ được biên soạn khi hệ thống có đủ tính năng. Phần này hiện chỉ
@@ -458,17 +458,7 @@ function EnvelopeIcon() {
   );
 }
 
-function ChevronIcon({
-  direction,
-  className,
-}: {
-  direction: 'left' | 'right' | 'down';
-  // `| undefined` tường minh: tsconfig bật `exactOptionalPropertyTypes`, nên "có thể bỏ
-  // qua" và "có thể là undefined" là hai chuyện khác nhau.
-  className?: string | undefined;
-}) {
-  const rotation = direction === 'left' ? 90 : direction === 'right' ? -90 : 0;
-
+function ChevronIcon({ className }: { className?: string | undefined }) {
   return (
     <svg
       className={className}
@@ -479,7 +469,6 @@ function ChevronIcon({
       stroke="currentColor"
       strokeWidth="2"
       aria-hidden="true"
-      style={{ transform: `rotate(${rotation}deg)` }}
     >
       <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>

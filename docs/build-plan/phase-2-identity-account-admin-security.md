@@ -2,14 +2,65 @@
 
 ## 1. Trạng thái
 
-`in_progress` — bắt đầu 2026-07-17, chia làm **hai nửa**:
+`in_progress` — bắt đầu 2026-07-17. Cập nhật 2026-07-21.
 
-- **Nửa A (không cần Auth0) — đang làm.** DB migrations, backend logic, OpenAPI, test bằng token tự phát.
-  - ✅ **Nhóm identity DB xong**: `accounts`, `external_identities`, `web_sessions` (migration 0001–0003) — apply thật trên DB sạch, verify bằng hành vi: mọi CHECK constraint chặn đúng, unique `(issuer,subject)` chống trùng danh tính, FK `ON DELETE RESTRICT`, tách role (runtime không DELETE). 88 test xanh (thêm 3 test integration P2).
-  - ⏳ Còn: admin RBAC + audit_events (cần chốt **permission catalog**), backend logic (account provisioning, session), OpenAPI contract.
-- **Nửa B (cần Auth0 tenant của chủ dự án) — chờ.** Wiring OIDC callback thật, login E2E, Google login. Chặn bởi `‹cần chốt: DEC-B03 Auth0 tenant/issuer/audience›`.
+**IdP đã đổi:** DEC-T22 thay Auth0 bằng **Logto self-host** (lý do: dữ liệu xác thực phải
+nằm trên hạ tầng do chủ dự án kiểm soát). DEC-B03 (Auth0 tenant) do đó không còn là blocker.
+Client OIDC của BFF là `openid-client@6.8.4` — DEC-T24.
 
-**Lưu ý kỷ luật:** P1 chưa `verified` chính thức (chờ CI push — điều 7). Nửa A của P2 (DB) bắt đầu song song vì rủi ro thấp và reviewer đã xác nhận code P1 vững; nhưng phần phụ thuộc login sẽ chỉ khép sau khi P1 verified và Auth0 tenant sẵn sàng.
+### Đã xong và kiểm chứng
+
+| Hạng mục | Bằng chứng |
+|---|---|
+| 7 bảng DB + trigger append-only + tách role runtime/migration | migration 0001–0006, test SQL trực tiếp |
+| Provisioning race-safe theo `(issuer, subject)` | test 8 request song song → đúng 1 account |
+| Phiên: tạo/kiểm/thu hồi, chỉ lưu hash SHA-256 | |
+| Luồng OIDC đầy đủ PKCE + `state` + `nonce` | đăng nhập thật chạy được |
+| Control Plane **tự verify chữ ký** id_token qua JWKS | không tin claim do BFF khai |
+| CSRF hai lớp (double-submit ở BFF + đối chiếu hash ở Control Plane) | 5 negative test |
+| Chặn account bị khoá ở **2 điểm** (lúc cấp phiên và mỗi lần dùng phiên) | 4 negative test |
+| RBAC deny-by-default, 6 permission khoá bằng CHECK | chặn 3 lớp: proxy → RSC → guard |
+| **Chốt chặn leo thang đặc quyền** | test: admin quyền thấp không cấp được quyền cao |
+| Bootstrap admin qua script CLI | đã chạy thật |
+| Audit ghi trong cùng transaction với mutation | audit lỗi → rollback |
+| UI người dùng: hồ sơ, phiên đăng nhập | |
+| UI quản trị: tài khoản, nhật ký, vai trò & phân quyền | 3 tab |
+| OpenAPI đồng bộ, `openapi:drift` xanh | |
+
+### Còn lại — chờ quyết định của chủ dự án
+
+1. **Recovery flow** (§18). Phải **hoặc** hiện thực, **hoặc** ra quyết định loại bỏ rồi cập
+   nhật đồng bộ `docs/index.md`, `docs/modular.md`, OpenAPI/browser contract và build plan.
+   Có quyết định mà chưa cập nhật đủ 4 nguồn thì P2 vẫn `blocked`.
+
+   Ghi chú kỹ thuật: Logto **có sẵn** luồng quên mật khẩu qua email, nhưng hiện chưa dùng
+   được — chưa có email connector (`connectors` rỗng) và định danh đăng nhập mới chỉ là
+   `username`, chưa bật email. Cần chọn nhà cung cấp email; đây là quyết định có ràng buộc
+   về nơi lưu dữ liệu, giống lý do đã bỏ Auth0.
+
+2. **CAPTCHA** (DEC-T23, `proposed`). Logto có bảng `captcha_providers` nên hỗ trợ sẵn;
+   cần chốt dùng nhà cung cấp nào.
+
+3. **Xoay Logto App Secret** — secret hiện tại đã lộ trong hội thoại, phải thay.
+
+### Việc kỹ thuật còn thiếu (không chờ ai)
+
+- Test e2e cho luồng đăng nhập thật và các trang mới. Hiện 48 test e2e mới phủ shell,
+  CSP và lưới cột — chưa phủ đăng nhập, tài khoản, phiên, khu quản trị.
+- Negative test OIDC theo §14: `state`/`nonce`/PKCE sai, callback replay, open redirect.
+- Observability §17: correlation ID xuyên BFF → API → audit (Control Plane đã có, BFF chưa
+  nối); metric cho callback/session revoke/RBAC deny — **chưa có gì**.
+- Rollback rehearsal §17.
+
+### Ghi chú phạm vi
+
+Trang chủ đã dựng lưới công cụ, danh mục, blog, FAQ, newsletter với **dữ liệu mẫu**. Phần
+danh mục thực chất thuộc **P3** (§10 của phase-3). Bố cục làm trước là có chủ đích; sang P3
+chỉ thay các mảng `PLACEHOLDER_*` bằng lời gọi API, **không dựng lại layout**.
+
+Blog và "gửi công cụ" đến từ thiết kế Figma nhưng **không nằm trong bất kỳ phase nào** của
+build plan P0–P9. Đây là khoảng trống thật giữa thiết kế và kế hoạch, cần chủ dự án quyết
+định đưa vào phase nào hoặc bỏ khỏi thiết kế.
 
 `TẮC`/`CẠN LƯỢT` là kết quả vòng kiểm chứng theo `AGENTS.md`, không phải phase status.
 

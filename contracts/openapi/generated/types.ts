@@ -225,6 +225,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tra cuu nhat ky kiem toan
+         * @description Yeu cau permission `audit:read`.
+         *
+         *     CHI DOC, va khong the khac: bang `audit_events` bi trigger o tang database chan moi
+         *     `UPDATE`/`DELETE`, con runtime role khong duoc cap `TRUNCATE`. Ba lop do doc lap
+         *     nhau, nen API khong co duong sua vi ha tang ben duoi cung khong cho phep.
+         *
+         *     Khong tra cot `details` - truong do co the chua du lieu chua loc.
+         */
+        get: operations["adminListAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rbac/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Danh sach vai tro quan tri
+         * @description Yeu cau `admin_role:manage` - ke ca duong doc. Biet ai dang co quyen gi la thong tin
+         *     nhay cam: no cho biet nen tan cong tai khoan nao.
+         */
+        get: operations["adminListRoles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rbac/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Danh muc permission he thong ho tro
+         * @description Danh muc DONG, khoa bang CHECK trong migration 0005. Tra ve hang so chu khong doc
+         *     DB - nghia la giao dien khong bao gio hien mot permission ma database se tu choi.
+         */
+        get: operations["adminListPermissionCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rbac/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Danh sach phan quyen da cap
+         * @description Gom ca assignment DA THU HOI. Lich su "ai tung co quyen gi, trong khoang nao, ai thu
+         *     hoi" la toan bo gia tri cua bang nay.
+         */
+        get: operations["adminListAssignments"];
+        put?: never;
+        /**
+         * Cap vai tro cho mot tai khoan
+         * @description CHOT CHAN LEO THANG DAC QUYEN: nguoi goi phai TU CO moi permission cua vai tro duoc
+         *     cap. Thieu rang buoc nay thi mot admin quyen thap co the tu nang minh len toan quyen
+         *     qua hai buoc, va moi gioi han quyen khac deu vo nghia.
+         *
+         *     Ghi assignment va audit trong CUNG mot transaction.
+         */
+        post: operations["adminAssignRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/rbac/assignments/{assignmentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Thu hoi mot phan quyen
+         * @description Thu hoi = ghi ba cot `revoked_*`, KHONG xoa dong.
+         *
+         *     Request mang BODY du la `DELETE`: `reason` bat buoc cho nhat ky kiem toan, va HTTP
+         *     khong cam `DELETE` co body.
+         */
+        delete: operations["adminRevokeAssignment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/accounts": {
         parameters: {
             query?: never;
@@ -369,6 +489,57 @@ export interface components {
          */
         AdminReason: {
             reason: string;
+        };
+        AuditEvent: {
+            /** Format: uuid */
+            id: string;
+            action: string;
+            /**
+             * @description `system` nghia la he thong tu lam (provisioning, script van hanh) - KHONG phai
+             *     mot nguoi. Gan nham trach nhiem cho nguoi la ket qua te nhat cua audit log.
+             * @enum {string}
+             */
+            actorType: "account" | "system";
+            /** Format: uuid */
+            actorAccountId: string | null;
+            targetType: string;
+            /** Format: uuid */
+            targetId: string | null;
+            reason: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminRole: {
+            /** Format: uuid */
+            id: string;
+            /** @description Machine key on dinh. Code tham chieu key, khong tham chieu displayName. */
+            key: string;
+            displayName: string;
+            description: string | null;
+            /** @enum {string} */
+            status: "active" | "inactive";
+            permissions: string[];
+        };
+        AdminAssignment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            accountId: string;
+            accountEmail: string | null;
+            accountDisplayName: string | null;
+            /** Format: uuid */
+            roleId: string;
+            roleKey: string;
+            /** Format: date-time */
+            validFrom: string;
+            /** Format: date-time */
+            validUntil: string | null;
+            reason: string;
+            /**
+             * Format: date-time
+             * @description Khac null nghia la da thu hoi. Dong van giu de doi soat lich su.
+             */
+            revokedAt: string | null;
         };
         /** @description View account cho admin — có thêm `disabledAt` so với view của user. */
         AdminAccount: {
@@ -889,6 +1060,277 @@ export interface operations {
                 };
             };
             /** @description Không tìm thấy phiên thuộc account này. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminListAuditEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                targetId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sach su kien, moi nhat truoc. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AuditEvent"][];
+                        /** Format: date-time */
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description Thieu phien hoac phien khong hop le. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `audit:read`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminListRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Vai tro kem permission cua tung vai tro. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRole"][];
+                };
+            };
+            /** @description Thieu phien hoac phien khong hop le. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `admin_role:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminListPermissionCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh muc permission. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        permissions: string[];
+                    };
+                };
+            };
+            /** @description Thieu permission `admin_role:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminListAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sach phan quyen. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAssignment"][];
+                };
+            };
+            /** @description Thieu permission `admin_role:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminAssignRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    roleId: string;
+                    /** Format: uuid */
+                    accountId: string;
+                    reason: string;
+                    /** Format: date-time */
+                    validUntil?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da cap. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+            /** @description Thieu `reason`, ID sai dinh dang, hoac vai tro dang bi vo hieu hoa. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /**
+             * @description Thieu permission `admin_role:manage`, HOAC dang co cap quyen ma chinh minh
+             *     khong co.
+             */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay vai tro hoac tai khoan. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Tai khoan da co vai tro nay va con hieu luc. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminRevokeAssignment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Da thu hoi. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Thieu `reason`. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `admin_role:manage`, hoac thieu/sai CSRF token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay phan quyen dang hieu luc. */
             404: {
                 headers: {
                     [name: string]: unknown;

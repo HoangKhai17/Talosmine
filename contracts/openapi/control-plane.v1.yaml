@@ -428,6 +428,262 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /v1/admin/audit:
+    get:
+      tags: [admin]
+      operationId: adminListAuditEvents
+      summary: Tra cuu nhat ky kiem toan
+      description: |
+        Yeu cau permission `audit:read`.
+
+        CHI DOC, va khong the khac: bang `audit_events` bi trigger o tang database chan moi
+        `UPDATE`/`DELETE`, con runtime role khong duoc cap `TRUNCATE`. Ba lop do doc lap
+        nhau, nen API khong co duong sua vi ha tang ben duoi cung khong cho phep.
+
+        Khong tra cot `details` - truong do co the chua du lieu chua loc.
+      security:
+        - webSession: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: targetId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Danh sach su kien, moi nhat truoc.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AuditEvent'
+                  nextCursor:
+                    type: [string, 'null']
+                    format: date-time
+        '401':
+          description: Thieu phien hoac phien khong hop le.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `audit:read`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/rbac/roles:
+    get:
+      tags: [admin]
+      operationId: adminListRoles
+      summary: Danh sach vai tro quan tri
+      description: |
+        Yeu cau `admin_role:manage` - ke ca duong doc. Biet ai dang co quyen gi la thong tin
+        nhay cam: no cho biet nen tan cong tai khoan nao.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Vai tro kem permission cua tung vai tro.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminRole'
+        '401':
+          description: Thieu phien hoac phien khong hop le.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `admin_role:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/rbac/permissions:
+    get:
+      tags: [admin]
+      operationId: adminListPermissionCatalog
+      summary: Danh muc permission he thong ho tro
+      description: |
+        Danh muc DONG, khoa bang CHECK trong migration 0005. Tra ve hang so chu khong doc
+        DB - nghia la giao dien khong bao gio hien mot permission ma database se tu choi.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Danh muc permission.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [permissions]
+                properties:
+                  permissions:
+                    type: array
+                    items: { type: string }
+        '403':
+          description: Thieu permission `admin_role:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/rbac/assignments:
+    get:
+      tags: [admin]
+      operationId: adminListAssignments
+      summary: Danh sach phan quyen da cap
+      description: |
+        Gom ca assignment DA THU HOI. Lich su "ai tung co quyen gi, trong khoang nao, ai thu
+        hoi" la toan bo gia tri cua bang nay.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Danh sach phan quyen.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminAssignment'
+        '403':
+          description: Thieu permission `admin_role:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      tags: [admin]
+      operationId: adminAssignRole
+      summary: Cap vai tro cho mot tai khoan
+      description: |
+        CHOT CHAN LEO THANG DAC QUYEN: nguoi goi phai TU CO moi permission cua vai tro duoc
+        cap. Thieu rang buoc nay thi mot admin quyen thap co the tu nang minh len toan quyen
+        qua hai buoc, va moi gioi han quyen khac deu vo nghia.
+
+        Ghi assignment va audit trong CUNG mot transaction.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roleId, accountId, reason]
+              properties:
+                roleId: { type: string, format: uuid }
+                accountId: { type: string, format: uuid }
+                reason:
+                  type: string
+                  minLength: 1
+                validUntil:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Da cap.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+        '400':
+          description: Thieu `reason`, ID sai dinh dang, hoac vai tro dang bi vo hieu hoa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: |
+            Thieu permission `admin_role:manage`, HOAC dang co cap quyen ma chinh minh
+            khong co.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay vai tro hoac tai khoan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Tai khoan da co vai tro nay va con hieu luc.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/rbac/assignments/{assignmentId}:
+    delete:
+      tags: [admin]
+      operationId: adminRevokeAssignment
+      summary: Thu hoi mot phan quyen
+      description: |
+        Thu hoi = ghi ba cot `revoked_*`, KHONG xoa dong.
+
+        Request mang BODY du la `DELETE`: `reason` bat buoc cho nhat ky kiem toan, va HTTP
+        khong cam `DELETE` co body.
+      security:
+        - webSession: []
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1 }
+      responses:
+        '204':
+          description: Da thu hoi.
+        '400':
+          description: Thieu `reason`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `admin_role:manage`, hoac thieu/sai CSRF token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay phan quyen dang hieu luc.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /v1/admin/accounts:
     get:
       tags: [admin]
@@ -711,6 +967,57 @@ components:
         reason:
           type: string
           minLength: 1
+    AuditEvent:
+      type: object
+      required: [id, action, actorType, actorAccountId, targetType, targetId, reason, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        action: { type: string }
+        actorType:
+          type: string
+          enum: [account, system]
+          description: |
+            `system` nghia la he thong tu lam (provisioning, script van hanh) - KHONG phai
+            mot nguoi. Gan nham trach nhiem cho nguoi la ket qua te nhat cua audit log.
+        actorAccountId: { type: [string, 'null'], format: uuid }
+        targetType: { type: string }
+        targetId: { type: [string, 'null'], format: uuid }
+        reason: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    AdminRole:
+      type: object
+      required: [id, key, displayName, description, status, permissions]
+      properties:
+        id: { type: string, format: uuid }
+        key:
+          type: string
+          description: Machine key on dinh. Code tham chieu key, khong tham chieu displayName.
+        displayName: { type: string }
+        description: { type: [string, 'null'] }
+        status: { type: string, enum: [active, inactive] }
+        permissions:
+          type: array
+          items: { type: string }
+
+    AdminAssignment:
+      type: object
+      required: [id, accountId, accountEmail, accountDisplayName, roleId, roleKey, validFrom, validUntil, reason, revokedAt]
+      properties:
+        id: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+        accountEmail: { type: [string, 'null'] }
+        accountDisplayName: { type: [string, 'null'] }
+        roleId: { type: string, format: uuid }
+        roleKey: { type: string }
+        validFrom: { type: string, format: date-time }
+        validUntil: { type: [string, 'null'], format: date-time }
+        reason: { type: string }
+        revokedAt:
+          type: [string, 'null']
+          format: date-time
+          description: Khac null nghia la da thu hoi. Dong van giu de doi soat lich su.
+
     AdminAccount:
       type: object
       description: View account cho admin — có thêm `disabledAt` so với view của user.

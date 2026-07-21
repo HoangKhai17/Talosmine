@@ -4,6 +4,7 @@ import type { DatabaseClient } from '../../shared/database.js';
 import { DATABASE_CLIENT } from '../../shared/database.module.js';
 import { accounts } from '../account/schema.js';
 import { appendAuditEvent } from '../audit/audit.js';
+import { auditEvents } from '../audit/schema.js';
 import { listAccountSessions, revokeAllAccountSessions } from '../identity/web-session.js';
 
 export interface AdminAccountView {
@@ -13,6 +14,18 @@ export interface AdminAccountView {
   email: string | null;
   emailVerified: boolean;
   disabledAt: string | null;
+  createdAt: string;
+}
+
+/** Một dòng nhật ký. KHÔNG có `details` — trường đó có thể chứa dữ liệu chưa lọc. */
+export interface AuditEventView {
+  id: string;
+  action: string;
+  actorType: string;
+  actorAccountId: string | null;
+  targetType: string;
+  targetId: string | null;
+  reason: string | null;
   createdAt: string;
 }
 
@@ -143,6 +156,56 @@ export class AdminService {
       expiresAt: row.expiresAt.toISOString(),
       revokedAt: row.revokedAt ? row.revokedAt.toISOString() : null,
     }));
+  }
+
+  /**
+   * Tra cứu nhật ký kiểm toán.
+   *
+   * Đây là màn hình trả lời "ai đã làm gì, lúc nào, vì sao" — thứ duy nhất biến thao tác
+   * quản trị thành có trách nhiệm. Bảng `audit_events` là append-only ở tầng DB (trigger
+   * chặn UPDATE/DELETE), nên dữ liệu ở đây không sửa được kể cả bằng SQL trực tiếp.
+   *
+   * Phân trang cursor theo `created_at` giảm dần, cùng lý do với tìm kiếm account.
+   */
+  async listAuditEvents(params: {
+    limit: number;
+    cursor?: string | undefined;
+    targetId?: string | undefined;
+  }): Promise<{ items: AuditEventView[]; nextCursor: string | null }> {
+    const conditions = [];
+    if (params.cursor) {
+      conditions.push(sql`${auditEvents.createdAt} < ${params.cursor}::timestamptz`);
+    }
+    if (params.targetId) {
+      conditions.push(eq(auditEvents.targetId, params.targetId));
+    }
+
+    const rows = await this.database.db
+      .select({
+        id: auditEvents.id,
+        action: auditEvents.action,
+        actorType: auditEvents.actorType,
+        actorAccountId: auditEvents.actorAccountId,
+        targetType: auditEvents.targetType,
+        targetId: auditEvents.targetId,
+        reason: auditEvents.reason,
+        createdAt: auditEvents.createdAt,
+      })
+      .from(auditEvents)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(auditEvents.createdAt))
+      .limit(params.limit + 1);
+
+    const hasMore = rows.length > params.limit;
+    const page = hasMore ? rows.slice(0, params.limit) : rows;
+
+    return {
+      items: page.map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+      })),
+      nextCursor: hasMore ? (page[page.length - 1]?.createdAt.toISOString() ?? null) : null,
+    };
   }
 
   /**

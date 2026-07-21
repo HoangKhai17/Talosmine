@@ -19,8 +19,9 @@ import { csrfTokenFromRequest, readSessionToken } from '../../../../server/sessi
 async function handle(request: Request, segments: string[] | undefined): Promise<Response> {
   const path = `/v1/${(segments ?? []).join('/')}`;
 
-  // Chỉ đọc body cho method có body. GET/DELETE kèm body là nguồn lỗi khó tìm ở fetch.
-  const hasBody = request.method !== 'GET' && request.method !== 'DELETE';
+  // GET không bao giờ có body. DELETE thì CÓ: thu hồi phân quyền bắt buộc kèm `reason`,
+  // và HTTP không cấm DELETE mang body.
+  const hasBody = request.method !== 'GET';
 
   // Request ghi dữ liệu phải qua cửa CSRF trước khi chạm Control Plane.
   const isUnsafe = request.method !== 'GET';
