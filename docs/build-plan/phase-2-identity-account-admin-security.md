@@ -29,14 +29,12 @@ Client OIDC của BFF là `openid-client@6.8.4` — DEC-T24.
 
 ### Còn lại — chờ quyết định của chủ dự án
 
-1. **Recovery flow** (§18). Phải **hoặc** hiện thực, **hoặc** ra quyết định loại bỏ rồi cập
-   nhật đồng bộ `docs/index.md`, `docs/modular.md`, OpenAPI/browser contract và build plan.
-   Có quyết định mà chưa cập nhật đủ 4 nguồn thì P2 vẫn `blocked`.
+1. ~~**Recovery flow**~~ — **ĐÃ CHỐT 2026-07-21 (DEC-B14).** IdP sở hữu; kích hoạt hoãn tới
+   khi có SMTP. Đã đồng bộ `docs/index.md`, decision register và mục này. `docs/modular.md`
+   không đặc tả luồng này và OpenAPI không có endpoint nào, nên không phải sửa.
 
-   Ghi chú kỹ thuật: Logto **có sẵn** luồng quên mật khẩu qua email, nhưng hiện chưa dùng
-   được — chưa có email connector (`connectors` rỗng) và định danh đăng nhập mới chỉ là
-   `username`, chưa bật email. Cần chọn nhà cung cấp email; đây là quyết định có ràng buộc
-   về nơi lưu dữ liệu, giống lý do đã bỏ Auth0.
+   Phần thuộc trách nhiệm Talosmine đã đúng và đủ: không bảng password, không reset token,
+   không gửi thư, không xử lý credential. **Không còn chặn exit gate.**
 
 2. **CAPTCHA** (DEC-T23, `proposed`). Logto có bảng `captcha_providers` nên hỗ trợ sẵn;
    cần chốt dùng nhà cung cấp nào.

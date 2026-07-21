@@ -96,7 +96,7 @@ test.describe('lưới cột trang chủ', () => {
     const geometry = await readGridGeometry(page);
 
     // Bản đồ cột của hero heading, khớp comment trong page.module.css.
-    const span = { desktop: 7, tablet: 6, mobile: 4 }[testInfo.project.name] as number;
+    const span = { desktop: 10, tablet: 6, mobile: 4 }[testInfo.project.name] as number;
 
     const heading = page.locator('h1').first();
     const box = await heading.boundingBox();

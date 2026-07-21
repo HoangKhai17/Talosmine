@@ -7,7 +7,7 @@
  *
  * Bản đồ cột (mobile 4 / tablet 8 / desktop 12):
  *
- *   Hero heading      4 /  6 /  7
+ *   Hero heading      4 /  6 / 10
  *   Hero lead         4 /  6 /  6
  *   Hero search       4 /  7 /  8
  *   Hero popular      4 /  8 /  8
@@ -75,7 +75,7 @@
 
 @media (min-width: 1280px) {
   .heroHeading {
-    grid-column: span 7;
+    grid-column: span 10;
   }
   .heroLead {
     grid-column: span 6;

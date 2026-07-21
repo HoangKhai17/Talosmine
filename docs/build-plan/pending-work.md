@@ -130,7 +130,7 @@ Có bảng tablet thì sửa được cả hai.
 
 | Khối | Đang dùng (mobile/tablet/desktop) |
 |---|---|
-| Hero heading / lead / search | 4-6-7 · 4-6-6 · 4-7-8 |
+| Hero heading / lead / search | 4-6-**10** · 4-6-6 · 4-7-8 |
 | Danh mục (nhịp lặp 7 ô) | 3+5+4 rồi 3+4+3+2 |
 | Blog nổi bật / phụ | 4-8-6 · 4-8-6 |
 | FAQ giới thiệu / danh sách | 4-8-5 · 4-8-7 |

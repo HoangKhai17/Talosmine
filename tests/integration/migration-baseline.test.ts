@@ -323,7 +323,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
     await container?.stop();
   });
 
-  it('apply được và tạo đúng tập bảng P2 hiện tại', async () => {
+  it('apply được và tạo đúng tập bảng hiện tại (P2 + P3)', async () => {
     await applyAllMigrations(sql);
 
     const tables = await sql<{ table_name: string }[]>`
@@ -331,16 +331,23 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
       WHERE table_schema = 'control_plane'
       ORDER BY table_name
     `;
-    // Danh sách CHÍNH XÁC — không thừa không thiếu. Mỗi lần P2 thêm bảng, cập nhật ở đây
-    // là CÓ CHỦ ĐÍCH: test này bắt "bảng lọt vào ngoài ý muốn".
-    // Hiện có: identity (3) + audit (1) + admin RBAC (3) = 7.
+    // Danh sách CHÍNH XÁC — không thừa không thiếu. Cập nhật ở đây mỗi khi thêm bảng là
+    // CÓ CHỦ ĐÍCH: test này bắt "bảng lọt vào ngoài ý muốn".
+    //
+    // P2: identity (3) + audit (1) + admin RBAC (3) = 7
+    // P3: catalog (4) + service identity (1)        = 5
     expect(tables.map((t) => t.table_name)).toEqual([
       'accounts',
       'admin_role_assignments',
       'admin_role_permissions',
       'admin_roles',
+      'application_redirect_uris',
+      'applications',
       'audit_events',
       'external_identities',
+      'features',
+      'service_identities',
+      'usage_metrics',
       'web_sessions',
     ]);
   }, 120_000);
@@ -361,15 +368,19 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
     await expect(sql`DELETE FROM control_plane.audit_events`).rejects.toThrow(/append-only/);
   }, 120_000);
 
-  it('audit_events actor check P2 cấm service actor', async () => {
-    // P2 staging: chỉ 'account'/'system'. Service actor thuộc P3 (khi có service_identities).
+  it('audit_events: service actor phải trỏ tới service identity CÓ THẬT', async () => {
+    // P2 khoá cứng `actor_service_identity_id IS NULL` vì bảng đích chưa tồn tại. P3
+    // (migration 0008) tạo `service_identities` rồi mở actor check kèm FK.
+    //
+    // Sau nâng cấp, service actor KHÔNG còn bị cấm tuyệt đối — nhưng vẫn không thể trỏ
+    // tới một id bịa ra. Chi tiết ở tests/integration/catalog-schema.test.ts.
     await expect(
       sql`
         INSERT INTO control_plane.audit_events
           (id, operation_id, sequence, actor_type, actor_service_identity_id, action, target_type)
         VALUES (gen_random_uuid(), gen_random_uuid(), 0, 'service', gen_random_uuid(), 'x', 'y')
       `,
-    ).rejects.toThrow(/audit_events_actor_check/);
+    ).rejects.toThrow(/audit_events_actor_service_identity_fk/);
   }, 120_000);
 
   it('unique (issuer, subject) chặn trùng danh tính', async () => {

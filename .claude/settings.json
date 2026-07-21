@@ -71,7 +71,11 @@
       "Bash(python3 -)",
       "Bash(echo \"exit=$?\")",
       "Bash(echo \"ma thoat: $?\")",
-      "Bash(grep -vE \"noConsole|Don't use console|console\\\\.error|^\\\\s*[0-9]+\\\\s*│|^\\\\s*>|^\\\\s*\\\\^|^\\\\s*$|^--$|i The use of|i Unsafe fix|Safe fix\")"
+      "Bash(grep -vE \"noConsole|Don't use console|console\\\\.error|^\\\\s*[0-9]+\\\\s*│|^\\\\s*>|^\\\\s*\\\\^|^\\\\s*$|^--$|i The use of|i Unsafe fix|Safe fix\")",
+      "Bash(python3 -c ' *)",
+      "Bash(echo \"sau khi format: $?\")",
+      "Bash(awk '/^## 6\\\\. Deliverables/{p=1} /^## 7\\\\./{p=0} p' docs/build-plan/phase-3-application-catalog.md)",
+      "Bash(awk '/^## 3\\\\. Prerequisites/{p=1} /^## 4\\\\./{p=0} p' docs/build-plan/phase-3-application-catalog.md)"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -92,7 +92,10 @@ Các mũi tên giữa app và Hub biểu thị hợp đồng logic. Giao thức 
 
 ### 3.1. Identity và SSO
 
-- Đăng ký, đăng nhập, đăng xuất và khôi phục quyền truy cập của tài khoản trung tâm.
+- Đăng ký, đăng nhập và đăng xuất của tài khoản trung tâm.
+- Khôi phục quyền truy cập (quên mật khẩu) do **identity provider sở hữu** — Talosmine
+  không lưu password, không phát reset token, không gửi thư. Kích hoạt hoãn tới khi có
+  hạ tầng email (DEC-B14).
 - Phát hành phiên hoặc token để ứng dụng xác minh danh tính người dùng.
 - Quản lý vòng đời credential, khóa tài khoản, thu hồi phiên và các tín hiệu bảo mật.
 - Cung cấp luồng chuyển hướng đăng nhập an toàn giữa các domain.

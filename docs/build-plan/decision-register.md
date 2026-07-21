@@ -343,6 +343,25 @@ rồi trả `id_token`. Phiên vẫn là của Talosmine.
 **Ảnh hưởng:** `@auth0/nextjs-auth0@4.25.0` đã **gỡ khỏi** `apps/web`. DEC-T08 phần đó
 chính thức khép lại.
 
+### DEC-B14 — Recovery flow: IdP sở hữu, **hoãn kích hoạt** *(approved 2026-07-21)*
+
+- **Quyết định của chủ dự án:** khôi phục quyền truy cập (quên mật khẩu) **thuộc trách nhiệm
+  của IdP**. Talosmine không tự xây. Việc **kích hoạt hoãn sang giai đoạn sau** vì chưa cấu
+  hình SMTP cho Logto.
+- **Hệ quả cho P2:** phần thuộc trách nhiệm Talosmine đã hoàn tất và đúng — hệ thống KHÔNG
+  có bảng password, KHÔNG có bảng reset token, KHÔNG gửi thư, KHÔNG xử lý credential. Không
+  có endpoint recovery nào trong OpenAPI, và đó là trạng thái đúng chứ không phải thiếu sót.
+- **Hệ quả cho việc kích hoạt sau này:** cần (1) email connector trong Logto, (2) bật email
+  làm định danh đăng nhập trong Sign-in Experience. Sau hai bước đó, luồng chạy mà **phía
+  Talosmine không phải viết thêm dòng code nào**.
+- **Vẫn phải chốt khi kích hoạt:** nhà cung cấp email (ràng buộc nơi lưu dữ liệu, cùng lý do
+  đã bỏ Auth0 — DEC-T22), và hành vi phiên sau khi đổi mật khẩu (thu hồi hết hay bắt đăng
+  nhập lại). Xem `pending-work.md` mục A1.
+- **Anti-enumeration** là ràng buộc của Logto, không phải của ta: ta không có endpoint nào
+  nhận email để tra cứu, nên không có bề mặt rò rỉ sự tồn tại tài khoản.
+- **Đã đồng bộ:** `docs/index.md` mục 3.1, `docs/modular.md` (không đặc tả luồng này nên
+  không phải sửa), OpenAPI (không có endpoint nào để gỡ), `phase-2-*.md` mục 1.
+
 ## B. Quyết định nghiệp vụ — chờ chủ dự án
 
 Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default hợp lý" vào bất kỳ ô nào dưới đây.
