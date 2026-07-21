@@ -41,6 +41,7 @@ const PLACEHOLDER_TOOLS = [
   { id: 't3', name: 'Tên công cụ' },
 ];
 
+// Bảy ô = đúng MỘT chu kỳ nhịp xen kẽ (3+5+4 rồi 3+4+3+2), tức hai hàng đầy.
 const PLACEHOLDER_CATEGORIES = [
   { id: 'c1', name: 'Danh mục' },
   { id: 'c2', name: 'Danh mục' },
@@ -49,10 +50,11 @@ const PLACEHOLDER_CATEGORIES = [
   { id: 'c5', name: 'Danh mục' },
   { id: 'c6', name: 'Danh mục' },
   { id: 'c7', name: 'Danh mục' },
-  { id: 'c8', name: 'Danh mục' },
 ];
 
 const PLACEHOLDER_NEWS = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6'];
+
+const PLACEHOLDER_PARTNERS = ['p1', 'p2', 'p3', 'p4', 'p5'];
 
 const PLACEHOLDER_FAQ = [
   'Talosmine là gì và hoạt động thế nào?',
@@ -71,13 +73,13 @@ export default function UserHomePage() {
       </div>
 
       <Hero />
-      <PartnerStrip />
+      <PartnerMarquee />
       <ToolsSection />
       <CategoriesSection />
       <WhatsNewSection />
       <BlogSection />
       <FaqSection />
-      <SubmitCta />
+      <Newsletter />
     </>
   );
 }
@@ -132,34 +134,39 @@ function Hero() {
   );
 }
 
-function PartnerStrip() {
+function PartnerMarquee() {
   return (
-    <div className="container grid">
-      <div className={styles.partnerStrip}>
-        <button type="button" className={styles.partnerArrow} aria-label="Xem các mục trước">
-          <ChevronIcon direction="left" />
-        </button>
-
+    // TRÀN VIỀN: không bọc `.container` — xem ghi chú ở page.module.css.
+    <section className={styles.marquee} aria-label="Đối tác">
+      <div className={styles.marqueeTrack}>
         {/*
-          `aria-hidden` vì đây hoàn toàn là chỗ giữ chỗ: chưa có đối tác thật nào. Trình
-          đọc màn hình đọc "Logo, mô tả ngắn" năm lần là nhiễu chứ không phải thông tin.
-        */}
-        <div className={styles.partnerTrack} aria-hidden="true">
-          {['p1', 'p2', 'p3', 'p4', 'p5'].map((id) => (
-            <div key={id} className={styles.partnerItem}>
-              <div className={styles.partnerLogo} />
-              <div>
-                <p className="typeBodySmall">Logo</p>
-                <p className="typeCaption">Mô tả ngắn về đối tác</p>
-              </div>
-            </div>
-          ))}
-        </div>
+          Danh sách render HAI LẦN, phẳng trong cùng một track. Animation dịch đúng -50%,
+          nên khi bản sao trôi tới vị trí bản gốc thì hình ảnh trùng khít — vòng lặp không
+          có điểm nối nhìn thấy được.
 
-        <button type="button" className={styles.partnerArrow} aria-label="Xem các mục tiếp theo">
-          <ChevronIcon direction="right" />
-        </button>
+          Bản sao mang `aria-hidden` để trình đọc màn hình không đọc lặp toàn bộ nội dung.
+        */}
+        {PLACEHOLDER_PARTNERS.map((id) => (
+          <PartnerItem key={id} />
+        ))}
+        {PLACEHOLDER_PARTNERS.map((id) => (
+          <PartnerItem key={`${id}-copy`} duplicate />
+        ))}
       </div>
+    </section>
+  );
+}
+
+function PartnerItem({ duplicate = false }: { duplicate?: boolean }) {
+  return (
+    <div className={styles.marqueeItem} {...(duplicate ? { 'aria-hidden': true } : {})}>
+      <span className={styles.marqueeLogo}>
+        <ImageIcon />
+      </span>
+      <p className={`typeH3 ${styles.marqueeName}`}>Logo</p>
+      <p className={`typeBodySmall ${styles.marqueeText}`}>
+        Mô tả ngắn về đối tác sẽ hiển thị ở đây khi có nội dung thật.
+      </p>
     </div>
   );
 }
@@ -222,7 +229,7 @@ function CategoriesSection() {
 
         <ul className="gridRow">
           {PLACEHOLDER_CATEGORIES.map((category) => (
-            <li key={category.id} className={styles.colCategory}>
+            <li key={category.id} className={styles.categoryItem}>
               <div className={styles.categoryCard}>
                 <div className={styles.categoryThumb}>
                   <ImageIcon />
@@ -282,12 +289,9 @@ function BlogSection() {
           </Link>
         </div>
 
-        {/* Bất đối xứng 7/5 cột — hai khối là con trực tiếp của lưới. */}
-        <article className={`${styles.card} ${styles.blogFeature}`}>
-          <div className={styles.thumb}>
-            <ImageIcon />
-          </div>
-          <div className={styles.cardBody}>
+        {/* Chia 6/6 cột — hai khối là con trực tiếp của lưới. */}
+        <article className={`${styles.blogCard} ${styles.blogFeature}`}>
+          <div className={styles.blogCardBody}>
             <p className="typeCaption textTertiary">Ngày đăng</p>
             <h3 className="typeCardTitle">
               Tiêu đề bài viết nổi bật sẽ hiển thị ở đây khi có nội dung thật
@@ -301,15 +305,15 @@ function BlogSection() {
 
         <div className={styles.blogSide}>
           {['b1', 'b2'].map((id) => (
-            <article key={id} className={styles.blogSideCard}>
-              <div className={styles.thumb}>
-                <ImageIcon />
-              </div>
-              <div className={styles.cardBody}>
+            <article key={id} className={`${styles.blogCard} ${styles.blogSideCard}`}>
+              <div className={styles.blogCardBody}>
                 <p className="typeCaption textTertiary">Ngày đăng</p>
-                <h3 className="typeBodySmall">
+                <h3 className="typeCardTitle">
                   Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật
                 </h3>
+                <p className="typeBodySmall textSecondary">
+                  Đoạn mở đầu của bài viết sẽ hiển thị ở đây.
+                </p>
               </div>
             </article>
           ))}
@@ -354,23 +358,42 @@ function FaqSection() {
   );
 }
 
-function SubmitCta() {
+function Newsletter() {
   return (
     <section className="section">
       <div className="container grid">
-        <div className={styles.cta}>
-          <div className={styles.ctaThumb} aria-hidden="true">
-            <ImageIcon />
-          </div>
-          <div className={styles.ctaText}>
-            <h2 className="typeCardTitle">Đăng công cụ của bạn để được tìm thấy</h2>
-            <p className="typeBodySmall textSecondary">
-              Tiếp cận hàng nghìn người đang tìm kiếm giải pháp phù hợp.
-            </p>
-          </div>
-          <Link className={`typeBody ${styles.ctaButton}`} href="/submit">
-            Gửi công cụ
-          </Link>
+        <div className={styles.newsletter}>
+          <EnvelopeIcon />
+
+          <h2 className={`typeH2 ${styles.newsletterTitle}`}>
+            Đăng ký bản tin và cập nhật mỗi tuần
+          </h2>
+
+          <p className={`typeBodySmall ${styles.newsletterText}`}>
+            Nhận tổng hợp công cụ mới, bài viết đáng đọc và thay đổi đáng chú ý của nền tảng — mỗi
+            tuần một lần, không spam.
+          </p>
+
+          {/*
+            Chưa có đích đến: hệ thống bản tin thuộc giai đoạn sau. Không đặt `action` thì
+            trình duyệt gửi về chính trang này thay vì báo lỗi.
+          */}
+          <form className={styles.newsletterForm}>
+            <label className="visuallyHidden" htmlFor="newsletter-email">
+              Địa chỉ thư điện tử
+            </label>
+            <input
+              id="newsletter-email"
+              className={`typeBody ${styles.newsletterInput}`}
+              type="email"
+              name="email"
+              placeholder="Địa chỉ thư điện tử của bạn…"
+              autoComplete="email"
+            />
+            <button type="submit" className={`typeBodySmall ${styles.newsletterSubmit}`}>
+              Đăng ký
+            </button>
+          </form>
         </div>
       </div>
     </section>
@@ -416,6 +439,21 @@ function ImageIcon() {
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <circle cx="8.5" cy="9.5" r="1.5" />
       <path d="m4 17 5-5 4 4 3-2 4 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function EnvelopeIcon() {
+  return (
+    <svg
+      className={styles.newsletterIcon}
+      width="64"
+      height="48"
+      viewBox="0 0 64 48"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M4 0h56a4 4 0 0 1 4 4v40a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4Zm28 27.5L5.6 6.2A2 2 0 0 0 4 6v1.3l26.7 21.6a2 2 0 0 0 2.6 0L60 7.3V6a2 2 0 0 0-1.6.2L32 27.5Z" />
     </svg>
   );
 }

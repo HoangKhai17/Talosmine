@@ -67,6 +67,22 @@
   --grid-gap: 16px;
   --section-padding-y: 64px;
 
+  /*
+   * Chiều cao khối ảnh danh mục.
+   *
+   * Vì sao là token riêng chứ không phải `aspect-ratio`: ô danh mục có bề rộng XEN KẼ
+   * (2–5 cột), nên tỉ lệ cố định sẽ làm ô rộng cao hơn hẳn ô hẹp và hàng bị so le.
+   * Chiều cao cố định giữ mọi ô trong một hàng bằng nhau.
+   *
+   * Vì sao đặt ở globals: đây là giá trị thô, mà globals là file DUY NHẤT được chứa giá
+   * trị thô. Chỉnh chiều cao ảnh = sửa ba dòng ở đây, không đụng component.
+   */
+  --media-category-height: 220px;
+
+  /* Chiều cao tối thiểu của thẻ blog phụ. Thẻ nổi bật KHÔNG cần token: nó nằm cùng hàng
+   * lưới với cột phải nên tự cao bằng — đó là hành vi mặc định của grid. */
+  --media-blog-card-height: 180px;
+
   /* ── Typography (mobile mặc định) ───────────────────────────────────────
    * ⚠ TẠM — CHỜ THIẾT KẾ. Quy chuẩn của chủ dự án CHỈ có bảng Desktop; các giá trị
    * mobile dưới đây do tôi ước lượng, không đến từ Figma. Chủ dự án sẽ cung cấp bảng
@@ -115,6 +131,8 @@
     --grid-columns: 8;
     --grid-gap: 20px;
     --section-padding-y: 80px;
+    --media-category-height: 280px;
+    --media-blog-card-height: 200px;
 
     --type-hero-size: 64px;
     --type-hero-line: 68px;
@@ -139,6 +157,8 @@
     --grid-columns: 12;
     --grid-gap: 24px;
     --section-padding-y: 96px;
+    --media-category-height: 340px;
+    --media-blog-card-height: 230px;
   }
 }
 

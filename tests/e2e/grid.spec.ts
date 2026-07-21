@@ -16,6 +16,33 @@ import { expect, test } from '@playwright/test';
 const TOLERANCE = 1.5;
 
 /**
+ * Mở trang chủ và CHỜ CSS được áp trước khi đo.
+ *
+ * Vì sao cần: Next chia CSS thành chunk và nạp bất đồng bộ. Sự kiện `load` có thể xảy ra
+ * khi `.container.grid` vẫn còn là `display: block` — lúc đó `gridTemplateColumns` là
+ * `none` và mọi phép đo đều sai. Trang càng dài thì cửa sổ race càng rộng, nên đây là lỗi
+ * chỉ hiện ra khi nội dung nhiều lên.
+ *
+ * Chờ đúng điều kiện sẽ đo, thay vì chờ một khoảng thời gian đoán chừng.
+ */
+async function gotoHome(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await page.waitForFunction(() => {
+    const el = document.querySelector('.container.grid');
+    if (!el) return false;
+    const tracks = getComputedStyle(el).gridTemplateColumns;
+
+    // Điều kiện là ĐÃ PHÂN GIẢI RA PIXEL, không phải "có nhiều hơn một mảnh".
+    //
+    // Khi phần tử chưa được layout, `getComputedStyle` trả lại giá trị KHAI BÁO
+    // (`repeat(4, minmax(0, 1fr))`) chứ không phải giá trị dùng thật. Chuỗi đó tách bằng
+    // dấu cách cho ra 3 mảnh — trông y hệt một lưới 3 cột. Đó chính là cái bẫy đã làm
+    // test đỏ ngẫu nhiên.
+    return tracks.includes('px') && !tracks.includes('repeat');
+  });
+}
+
+/**
  * Đọc hình học lưới THỰC TẾ từ trang: bề ngang vùng nội dung của `.container`, số cột và
  * gap hiện hành. Lấy từ DOM chứ không hardcode — nếu token đổi, test vẫn đúng.
  */
@@ -32,9 +59,12 @@ async function readGridGeometry(page: import('@playwright/test').Page) {
     const contentLeft = rect.left + paddingLeft;
     const contentWidth = rect.width - paddingLeft - paddingRight;
 
-    // Đếm cột từ `grid-template-columns` đã tính — đây là số cột trình duyệt THỰC SỰ dùng,
-    // không phải giá trị ta tưởng.
-    const columns = style.gridTemplateColumns.split(' ').filter(Boolean).length;
+    // Đếm cột bằng số track có đơn vị `px` — đây là số cột trình duyệt THỰC SỰ dùng.
+    //
+    // KHÔNG đếm số mảnh khi tách chuỗi: nếu phần tử chưa layout, giá trị trả về là
+    // `repeat(4, minmax(0, 1fr))` và cách đếm đó cho ra 3 — một con số vô nghĩa nhưng
+    // trông hợp lệ.
+    const columns = style.gridTemplateColumns.split(' ').filter((t) => t.endsWith('px')).length;
     const gap = Number.parseFloat(style.columnGap);
 
     return { contentLeft, contentWidth, columns, gap };
@@ -53,7 +83,7 @@ function expectedWidth(
 
 test.describe('lưới cột trang chủ', () => {
   test('số cột đúng theo breakpoint (4 / 8 / 12)', async ({ page }, testInfo) => {
-    await page.goto('/');
+    await gotoHome(page);
     const geometry = await readGridGeometry(page);
 
     // Ánh xạ project → số cột mong đợi. Đây chính là quy chuẩn Figma.
@@ -62,7 +92,7 @@ test.describe('lưới cột trang chủ', () => {
   });
 
   test('hero KHÔNG bị ghim bằng max-width — bề ngang đến từ số cột', async ({ page }, testInfo) => {
-    await page.goto('/');
+    await gotoHome(page);
     const geometry = await readGridGeometry(page);
 
     // Bản đồ cột của hero heading, khớp comment trong page.module.css.
@@ -79,7 +109,7 @@ test.describe('lưới cột trang chủ', () => {
   });
 
   test('thẻ công cụ: 1 / 2 / 3 thẻ mỗi hàng và khít cột', async ({ page }, testInfo) => {
-    await page.goto('/');
+    await gotoHome(page);
     const geometry = await readGridGeometry(page);
 
     const cards = page.locator('ul.gridRow').first().locator('> li');
@@ -103,7 +133,7 @@ test.describe('lưới cột trang chủ', () => {
   });
 
   test('mọi ô lưới bắt đầu tại một mốc cột hợp lệ', async ({ page }) => {
-    await page.goto('/');
+    await gotoHome(page);
     const geometry = await readGridGeometry(page);
 
     const columnWidth =
@@ -139,10 +169,11 @@ test.describe('lưới cột trang chủ', () => {
   });
 
   test('footer dùng chung lưới với trang', async ({ page }, testInfo) => {
-    await page.goto('/');
+    await gotoHome(page);
     const geometry = await readGridGeometry(page);
 
     const brand = page.locator('footer .container.grid > *').first();
+    await brand.scrollIntoViewIfNeeded();
     const box = await brand.boundingBox();
     if (!box) throw new Error('Không đo được cột thương hiệu ở footer');
 

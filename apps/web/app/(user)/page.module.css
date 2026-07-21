@@ -11,15 +11,15 @@
  *   Hero lead         4 /  6 /  6
  *   Hero search       4 /  7 /  8
  *   Hero popular      4 /  8 /  8
- *   Dải đối tác       4 /  8 / 12
+ *   Băng đối tác      TRÀN VIỀN — ngoài lưới (marquee)
  *   Section header    4 /  8 /  8 (căn giữa: bắt đầu cột 3)
  *   Thẻ công cụ       4 /  4 /  4   → 1 / 2 / 3 thẻ mỗi hàng
- *   Ô danh mục        4 /  4 /  3   → 1 / 2 / 4 ô mỗi hàng
- *   Blog nổi bật      4 /  8 /  7
- *   Blog phụ          4 /  8 /  5
+ *   Ô danh mục        2 /  4 /  xen kẽ 3-5-4 rồi 3-4-3-2
+ *   Blog nổi bật      4 /  8 /  6
+ *   Blog phụ          4 /  8 /  6
  *   FAQ giới thiệu    4 /  8 /  5
  *   FAQ danh sách     4 /  8 /  7
- *   CTA               4 /  8 / 12
+ *   Newsletter        chiếm trọn hàng, nội dung căn giữa
  */
 
 /* ── Thông báo bản dựng ───────────────────────────────────────────────────────
@@ -155,76 +155,106 @@
   color: var(--color-text-primary);
 }
 
-/* ── Dải logo đối tác ─────────────────────────────────────────────────────── */
-.partnerStrip {
-  grid-column: span 4;
-  border: var(--border-default);
-  border-radius: var(--radius-card);
+/* ── Băng đối tác chạy liên tục (marquee) ────────────────────────────────────
+ *
+ * TRÀN VIỀN CÓ CHỦ ĐÍCH — nằm NGOÀI `.container`, không nằm trên lưới cột. Thiết kế cho
+ * thấy item bị cắt ở cả hai mép màn hình: đó là tín hiệu "còn nữa, đang chạy". Gò nó vào
+ * container sẽ mất hẳn hiệu ứng đó.
+ *
+ * Đây là ngoại lệ hợp lệ của luật lưới (globals.css): khối tràn viền không thuộc hệ cột.
+ */
+.marquee {
   background-color: var(--color-bg-secondary);
-  padding: var(--space-5) var(--space-4);
+  border-block: var(--border-default);
+  padding-block: var(--space-8);
+  overflow: hidden;
+}
+
+/*
+ * Người bật "giảm chuyển động" không có animation, nên phải cuộn tay được — nếu không họ
+ * chỉ thấy được vài item đầu và phần còn lại vĩnh viễn khuất.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    overflow-x: auto;
+  }
+}
+
+.marqueeTrack {
+  display: flex;
+  align-items: center;
+  /* `max-content` để dải rộng bằng tổng nội dung, không bị bó về bề ngang màn hình —
+   * điều kiện để dịch chuyển được. */
+  width: max-content;
+
+  /*
+   * CỐ Ý KHÔNG dùng `gap`, và cũng không có padding hai đầu.
+   *
+   * Lý do là phép toán: `gap` chỉ chèn khoảng cách GIỮA các item, nên với hai bản sao nối
+   * nhau thì chỗ nối chỉ có một gap trong khi mỗi bản sao có n−1 gap. Dịch -50% sẽ lệch
+   * đúng nửa gap và vòng lặp bị giật.
+   *
+   * Đặt khoảng cách bằng `margin-inline-end` trên từng item thì mỗi item rộng đúng
+   * (nội dung + khoảng cách), hai bản sao lát khít nhau và -50% khớp tuyệt đối.
+   */
+}
+
+/*
+ * Animation nằm TRONG `no-preference` chứ không phải bị tắt ở ngoài: nhờ vậy người bật
+ * giảm chuyển động không bao giờ nhận animation, thay vì nhận rồi bị ép dừng.
+ *
+ * Dịch đúng -50% và danh sách được nhân ĐÔI trong TSX, nên khi chạy hết một nửa thì nội
+ * dung trùng khít vị trí ban đầu — mắt không thấy điểm nối.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .marqueeTrack {
+    animation: marqueeScroll 45s linear infinite;
+  }
+
+  /* Dừng khi trỏ vào hoặc khi có focus bàn phím — để đọc được nội dung. */
+  .marquee:hover .marqueeTrack,
+  .marquee:focus-within .marqueeTrack {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes marqueeScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marqueeItem {
+  flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  /* Khoảng cách nằm ở đây, không ở track — xem ghi chú trên. */
+  margin-inline-end: var(--space-16);
 }
 
-@media (min-width: 768px) {
-  .partnerStrip {
-    grid-column: span 8;
-  }
-}
-
-@media (min-width: 1280px) {
-  .partnerStrip {
-    grid-column: span 12;
-  }
-}
-
-/* Vùng cuộn ngang. Wireframe có mũi tên hai bên; bản thô dùng cuộn tự nhiên — carousel
- * có nút cần JS và state, để lại khi chốt tương tác. */
-.partnerTrack {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  gap: var(--space-8);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.partnerTrack::-webkit-scrollbar {
-  display: none;
-}
-
-.partnerItem {
+.marqueeLogo {
   flex: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--color-text-tertiary);
-}
-
-.partnerLogo {
-  flex: none;
-  width: var(--space-10);
-  height: var(--space-10);
-  border-radius: var(--radius-button);
-  background-color: var(--color-border-default);
-}
-
-.partnerArrow {
-  flex: none;
-  width: var(--space-8);
-  height: var(--space-8);
-  border: var(--border-default);
-  border-radius: var(--radius-tag);
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-secondary);
   display: grid;
   place-items: center;
-  cursor: pointer;
+  width: var(--space-12);
+  height: var(--space-12);
+  color: var(--color-text-primary);
 }
 
-.partnerArrow:hover {
-  border-color: var(--color-border-hover);
+.marqueeName {
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+}
+
+/* Giới hạn theo ĐƠN VỊ CHỮ, không phải px — đây là ràng buộc độ dài dòng đọc được, một
+ * trong hai ngoại lệ của luật "không max-width". */
+.marqueeText {
+  max-width: 34ch;
+  color: var(--color-text-secondary);
 }
 
 /* ── Chip thống kê ────────────────────────────────────────────────────────── */
@@ -328,14 +358,49 @@
   grid-column: span 4;
 }
 
-/* Ô danh mục hẹp hơn ở desktop: 3/12 = một phần tư. */
-.colCategory {
-  grid-column: span 4;
+/*
+ * Ô danh mục — BỀ RỘNG XEN KẼ theo thiết kế, không đều nhau.
+ *
+ * Nhịp lặp mỗi 7 ô, mỗi hàng cộng đủ 12 cột:
+ *     hàng trên  3 + 5 + 4        = 12
+ *     hàng dưới  3 + 4 + 3 + 2    = 12
+ *
+ * Dùng `:nth-child` nên nhịp nằm TRỌN trong CSS: thêm/bớt danh mục không phải sửa TSX,
+ * và không có con số bố cục nào lọt vào tầng dữ liệu.
+ *
+ * Chỉ áp dụng từ desktop. Ở mobile/tablet các ô đều nhau — cột quá hẹp để xen kẽ có nghĩa.
+ */
+.categoryItem {
+  grid-column: span 2;
+}
+
+@media (min-width: 768px) {
+  .categoryItem {
+    grid-column: span 4;
+  }
 }
 
 @media (min-width: 1280px) {
-  .colCategory {
+  .categoryItem:nth-child(7n + 1) {
     grid-column: span 3;
+  }
+  .categoryItem:nth-child(7n + 2) {
+    grid-column: span 5;
+  }
+  .categoryItem:nth-child(7n + 3) {
+    grid-column: span 4;
+  }
+  .categoryItem:nth-child(7n + 4) {
+    grid-column: span 3;
+  }
+  .categoryItem:nth-child(7n + 5) {
+    grid-column: span 4;
+  }
+  .categoryItem:nth-child(7n + 6) {
+    grid-column: span 3;
+  }
+  .categoryItem:nth-child(7n + 7) {
+    grid-column: span 2;
   }
 }
 
@@ -389,32 +454,40 @@
 }
 
 /* ── Ô danh mục ───────────────────────────────────────────────────────────── */
+/*
+ * Thiết kế cho thấy ô danh mục KHÔNG có viền thẻ — chỉ khối ảnh rồi tên bên dưới. Bỏ viền
+ * để các ô bề rộng khác nhau không bị chia cắt thành từng hộp rời rạc.
+ */
 .categoryCard {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   height: 100%;
-  border: var(--border-default);
-  border-radius: var(--radius-card);
-  padding: var(--space-5);
-  background-color: var(--color-bg-primary);
   text-decoration: none;
 }
 
-.categoryCard:hover {
-  border-color: var(--color-border-hover);
-}
-
 .categoryThumb {
-  aspect-ratio: 3 / 2;
-  border-radius: var(--radius-button);
+  /* Chiều cao đến từ token `--media-category-height` (globals.css) — nó tự đổi theo
+   * breakpoint nên ở đây không cần media query. Xem ghi chú tại token đó để hiểu vì sao
+   * dùng chiều cao cố định thay vì aspect-ratio. */
+  height: var(--media-category-height);
+  border-radius: var(--radius-card);
   background-color: var(--color-bg-secondary);
   display: grid;
   place-items: center;
   color: var(--color-text-tertiary);
 }
 
-/* ── Blog: 1 thẻ lớn + 2 thẻ xếp chồng ────────────────────────────────────── */
+.categoryCard:hover .categoryThumb {
+  background-color: var(--color-border-default);
+}
+
+/* ── Blog: 1 thẻ lớn trái + 2 thẻ xếp chồng phải ─────────────────────────────
+ *
+ * Chia 6/6 cột ở desktop. Thẻ nổi bật KHÔNG cần chiều cao riêng: nó nằm cùng hàng lưới
+ * với cột phải, mà grid mặc định kéo các ô trong một hàng bằng nhau — nên nó tự cao đúng
+ * bằng hai thẻ phụ cộng khoảng cách.
+ */
 .blogFeature {
   grid-column: span 4;
 }
@@ -427,50 +500,53 @@
 }
 
 @media (min-width: 768px) {
-  .blogFeature {
-    grid-column: span 8;
-  }
+  .blogFeature,
   .blogSide {
     grid-column: span 8;
   }
 }
 
 @media (min-width: 1280px) {
-  .blogFeature {
-    grid-column: span 7;
-  }
+  .blogFeature,
   .blogSide {
-    grid-column: span 5;
+    grid-column: span 6;
   }
 }
 
-/* Thẻ blog phụ: ảnh trái, chữ phải. Đây là lưới NỘI BỘ của thẻ, không phải lưới trang —
- * nên khai riêng là đúng. */
-.blogSideCard {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  border: var(--border-default);
+/*
+ * Thẻ blog: TOÀN BỘ thẻ là khối ảnh, chữ nằm ĐÈ LÊN ở đáy — khác với thẻ công cụ (ảnh
+ * trên, chữ dưới, có viền ngăn cách).
+ *
+ * `justify-content: flex-end` đẩy nội dung xuống đáy bất kể thẻ cao bao nhiêu. Nhờ vậy
+ * thẻ nổi bật cao gấp đôi mà chữ vẫn nằm đúng đáy như hai thẻ phụ.
+ *
+ * Khi có ảnh thật: đặt <img> phủ kín thẻ (position absolute, object-fit cover) và thêm
+ * lớp phủ tối dần từ đáy để chữ còn đọc được. Nền xám hiện tại là chỗ giữ chỗ cho ảnh đó.
+ */
+.blogCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: var(--media-blog-card-height);
+  padding: var(--space-6);
   border-radius: var(--radius-card);
-  overflow: hidden;
-  background-color: var(--color-bg-primary);
+  background-color: var(--color-bg-secondary);
+}
+
+.blogCard:hover {
+  background-color: var(--color-border-default);
+}
+
+.blogCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Hai thẻ phụ chia đều chiều cao cột phải: `flex: 1 1 0` để chúng bằng nhau bất kể nội
+ * dung dài ngắn khác nhau. */
+.blogSideCard {
   flex: 1 1 0;
-}
-
-.blogSideCard:hover {
-  border-color: var(--color-border-hover);
-}
-
-@media (min-width: 480px) {
-  .blogSideCard {
-    grid-template-columns: 40% minmax(0, 1fr);
-  }
-
-  .blogSideCard .thumb {
-    aspect-ratio: auto;
-    height: 100%;
-    border-bottom: none;
-    border-right: var(--border-default);
-  }
 }
 
 /* ── FAQ ──────────────────────────────────────────────────────────────────── */
@@ -563,58 +639,82 @@
   border-color: var(--color-border-hover);
 }
 
-/* ── CTA gửi công cụ ──────────────────────────────────────────────────────── */
-.cta {
-  grid-column: span 4;
+/* ── Newsletter ──────────────────────────────────────────────────────────────
+ *
+ * Khối căn giữa, chiếm trọn bề ngang lưới. Bên trong KHÔNG chia cột — nó là một chồng
+ * dọc căn giữa, và grid không phải công cụ đúng cho việc đó (globals.css: lưới lo cột
+ * ngang, flex lo nhịp dọc).
+ */
+.newsletter {
+  grid-column: 1 / -1;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
+  text-align: center;
   gap: var(--space-5);
-  border: var(--border-default);
+  padding: var(--space-20) var(--space-6);
   border-radius: var(--radius-cta);
   background-color: var(--color-bg-secondary);
-  padding: var(--space-6);
 }
 
-@media (min-width: 768px) {
-  .cta {
-    grid-column: span 8;
-  }
+.newsletterIcon {
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
 }
 
-@media (min-width: 1280px) {
-  .cta {
-    grid-column: span 12;
-  }
+/*
+ * Bề ngang giới hạn theo ĐƠN VỊ CHỮ — ngoại lệ được ghi trong luật lưới: đây là ràng buộc
+ * độ dài dòng đọc được, không phải bố cục theo cột. Tiêu đề ngắt hai dòng như thiết kế.
+ */
+.newsletterTitle {
+  max-width: 22ch;
 }
 
-.ctaThumb {
-  flex: none;
-  width: var(--space-20);
-  height: var(--space-16);
-  border-radius: var(--radius-button);
-  background-color: var(--color-border-default);
-  display: grid;
-  place-items: center;
+.newsletterText {
+  max-width: 46ch;
+  color: var(--color-text-secondary);
+}
+
+/* Ô nhập bo tròn hoàn toàn (radius-tag) theo thiết kế, khác ô tìm kiếm ở hero (radius-cta).
+ * `52ch` đủ chỗ cho một địa chỉ thư dài cộng nút bên phải. */
+.newsletterForm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 52ch;
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-tag);
+  background-color: var(--color-bg-primary);
+}
+
+.newsletterForm:focus-within {
+  border-color: var(--color-border-hover);
+}
+
+.newsletterInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding-block: var(--space-2);
+  outline: none;
+}
+
+.newsletterInput::placeholder {
   color: var(--color-text-tertiary);
 }
 
-.ctaText {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.ctaButton {
+.newsletterSubmit {
   flex: none;
   border: none;
-  border-radius: var(--radius-button);
+  border-radius: var(--radius-tag);
   padding: var(--space-3) var(--space-6);
   background-color: var(--color-button-primary);
   color: var(--color-button-text);
   cursor: pointer;
-  text-decoration: none;
   white-space: nowrap;
 }
 

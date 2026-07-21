@@ -13,6 +13,15 @@ test.describe('(user) shell', () => {
     expect(response?.status()).toBe(200);
 
     // Landmark là nền của accessibility: screen reader dùng chúng để nhảy vùng.
+    //
+    // Kiểm ĐÚNG MỘT chứ không chỉ "có": `loading.tsx` cũng render `<main id="main">`, và
+    // trong lúc Next streaming thì nó với trang thật có thể cùng nằm trong DOM chốc lát.
+    // Trang càng dài, khoảnh khắc đó càng dễ bị bắt gặp — đây là nguồn gốc của một lần
+    // test đỏ ngẫu nhiên.
+    //
+    // Ràng buộc này cũng đúng về mặt accessibility: một tài liệu chỉ nên có một landmark
+    // `main`. Playwright tự thử lại tới khi trạng thái ổn định.
+    await expect(page.locator('main')).toHaveCount(1);
     await expect(page.locator('main')).toBeVisible();
   });
 
