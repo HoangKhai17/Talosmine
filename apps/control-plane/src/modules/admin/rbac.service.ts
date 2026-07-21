@@ -8,6 +8,7 @@ import { appendAuditEvent } from '../audit/audit.js';
 import type { AdminMutationContext } from './admin.service.js';
 import { listAdminPermissions } from './admin-authorization.js';
 import {
+  ADMIN_PERMISSIONS,
   type AdminPermission,
   adminRoleAssignments,
   adminRolePermissions,
@@ -276,11 +277,6 @@ export class RbacService {
   }
 }
 
-const ADMIN_PERMISSION_CATALOG: readonly AdminPermission[] = [
-  'account:read',
-  'account:disable',
-  'account:enable',
-  'session:revoke',
-  'admin_role:manage',
-  'audit:read',
-];
+// Dùng lại hằng số của schema thay vì chép lại: hai danh sách rời nhau sẽ lệch, và lệch
+// ở đây nghĩa là UI hiện một permission mà database từ chối.
+const ADMIN_PERMISSION_CATALOG: readonly AdminPermission[] = ADMIN_PERMISSIONS;

@@ -13,12 +13,18 @@ import { accounts, controlPlane } from '../account/schema.js';
  * trong DB. Thêm permission = migration mới + cập nhật danh sách này.
  */
 export const ADMIN_PERMISSIONS = [
+  // P2 — identity, account, phiên, phân quyền, audit
   'account:read',
   'account:disable',
   'account:enable',
   'session:revoke',
   'admin_role:manage',
   'audit:read',
+  // P3 — catalog (migration 0009). `publish` tách riêng vì đổi app sang `active` là đưa
+  // nó ra trước người dùng, khác hẳn việc sửa mô tả ở trạng thái nháp.
+  'catalog:read',
+  'catalog:manage',
+  'catalog:publish',
 ] as const;
 
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];

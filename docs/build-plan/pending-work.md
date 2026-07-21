@@ -193,4 +193,5 @@ tới khi hết hạn.
 - [`decision-register.md`](./decision-register.md) — quyết định đã chốt và đang chờ
 - [`phase-2-identity-account-admin-security.md`](./phase-2-identity-account-admin-security.md) — trạng thái P2 chi tiết
 - [`../identity-provider.md`](../identity-provider.md) — cơ chế Logto và ranh giới dữ liệu
+- [`../url-policy.md`](../url-policy.md) — chống SSRF, allowlist host, các cách qua mặt
 - [`../frontend-css-rules.md`](../frontend-css-rules.md) — quy tắc lưới và typography

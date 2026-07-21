@@ -64,6 +64,13 @@
       "when": 1784200700000,
       "tag": "0008_service_identities",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784200800000,
+      "tag": "0009_catalog_permissions",
+      "breakpoints": true
     }
   ]
 }
