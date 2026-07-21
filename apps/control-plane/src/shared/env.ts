@@ -86,6 +86,22 @@ const envSchema = z.object({
   OIDC_ISSUER_URL: z.string().url().optional(),
   OIDC_CLIENT_ID: z.string().min(1).optional(),
   OIDC_AUDIENCE: z.string().min(1).optional(),
+
+  /**
+   * Allowlist host cho URL trong catalog (P3, DEC-T12).
+   *
+   * Định dạng: `host` hoặc `host!internal`, phân cách bằng dấu phẩy.
+   *     talosmine.vn, app.talosmine.vn, storage.internal!internal
+   *
+   * `!internal` đánh dấu hạ tầng của chính dự án, được phép nằm trên địa chỉ nội bộ.
+   * Phải viết TƯỜNG MINH — đoán từ tên host là mở lại đúng lỗ SSRF.
+   *
+   * Optional, và KHÔNG có default: thiếu biến này nghĩa là danh sách rỗng, tức MỌI URL
+   * ngoài đều bị từ chối. Mặc định nghiêng về an toàn.
+   *
+   * Nội dung cụ thể (host nào) phụ thuộc DEC-B01 — cơ chế thì không.
+   */
+  CATALOG_ALLOWED_HOSTS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
