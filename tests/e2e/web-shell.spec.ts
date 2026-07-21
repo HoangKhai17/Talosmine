@@ -43,7 +43,12 @@ test.describe('admin bị deny tại server', () => {
     const response = await request.get('/admin', { maxRedirects: 0 });
 
     expect(response.status()).toBe(307);
-    expect(new URL(response.headers().location, 'http://localhost').pathname).toBe('/');
+
+    // `location` có kiểu `string | undefined`. Kiểm riêng thay vì ép kiểu: nếu redirect
+    // thiếu header này thì đó là lỗi thật, và thông báo phải nói đúng điều đó.
+    const location = response.headers().location;
+    expect(location, 'redirect phải có header Location').toBeDefined();
+    expect(new URL(location as string, 'http://localhost').pathname).toBe('/');
   });
 
   test('/admin không trả nội dung admin nào', async ({ request }) => {

@@ -67,7 +67,14 @@
   --grid-gap: 16px;
   --section-padding-y: 64px;
 
-  /* ── Typography (mobile mặc định) ─────────────────────────────────────── */
+  /* ── Typography (mobile mặc định) ───────────────────────────────────────
+   * ⚠ TẠM — CHỜ THIẾT KẾ. Quy chuẩn của chủ dự án CHỈ có bảng Desktop; các giá trị
+   * mobile dưới đây do tôi ước lượng, không đến từ Figma. Chủ dự án sẽ cung cấp bảng
+   * cho frame 390px (mobile) và 1024px (tablet) — lúc đó thay toàn bộ khối này và khối
+   * @media 768px bên dưới.
+   *
+   * Hệ quả hiện tại cần biết: thang desktop đang bật từ 768px, nên màn 1024px nhận
+   * hero 64px. Đó là cách lấp chỗ trống, không phải chủ đích thiết kế. */
   --type-hero-size: 40px;
   --type-hero-line: 46px;
   --type-h1-size: 36px;
@@ -204,26 +211,29 @@ a {
 }
 
 /* ── Typography utilities ─────────────────────────────────────────────────
- * Dùng các class này thay vì tự set font-size trong component (rules mục 2.3). */
+ * Dùng các class này thay vì tự set font-size trong component (rules mục 2.3).
+ *
+ * KHÔNG đặt `letter-spacing`: quy chuẩn chỉ định nghĩa font-size, line-height và weight.
+ * Từng có tracking âm (-0.02em) ở đây do tôi tự thêm — chủ dự án đã yêu cầu bỏ
+ * (2026-07-21) để chữ giãn đúng mặc định của font, khớp Figma. Muốn thêm lại thì phải
+ * có giá trị từ thiết kế, không tự bịa.
+ */
 .typeHero {
   font-size: var(--type-hero-size);
   line-height: var(--type-hero-line);
   font-weight: var(--weight-heading);
-  letter-spacing: -0.02em;
 }
 
 .typeH1 {
   font-size: var(--type-h1-size);
   line-height: var(--type-h1-line);
   font-weight: var(--weight-heading);
-  letter-spacing: -0.02em;
 }
 
 .typeH2 {
   font-size: var(--type-h2-size);
   line-height: var(--type-h2-line);
   font-weight: var(--weight-heading);
-  letter-spacing: -0.01em;
 }
 
 .typeH3 {
@@ -281,6 +291,107 @@ a {
 
 .section {
   padding-block: var(--section-padding-y);
+}
+
+/* ── LƯỚI CỘT ──────────────────────────────────────────────────────────────
+ *
+ * Chuẩn responsive của Figma: 4 cột (mobile) / 8 cột (tablet) / 12 cột (desktop).
+ * Số cột nằm ở `--grid-columns`, tự đổi theo breakpoint.
+ *
+ * VÌ SAO KHÔNG PHẢI 12 CỘT Ở MỌI BREAKPOINT: trên màn 390px, một cột của lưới 12 chỉ
+ * rộng ~28px — nhỏ hơn cả một ký tự, nên chia 12 ở đó là chia trên giấy chứ không dùng
+ * được. Figma cũng dùng 4/8/12 vì lý do này.
+ *
+ * CÁCH DÙNG — luôn hai lớp:
+ *
+ *     <section className="section">
+ *       <div className="container grid">     ← container giới hạn bề ngang + gutter
+ *         <div className={styles.heroText}>  ← con TRỰC TIẾP mới nằm trên cột
+ *       </div>
+ *     </section>
+ *
+ * Rồi trong file .module.css khai số cột chiếm:
+ *
+ *     .heroText { grid-column: span 4; }                            (mobile 4/4)
+ *     @media (min-width: 768px)  { .heroText { grid-column: span 6; } }  (tablet 6/8)
+ *     @media (min-width: 1280px) { .heroText { grid-column: span 7; } }  (desktop 7/12)
+ *
+ * BA LUẬT BẮT BUỘC:
+ *
+ *   1. KHÔNG `max-width` bằng px để giới hạn bề ngang khối. Bề ngang đến từ số cột.
+ *      `max-width: 720px` là con số không ai giải thích được và không khớp Figma.
+ *      Ngoại lệ duy nhất: giới hạn theo đơn vị chữ (`ch`) cho đoạn văn dài.
+ *
+ *   2. KHÔNG khai lại `display: grid` + `grid-template-columns` trong module. Dùng class
+ *      `grid` này. Khai lại ở nhiều nơi thì sớm muộn chúng lệch nhau.
+ *
+ *   3. Chỉ CON TRỰC TIẾP của `.grid` mới đặt được `grid-column`. Bọc thêm một lớp <div>
+ *      là phần tử bên trong rơi khỏi lưới — đây là lỗi hay gặp nhất.
+ *
+ * Xếp dọc BÊN TRONG một khối thì dùng flex, không phải grid: lưới lo vị trí theo cột,
+ * flex lo nhịp dọc. Hai việc khác nhau.
+ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: var(--grid-gap);
+}
+
+/*
+ * Hàng con chiếm TRỌN bề ngang lưới cha và chia lại đúng số cột đó.
+ *
+ * Vì sao cần: đôi khi phải giữ thẻ ngữ nghĩa ở giữa. Một danh sách thẻ nên là `<ul>` để
+ * trình đọc màn hình thông báo "danh sách 6 mục", nhưng `<li>` bắt buộc có `<ul>` làm cha
+ * — mà `<ul>` xen vào giữa sẽ đẩy `<li>` rơi khỏi lưới trang (luật 3 ở trên).
+ *
+ *     <div className="container grid">
+ *       <div className={styles.sectionHeader}>…</div>
+ *       <ul className="gridRow">                ← chiếm cả 12 cột, tự chia lại 12 cột
+ *         <li className={styles.colCard}>…</li> ← nằm đúng cột như con trực tiếp
+ *       </ul>
+ *     </div>
+ *
+ * Vì nó dùng lại `--grid-columns` và `--grid-gap` nên các cột trùng khít với lưới cha —
+ * không lệch một pixel nào.
+ */
+.gridRow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: var(--grid-gap);
+}
+
+/*
+ * Overlay kiểm tra lưới — thêm class `gridDebug` vào <body> để hiện vạch cột.
+ *
+ * Mục đích: đối chiếu với Figma bằng mắt. Không có nó thì việc "đúng cột" chỉ là niềm tin.
+ * Chỉ dùng lúc dev; không bao giờ để lại trên production.
+ */
+.gridDebug::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  width: 100%;
+  max-width: calc(var(--container-max) + var(--container-gutter) * 2);
+  margin-inline: auto;
+  padding-inline: var(--container-gutter);
+  background-image: repeating-linear-gradient(
+    to right,
+    rgba(255, 0, 0, 0.08) 0,
+    rgba(255, 0, 0, 0.08)
+      calc((100% - (var(--grid-columns) - 1) * var(--grid-gap)) / var(--grid-columns)),
+    transparent calc((100% - (var(--grid-columns) - 1) * var(--grid-gap)) / var(--grid-columns)),
+    transparent
+      calc(
+        (100% - (var(--grid-columns) - 1) * var(--grid-gap)) /
+        var(--grid-columns) +
+        var(--grid-gap)
+      )
+  );
+  background-origin: content-box;
+  background-clip: content-box;
 }
 
 /* Skip link — nằm ở root layout nên là global thật sự (không phải của component nào).

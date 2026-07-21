@@ -36,15 +36,21 @@
   min-width: 0;
 }
 
+/* Không đặt letter-spacing — quy chuẩn không định nghĩa tracking. Xem globals.css. */
 .brand {
   font-weight: var(--weight-heading);
-  letter-spacing: -0.01em;
   text-decoration: none;
   color: var(--color-text-primary);
   white-space: nowrap;
 }
 
-/* Nhãn "QUẢN TRỊ" — tín hiệu thị giác thường trực. Có chữ chứ không chỉ màu. */
+/*
+ * Nhãn "QUẢN TRỊ" — tín hiệu thị giác thường trực. Có chữ chứ không chỉ màu.
+ *
+ * Đây là chỗ DUY NHẤT còn letter-spacing, và là ngoại lệ có lý do: chữ in hoa cỡ nhỏ bị
+ * dính vào nhau nếu không giãn ra. Đó là vấn đề đọc được hay không, khác với tracking
+ * thẩm mỹ trên tiêu đề mà quy chuẩn không định nghĩa (đã bỏ).
+ */
 .badge {
   display: inline-block;
   padding: var(--space-1) var(--space-3);

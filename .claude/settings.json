@@ -67,7 +67,8 @@
       "Bash(curl -s -o /dev/null -w \"admin           : %{http_code}\\\\n\" http://localhost:3000/admin)",
       "Bash(curl -s -o /dev/null -w \"api health      : %{http_code}\\\\n\" http://localhost:3100/health/ready)",
       "PowerShell(Start-Sleep -Seconds 3; foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { & taskkill /PID $c[0].OwningProcess /T /F 2>&1 | Out-Null } }; Start-Sleep -Seconds 2; foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; Write-Output \"cong $port : $\\(if \\($c\\) {'con chiem'} else {'trong'}\\)\" })",
-      "PowerShell(foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { & taskkill /PID $c[0].OwningProcess /T /F 2>&1 | Out-Null } }; Start-Sleep -Seconds 2; foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; Write-Output \"cong $port : $\\(if \\($c\\) {'con chiem'} else {'trong'}\\)\" })"
+      "PowerShell(foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { & taskkill /PID $c[0].OwningProcess /T /F 2>&1 | Out-Null } }; Start-Sleep -Seconds 2; foreach \\($port in 3000, 3100\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; Write-Output \"cong $port : $\\(if \\($c\\) {'con chiem'} else {'trong'}\\)\" })",
+      "Bash(python3 -)"
     ],
     "additionalDirectories": [
       "\\tmp"

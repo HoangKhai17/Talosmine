@@ -134,6 +134,20 @@ Dùng **class tiện ích** trong `globals.css`, không tự set font-size:
 | `.typeBodySmall` | 14 / 21 / 400 | 14 / 20 / 400 |
 | `.typeCaption` | 12 / 16 / 500 | 12 / 16 / 500 |
 
+> **Cột Desktop = quy chuẩn của chủ dự án** (đã đối chiếu 2026-07-21, khớp 100%).
+> **Cột Mobile là ước lượng TẠM của tôi** — quy chuẩn chưa có bảng cho frame 390px và
+> 1024px. Khi có, thay cả cột này lẫn khối `@media` trong `globals.css`.
+>
+> Lưu ý hệ quả: thang desktop hiện bật từ **768px**, nên màn 1024px nhận hero 64px. Đó là
+> cách lấp chỗ trống, không phải chủ đích thiết kế.
+
+**KHÔNG dùng `letter-spacing`.** Quy chuẩn chỉ định nghĩa font-size, line-height và weight.
+Từng có tracking âm trên tiêu đề do tôi tự thêm — chủ dự án yêu cầu bỏ (2026-07-21) để chữ
+giãn đúng mặc định của font, khớp Figma. Muốn thêm lại thì phải có giá trị từ thiết kế.
+
+Ngoại lệ duy nhất: nhãn chữ in hoa cỡ nhỏ (ví dụ `QUẢN TRỊ` ở header admin) cần giãn nhẹ
+để đọc được — đó là vấn đề legibility, không phải thẩm mỹ.
+
 **Font:** Montserrat (chính), Inter (dự phòng) — nạp qua `next/font` (self-host, không gọi
 Google CDN nên không phải nới CSP `font-src`).
 
@@ -212,24 +226,91 @@ Tên mô tả **vai trò**, không mô tả hình thức:
 .redButton { }      /* SAI — mai đổi sang cam thì tên nói dối */
 ```
 
-## 6. Layout dùng lại
+## 6. Lưới cột — kiến trúc bố cục
 
-`globals.css` có sẵn hai class:
+Đây là phần quan trọng nhất của tài liệu. Bố cục sai lưới thì mọi thứ khác đúng cũng vô ích.
+
+### 6.1. Số cột theo breakpoint
+
+| Breakpoint | Cột | Gutter | Gap |
+|---|---|---|---|
+| Mobile (0) | **4** | 20px | 16px |
+| Tablet (768px) | **8** | 32px | 20px |
+| Desktop (1280px) | **12** | 120px | 24px |
+
+Đây là chuẩn responsive của Figma, không phải phát minh riêng.
+
+> **Vì sao không 12 cột ở mọi breakpoint:** trên màn 390px, một cột của lưới 12 chỉ rộng
+> khoảng 28px — hẹp hơn một ký tự. Chia 12 ở đó là chia trên giấy chứ không dùng được.
+
+### 6.2. Bốn class có sẵn trong `globals.css`
 
 ```html
-<div class="container">   <!-- max 1200px, gutter tự đổi, căn giữa -->
-<section class="section"> <!-- padding trên/dưới tự đổi theo breakpoint -->
+<section class="section">        <!-- padding trên/dưới theo breakpoint -->
+  <div class="container grid">   <!-- container: bề ngang + gutter · grid: cột -->
+    <div class="…">              <!-- con TRỰC TIẾP mới nằm trên cột -->
+    <ul class="gridRow">         <!-- danh sách: chiếm cả hàng rồi chia lại cột -->
+  </div>
+</section>
 ```
 
-Grid dùng token:
+Thêm `gridDebug` vào `<body>` để hiện vạch cột và đối chiếu với Figma bằng mắt. Chỉ dùng
+lúc dev.
+
+### 6.3. Khai số cột trong module
 
 ```css
-.cardGrid {
-  display: grid;
-  gap: var(--grid-gap);
-  grid-template-columns: repeat(var(--grid-columns), 1fr);
-}
+/* page.module.css */
+.heroHeading { grid-column: span 4; }                            /* mobile 4/4 */
+@media (min-width: 768px)  { .heroHeading { grid-column: span 6; } }  /* tablet 6/8 */
+@media (min-width: 1280px) { .heroHeading { grid-column: span 7; } }  /* desktop 7/12 */
 ```
+
+Căn giữa trên lưới thì chỉ định cột bắt đầu, **không** dùng `max-width` + `margin: auto`:
+
+```css
+.sectionHeaderCenter { grid-column: 3 / span 8; }   /* 8 cột giữa của 12 */
+```
+
+### 6.4. Ba luật bắt buộc
+
+**1. Không `max-width` bằng px để giới hạn bề ngang khối.** Bề ngang đến từ số cột.
+
+```css
+.hero { max-width: 720px; }        /* SAI — con số không ai giải thích được */
+.heroHeading { grid-column: span 7; }  /* ĐÚNG — 7/12 cột, khớp Figma */
+```
+
+Ngoại lệ duy nhất: giới hạn theo đơn vị chữ (`max-width: 60ch`) cho đoạn văn dài, vì đó là
+ràng buộc về độ dài dòng đọc được, không phải bố cục.
+
+**2. Không khai lại `display: grid` + `grid-template-columns` trong module.** Dùng `grid`
+hoặc `gridRow`. Khai lại ở nhiều nơi thì sớm muộn chúng lệch nhau — đã từng xảy ra: `.grid`
+bị khai 4 lần ở 2 file trước khi sửa (2026-07-21).
+
+Ngoại lệ: lưới **nội bộ** của một component (ví dụ thẻ blog chia ảnh trái / chữ phải). Đó
+không phải lưới trang nên khai riêng là đúng.
+
+**3. Chỉ con TRỰC TIẾP của `.grid` mới đặt được `grid-column`.** Bọc thêm một `<div>` là
+phần tử bên trong rơi khỏi lưới. Đây là lỗi hay gặp nhất.
+
+```html
+<div class="container grid">
+  <div>                          <!-- SAI: lớp bọc này ăn hết 1 cột -->
+    <div class="…span 6">…</div> <!-- span 6 không còn nghĩa gì -->
+  </div>
+</div>
+```
+
+Cần giữ thẻ ngữ nghĩa ở giữa (ví dụ `<ul>` cho danh sách) thì dùng `gridRow` — nó chiếm
+trọn bề ngang rồi chia lại đúng số cột đó, nên con vẫn nằm khít lưới cha.
+
+### 6.5. Grid hay flex?
+
+- **Grid** đặt khối theo **cột ngang** — quan hệ với bố cục trang.
+- **Flex** xếp nội dung **theo chiều dọc bên trong** một khối — nhịp của riêng khối đó.
+
+Một ô lưới thường là flex column ở bên trong. Hai việc khác nhau, không thay thế nhau.
 
 ## 7. Accessibility — bắt buộc, không phải tuỳ chọn
 

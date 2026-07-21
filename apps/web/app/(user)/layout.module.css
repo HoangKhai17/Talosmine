@@ -25,9 +25,9 @@
   padding-block: var(--space-3);
 }
 
+/* Không đặt letter-spacing — quy chuẩn không định nghĩa tracking. Xem globals.css. */
 .brand {
   font-weight: var(--weight-heading);
-  letter-spacing: -0.01em;
   text-decoration: none;
   margin-right: auto;
 }
@@ -122,19 +122,24 @@
   margin-top: var(--space-20);
 }
 
+/*
+ * Footer dùng CHUNG lưới của trang: phần tử mang `container grid` cộng thêm class này,
+ * KHÔNG khai lại grid ở đây (luật 2 ở globals.css).
+ *
+ * Chỉ đè `row-gap`: khi các cột xếp chồng ở mobile, khoảng cách giữa các nhóm link phải
+ * rõ hơn khoảng cách giữa các cột nằm ngang.
+ *
+ * Bản đồ cột: thương hiệu 4/8/3 · mỗi cột link 4/2/3.
+ * Desktop: 3 + 3 + 3 + 3 = 12 cột chẵn.
+ */
 .footerInner {
-  display: grid;
-  gap: var(--space-10) var(--grid-gap);
-  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  row-gap: var(--space-10);
 }
-
-/* Cột thương hiệu rộng gấp đôi cột link — khớp wireframe. */
 .footerBrand {
   grid-column: span 4;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: 320px;
 }
 
 .footerCol {
@@ -155,10 +160,10 @@
 
 @media (min-width: 1280px) {
   .footerBrand {
-    grid-column: span 4;
+    grid-column: span 3;
   }
   .footerCol {
-    grid-column: span 2;
+    grid-column: span 3;
   }
 }
 

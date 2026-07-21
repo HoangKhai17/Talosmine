@@ -1,17 +1,29 @@
 /*
  * Trang chủ — bố cục theo wireframe Figma của chủ dự án.
  *
- * Mọi giá trị lấy từ token trong globals.css. Không có màu/px thô ở đây
- * (docs/frontend-css-rules.md). Đổi quy chuẩn = sửa globals.css, file này giữ nguyên.
+ * MỌI KHỐI ĐỀU NẰM TRÊN LƯỚI. Lưới dùng chung khai ở globals.css (class `grid`); file này
+ * chỉ nói mỗi khối chiếm bao nhiêu cột. Không khai lại `display: grid`, không dùng
+ * `max-width` bằng px — xem ba luật ở globals.css.
  *
- * Quy ước lưới: --grid-columns là 4 (mobile) / 8 (tablet) / 12 (desktop). Nhờ đó phần lớn
- * khối chỉ cần MỘT dòng `grid-column: span N` là tự đổi số cột theo breakpoint, không cần
- * media query riêng.
+ * Bản đồ cột (mobile 4 / tablet 8 / desktop 12):
+ *
+ *   Hero heading      4 /  6 /  7
+ *   Hero lead         4 /  6 /  6
+ *   Hero search       4 /  7 /  8
+ *   Hero popular      4 /  8 /  8
+ *   Dải đối tác       4 /  8 / 12
+ *   Section header    4 /  8 /  8 (căn giữa: bắt đầu cột 3)
+ *   Thẻ công cụ       4 /  4 /  4   → 1 / 2 / 3 thẻ mỗi hàng
+ *   Ô danh mục        4 /  4 /  3   → 1 / 2 / 4 ô mỗi hàng
+ *   Blog nổi bật      4 /  8 /  7
+ *   Blog phụ          4 /  8 /  5
+ *   FAQ giới thiệu    4 /  8 /  5
+ *   FAQ danh sách     4 /  8 /  7
+ *   CTA               4 /  8 / 12
  */
 
 /* ── Thông báo bản dựng ───────────────────────────────────────────────────────
- * Dải này tồn tại vì nội dung bên dưới là dữ liệu mẫu. Xoá nó khi danh mục ứng dụng
- * thật (DEC-B01) đã có. */
+ * Xoá khối này khi danh mục ứng dụng thật (DEC-B01) đã có. */
 .draftBanner {
   background-color: var(--color-bg-secondary);
   border-bottom: var(--border-default);
@@ -20,31 +32,68 @@
   text-align: center;
 }
 
-/* ── Hero ─────────────────────────────────────────────────────────────────── */
-.hero {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-6);
-  max-width: 720px;
+/* ── Hero ─────────────────────────────────────────────────────────────────────
+ * Mỗi phần tử là MỘT ô lưới riêng, không gom thành một cục rồi giới hạn bằng px.
+ * Nhờ vậy tiêu đề, mô tả và ô tìm kiếm rộng hẹp khác nhau đúng như thiết kế. */
+.heroHeading {
+  grid-column: span 4;
 }
 
 .heroLead {
-  max-width: 560px;
+  grid-column: span 4;
+  margin-top: var(--space-5);
 }
 
-/* Thẻ <search> là landmark, không mang bố cục — nó chỉ cần chiếm đủ bề ngang cho form. */
-.searchWrap {
-  display: block;
-  width: 100%;
+.heroSearch {
+  grid-column: span 4;
+  margin-top: var(--space-8);
 }
 
+.heroPopular {
+  grid-column: span 4;
+  margin-top: var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .heroHeading {
+    grid-column: span 6;
+  }
+  .heroLead {
+    grid-column: span 6;
+  }
+  .heroSearch {
+    grid-column: span 7;
+  }
+  .heroPopular {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .heroHeading {
+    grid-column: span 7;
+  }
+  .heroLead {
+    grid-column: span 6;
+  }
+  .heroSearch {
+    grid-column: span 8;
+  }
+  .heroPopular {
+    grid-column: span 8;
+  }
+}
+
+/* Ô tìm kiếm: bề ngang đến từ cột (.heroSearch), đây chỉ lo bố cục bên trong. */
 .searchForm {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  max-width: 640px;
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
   border: var(--border-default);
   border-radius: var(--radius-cta);
@@ -60,8 +109,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* Input trần: viền và bo góc thuộc về khung bao ngoài, nếu không sẽ có hai đường viền
- * lồng nhau. */
+/* Input trần: viền và bo góc thuộc khung bao ngoài, nếu không sẽ có hai viền lồng nhau. */
 .searchInput {
   flex: 1 1 auto;
   min-width: 0;
@@ -85,20 +133,13 @@
   cursor: pointer;
 }
 
-.popular {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
 .popularLabel {
   color: var(--color-text-secondary);
   margin-right: var(--space-1);
 }
 
-/* Chip cũng là thẻ <button>: chúng sẽ điền vào ô tìm kiếm khi có backend. Dùng <span>
- * thì bàn phím không tới được. */
+/* Chip là <button> chứ không <span>: chúng sẽ điền vào ô tìm kiếm khi có backend, và
+ * bàn phím phải tới được. */
 .chip {
   border: var(--border-default);
   border-radius: var(--radius-tag);
@@ -116,6 +157,7 @@
 
 /* ── Dải logo đối tác ─────────────────────────────────────────────────────── */
 .partnerStrip {
+  grid-column: span 4;
   border: var(--border-default);
   border-radius: var(--radius-card);
   background-color: var(--color-bg-secondary);
@@ -125,8 +167,20 @@
   gap: var(--space-4);
 }
 
-/* Vùng cuộn ngang. Wireframe có mũi tên hai bên; ở bản thô này dùng cuộn tự nhiên —
- * carousel có nút cần JS và state, để lại khi chốt tương tác. */
+@media (min-width: 768px) {
+  .partnerStrip {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .partnerStrip {
+    grid-column: span 12;
+  }
+}
+
+/* Vùng cuộn ngang. Wireframe có mũi tên hai bên; bản thô dùng cuộn tự nhiên — carousel
+ * có nút cần JS và state, để lại khi chốt tương tác. */
 .partnerTrack {
   flex: 1 1 auto;
   min-width: 0;
@@ -145,7 +199,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-width: 220px;
   color: var(--color-text-tertiary);
 }
 
@@ -176,9 +229,22 @@
 
 /* ── Chip thống kê ────────────────────────────────────────────────────────── */
 .statsRow {
+  grid-column: span 4;
   display: flex;
   justify-content: center;
   margin-bottom: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .statsRow {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .statsRow {
+    grid-column: span 12;
+  }
 }
 
 .statsChip {
@@ -197,8 +263,11 @@
   color: var(--color-text-tertiary);
 }
 
-/* ── Tiêu đề section ──────────────────────────────────────────────────────── */
+/* ── Tiêu đề section ────────────────────────────────────────────────────────
+ * Bản căn giữa chiếm 8 cột và BẮT ĐẦU TỪ CỘT 3 — đó là cách căn giữa trên lưới, thay vì
+ * `max-width` một con số rồi `margin: auto`. */
 .sectionHeader {
+  grid-column: span 4;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -211,14 +280,35 @@
   text-align: center;
 }
 
-/* Hàng tiêu đề có link "Xem tất cả" ở mép phải. */
+/* Hàng tiêu đề có link "Xem tất cả" ở mép phải — luôn chiếm trọn bề ngang lưới. */
 .sectionHeaderRow {
+  grid-column: span 4;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-4);
   margin-bottom: var(--space-8);
+}
+
+@media (min-width: 768px) {
+  .sectionHeader,
+  .sectionHeaderCenter,
+  .sectionHeaderRow {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .sectionHeader {
+    grid-column: span 8;
+  }
+  .sectionHeaderCenter {
+    grid-column: 3 / span 8;
+  }
+  .sectionHeaderRow {
+    grid-column: span 12;
+  }
 }
 
 .viewAll {
@@ -231,25 +321,20 @@
   color: var(--color-text-primary);
 }
 
-/* ── Lưới chung ───────────────────────────────────────────────────────────── */
-.grid {
-  display: grid;
-  gap: var(--grid-gap);
-  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
-}
-
-/* 1 cột mobile (4/4) · 2 cột tablet (4/8) · 3 cột desktop (4/12) — không media query. */
-.colThird {
+/* ── Ô trên lưới ────────────────────────────────────────────────────────────
+ * `span 4` giữ nguyên qua các breakpoint nhưng Ý NGHĨA đổi vì số cột đổi:
+ * 4/4 = cả hàng (mobile) · 4/8 = nửa (tablet) · 4/12 = một phần ba (desktop). */
+.colCard {
   grid-column: span 4;
 }
 
-/* 1 · 2 · 4 cột. */
-.colQuarter {
+/* Ô danh mục hẹp hơn ở desktop: 3/12 = một phần tư. */
+.colCategory {
   grid-column: span 4;
 }
 
 @media (min-width: 1280px) {
-  .colQuarter {
+  .colCategory {
     grid-column: span 3;
   }
 }
@@ -258,6 +343,7 @@
 .card {
   display: flex;
   flex-direction: column;
+  height: 100%;
   border: var(--border-default);
   border-radius: var(--radius-card);
   background-color: var(--color-bg-primary);
@@ -307,6 +393,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  height: 100%;
   border: var(--border-default);
   border-radius: var(--radius-card);
   padding: var(--space-5);
@@ -328,12 +415,6 @@
 }
 
 /* ── Blog: 1 thẻ lớn + 2 thẻ xếp chồng ────────────────────────────────────── */
-.blogGrid {
-  display: grid;
-  gap: var(--grid-gap);
-  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
-}
-
 .blogFeature {
   grid-column: span 4;
 }
@@ -363,7 +444,8 @@
   }
 }
 
-/* Thẻ blog phụ: ảnh bên trái, chữ bên phải. */
+/* Thẻ blog phụ: ảnh trái, chữ phải. Đây là lưới NỘI BỘ của thẻ, không phải lưới trang —
+ * nên khai riêng là đúng. */
 .blogSideCard {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -392,13 +474,6 @@
 }
 
 /* ── FAQ ──────────────────────────────────────────────────────────────────── */
-.faqGrid {
-  display: grid;
-  gap: var(--grid-gap);
-  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
-  align-items: start;
-}
-
 .faqIntro {
   grid-column: span 4;
   display: flex;
@@ -490,6 +565,7 @@
 
 /* ── CTA gửi công cụ ──────────────────────────────────────────────────────── */
 .cta {
+  grid-column: span 4;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -498,6 +574,18 @@
   border-radius: var(--radius-cta);
   background-color: var(--color-bg-secondary);
   padding: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .cta {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .cta {
+    grid-column: span 12;
+  }
 }
 
 .ctaThumb {
@@ -512,7 +600,7 @@
 }
 
 .ctaText {
-  flex: 1 1 260px;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

@@ -89,7 +89,7 @@ export default async function UserLayout({ children }: { children: ReactNode }) 
 function SiteFooter() {
   return (
     <footer className={styles.footer}>
-      <div className={`container ${styles.footerInner}`}>
+      <div className={`container grid ${styles.footerInner}`}>
         <div className={styles.footerBrand}>
           <p className="typeCardTitle">Talosmine</p>
           <p className="typeBodySmall textSecondary">

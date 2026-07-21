@@ -9,17 +9,28 @@ export const metadata: Metadata = {
 /**
  * Trang chủ — bố cục thô theo wireframe Figma của chủ dự án.
  *
+ * KIẾN TRÚC LƯỚI: mọi section theo đúng một khuôn
+ *
+ *     <section className="section">
+ *       <div className="container grid">      ← lưới 4/8/12 cột
+ *         <div className={styles.xxx}>        ← con TRỰC TIẾP, khai số cột chiếm
+ *         <ul className="gridRow">            ← danh sách: chiếm cả hàng rồi chia lại cột
+ *       </div>
+ *     </section>
+ *
+ * Không khối nào bị giới hạn bằng `max-width` px — bề ngang luôn đến từ số cột. Xem
+ * globals.css để hiểu ba luật của lưới.
+ *
  * TRẠNG THÁI: đây là BẢN DỰNG BỐ CỤC. Mọi nội dung trong các lưới là dữ liệu mẫu, đúng
  * như wireframe ("Tool name", "Lorem ipsum"). Nguồn dữ liệu thật là Catalog — thuộc P3,
  * và còn chờ DEC-B01 (danh sách ứng dụng của Hub).
  *
- * Vì sao dữ liệu mẫu được đặt thành hằng số có tiền tố `PLACEHOLDER_` và dùng nhãn trung
- * tính ("Tên công cụ") thay vì bịa tên thương hiệu: để không ai — kể cả người review sau
- * này — nhầm nó là dữ liệu thật. Khi Catalog sẵn sàng, thay ba mảng dưới đây bằng lời gọi
- * API là xong; bố cục không phải sửa.
+ * Dữ liệu mẫu đặt tên `PLACEHOLDER_*` và dùng nhãn trung tính ("Tên công cụ") thay vì bịa
+ * tên thương hiệu, để không ai nhầm nó là dữ liệu thật. Khi Catalog sẵn sàng, thay các
+ * mảng đó bằng lời gọi API là xong; bố cục không phải sửa.
  *
- * Trang này là Server Component thuần: không đọc phiên đăng nhập. Trạng thái đăng nhập
- * do header trong `layout.tsx` xử lý.
+ * Trang này là Server Component thuần: không đọc phiên đăng nhập. Trạng thái đăng nhập do
+ * header trong `layout.tsx` xử lý.
  */
 
 const PLACEHOLDER_POPULAR = ['Từ khoá 1', 'Từ khoá 2', 'Từ khoá 3', 'Từ khoá 4', 'Từ khoá 5'];
@@ -38,16 +49,10 @@ const PLACEHOLDER_CATEGORIES = [
   { id: 'c5', name: 'Danh mục' },
   { id: 'c6', name: 'Danh mục' },
   { id: 'c7', name: 'Danh mục' },
+  { id: 'c8', name: 'Danh mục' },
 ];
 
-const PLACEHOLDER_NEWS = [
-  { id: 'n1' },
-  { id: 'n2' },
-  { id: 'n3' },
-  { id: 'n4' },
-  { id: 'n5' },
-  { id: 'n6' },
-];
+const PLACEHOLDER_NEWS = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6'];
 
 const PLACEHOLDER_FAQ = [
   'Talosmine là gì và hoạt động thế nào?',
@@ -80,44 +85,47 @@ export default function UserHomePage() {
 function Hero() {
   return (
     <section className="section">
-      <div className="container">
-        <div className={styles.hero}>
-          <h1 className="typeHero">Khám phá công cụ tốt nhất để xây dựng và phát triển</h1>
+      {/* `container grid`: container lo bề ngang + gutter, grid lo cột. */}
+      <div className="container grid">
+        <h1 className={`typeHero ${styles.heroHeading}`}>
+          Khám phá công cụ tốt nhất để xây dựng và phát triển
+        </h1>
 
-          <p className={`typeBodyLarge textSecondary ${styles.heroLead}`}>
-            Danh mục được tuyển chọn gồm những công cụ và tài nguyên tốt nhất dành cho người sáng
-            tạo, lập trình viên và đội ngũ đang tăng trưởng.
-          </p>
+        <p className={`typeBodyLarge textSecondary ${styles.heroLead}`}>
+          Danh mục được tuyển chọn gồm những công cụ và tài nguyên tốt nhất dành cho người sáng tạo,
+          lập trình viên và đội ngũ đang tăng trưởng.
+        </p>
 
-          {/*
-            Form tìm kiếm chưa có đích đến: Catalog thuộc P3. Để `action` trống thì trình
-            duyệt sẽ gửi về chính trang này thay vì báo lỗi — hành vi vô hại cho bản dựng.
-          */}
-          {/* `<search>` là landmark chuẩn — tương đương role="search" nhưng bằng thẻ thật. */}
-          <search className={styles.searchWrap}>
-            <form className={styles.searchForm}>
-              <SearchIcon />
-              <input
-                className={`typeBody ${styles.searchInput}`}
-                type="search"
-                name="q"
-                placeholder="Tìm công cụ, danh mục hoặc từ khoá…"
-                aria-label="Tìm kiếm công cụ"
-              />
-              <button type="submit" className={`typeBodySmall ${styles.searchSubmit}`}>
-                Tìm
-              </button>
-            </form>
-          </search>
+        {/*
+          Form tìm kiếm chưa có đích đến: Catalog thuộc P3. Không đặt `action` thì trình
+          duyệt gửi về chính trang này thay vì báo lỗi — vô hại cho bản dựng.
 
-          <div className={styles.popular}>
-            <span className={`typeBodySmall ${styles.popularLabel}`}>Tìm nhiều:</span>
-            {PLACEHOLDER_POPULAR.map((term) => (
-              <button key={term} type="button" className={`typeBodySmall ${styles.chip}`}>
-                {term}
-              </button>
-            ))}
-          </div>
+          `<search>` là landmark chuẩn, tương đương role="search" nhưng bằng thẻ thật. Nó
+          cũng chính là ô lưới, nên bề ngang đến từ số cột chứ không phải max-width.
+        */}
+        <search className={styles.heroSearch}>
+          <form className={styles.searchForm}>
+            <SearchIcon />
+            <input
+              className={`typeBody ${styles.searchInput}`}
+              type="search"
+              name="q"
+              placeholder="Tìm công cụ, danh mục hoặc từ khoá…"
+              aria-label="Tìm kiếm công cụ"
+            />
+            <button type="submit" className={`typeBodySmall ${styles.searchSubmit}`}>
+              Tìm
+            </button>
+          </form>
+        </search>
+
+        <div className={styles.heroPopular}>
+          <span className={`typeBodySmall ${styles.popularLabel}`}>Tìm nhiều:</span>
+          {PLACEHOLDER_POPULAR.map((term) => (
+            <button key={term} type="button" className={`typeBodySmall ${styles.chip}`}>
+              {term}
+            </button>
+          ))}
         </div>
       </div>
     </section>
@@ -126,15 +134,15 @@ function Hero() {
 
 function PartnerStrip() {
   return (
-    <div className="container">
+    <div className="container grid">
       <div className={styles.partnerStrip}>
         <button type="button" className={styles.partnerArrow} aria-label="Xem các mục trước">
           <ChevronIcon direction="left" />
         </button>
 
         {/*
-          `aria-hidden` vì đây hoàn toàn là chỗ giữ chỗ: chưa có đối tác thật nào. Trình đọc
-          màn hình đọc "Logo, Lorem ipsum" bảy lần là nhiễu chứ không phải thông tin.
+          `aria-hidden` vì đây hoàn toàn là chỗ giữ chỗ: chưa có đối tác thật nào. Trình
+          đọc màn hình đọc "Logo, mô tả ngắn" năm lần là nhiễu chứ không phải thông tin.
         */}
         <div className={styles.partnerTrack} aria-hidden="true">
           {['p1', 'p2', 'p3', 'p4', 'p5'].map((id) => (
@@ -159,7 +167,7 @@ function PartnerStrip() {
 function ToolsSection() {
   return (
     <section className="section">
-      <div className="container">
+      <div className="container grid">
         <div className={styles.statsRow}>
           <p className={`typeBodySmall ${styles.statsChip}`}>
             <span>10.000+ công cụ</span>
@@ -178,9 +186,9 @@ function ToolsSection() {
           </p>
         </div>
 
-        <ul className={styles.grid}>
+        <ul className="gridRow">
           {PLACEHOLDER_TOOLS.map((tool) => (
-            <li key={tool.id} className={styles.colThird}>
+            <li key={tool.id} className={styles.colCard}>
               <article className={styles.card}>
                 <div className={styles.thumb}>
                   <ImageIcon />
@@ -204,7 +212,7 @@ function ToolsSection() {
 function CategoriesSection() {
   return (
     <section className="section">
-      <div className="container">
+      <div className="container grid">
         <div className={styles.sectionHeaderRow}>
           <h2 className="typeH2">Khám phá danh mục</h2>
           <Link className={`typeBodySmall ${styles.viewAll}`} href="/categories">
@@ -212,9 +220,9 @@ function CategoriesSection() {
           </Link>
         </div>
 
-        <ul className={styles.grid}>
+        <ul className="gridRow">
           {PLACEHOLDER_CATEGORIES.map((category) => (
-            <li key={category.id} className={styles.colQuarter}>
+            <li key={category.id} className={styles.colCategory}>
               <div className={styles.categoryCard}>
                 <div className={styles.categoryThumb}>
                   <ImageIcon />
@@ -232,7 +240,7 @@ function CategoriesSection() {
 function WhatsNewSection() {
   return (
     <section className="section">
-      <div className="container">
+      <div className="container grid">
         <div className={styles.sectionHeaderCenter}>
           <h2 className="typeH2">Có gì mới</h2>
           <p className="typeBody textSecondary">
@@ -240,9 +248,9 @@ function WhatsNewSection() {
           </p>
         </div>
 
-        <ul className={styles.grid}>
-          {PLACEHOLDER_NEWS.map((item) => (
-            <li key={item.id} className={styles.colThird}>
+        <ul className="gridRow">
+          {PLACEHOLDER_NEWS.map((id) => (
+            <li key={id} className={styles.colCard}>
               <article className={styles.card}>
                 <div className={styles.thumb}>
                   <ImageIcon />
@@ -252,7 +260,7 @@ function WhatsNewSection() {
                   <h3 className="typeBodySmall">
                     Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật
                   </h3>
-                  <p className="typeCaption textTertiary">Ngày đăng · Tác giả</p>
+                  <p className={`typeCaption ${styles.cardMeta}`}>Ngày đăng · Tác giả</p>
                 </div>
               </article>
             </li>
@@ -266,7 +274,7 @@ function WhatsNewSection() {
 function BlogSection() {
   return (
     <section className="section">
-      <div className="container">
+      <div className="container grid">
         <div className={styles.sectionHeaderRow}>
           <h2 className="typeH2">Blog</h2>
           <Link className={`typeBodySmall ${styles.viewAll}`} href="/blog">
@@ -274,38 +282,37 @@ function BlogSection() {
           </Link>
         </div>
 
-        <div className={styles.blogGrid}>
-          <article className={`${styles.card} ${styles.blogFeature}`}>
-            <div className={styles.thumb}>
-              <ImageIcon />
-            </div>
-            <div className={styles.cardBody}>
-              <p className="typeCaption textTertiary">Ngày đăng</p>
-              <h3 className="typeCardTitle">
-                Tiêu đề bài viết nổi bật sẽ hiển thị ở đây khi có nội dung thật
-              </h3>
-              <p className="typeBodySmall textSecondary">
-                Đoạn mở đầu của bài viết. Nội dung này đến từ hệ thống blog, sẽ được kết nối ở giai
-                đoạn sau.
-              </p>
-            </div>
-          </article>
-
-          <div className={styles.blogSide}>
-            {['b1', 'b2'].map((id) => (
-              <article key={id} className={styles.blogSideCard}>
-                <div className={styles.thumb}>
-                  <ImageIcon />
-                </div>
-                <div className={styles.cardBody}>
-                  <p className="typeCaption textTertiary">Ngày đăng</p>
-                  <h3 className="typeBodySmall">
-                    Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật
-                  </h3>
-                </div>
-              </article>
-            ))}
+        {/* Bất đối xứng 7/5 cột — hai khối là con trực tiếp của lưới. */}
+        <article className={`${styles.card} ${styles.blogFeature}`}>
+          <div className={styles.thumb}>
+            <ImageIcon />
           </div>
+          <div className={styles.cardBody}>
+            <p className="typeCaption textTertiary">Ngày đăng</p>
+            <h3 className="typeCardTitle">
+              Tiêu đề bài viết nổi bật sẽ hiển thị ở đây khi có nội dung thật
+            </h3>
+            <p className="typeBodySmall textSecondary">
+              Đoạn mở đầu của bài viết. Nội dung này đến từ hệ thống blog, sẽ được kết nối ở giai
+              đoạn sau.
+            </p>
+          </div>
+        </article>
+
+        <div className={styles.blogSide}>
+          {['b1', 'b2'].map((id) => (
+            <article key={id} className={styles.blogSideCard}>
+              <div className={styles.thumb}>
+                <ImageIcon />
+              </div>
+              <div className={styles.cardBody}>
+                <p className="typeCaption textTertiary">Ngày đăng</p>
+                <h3 className="typeBodySmall">
+                  Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật
+                </h3>
+              </div>
+            </article>
+          ))}
         </div>
       </div>
     </section>
@@ -315,33 +322,32 @@ function BlogSection() {
 function FaqSection() {
   return (
     <section className="section">
-      <div className="container">
-        <div className={styles.faqGrid}>
-          <div className={styles.faqIntro}>
-            <h2 className="typeH2">Câu hỏi thường gặp</h2>
-            <p className="typeBody textSecondary">
-              Giải đáp nhanh những thắc mắc phổ biến, tập hợp ở một nơi.
-            </p>
-            <button type="button" className={`typeBody ${styles.askButton}`}>
-              Đặt câu hỏi
-            </button>
-          </div>
+      {/* Bất đối xứng 5/7 cột. */}
+      <div className="container grid">
+        <div className={styles.faqIntro}>
+          <h2 className="typeH2">Câu hỏi thường gặp</h2>
+          <p className="typeBody textSecondary">
+            Giải đáp nhanh những thắc mắc phổ biến, tập hợp ở một nơi.
+          </p>
+          <button type="button" className={`typeBody ${styles.askButton}`}>
+            Đặt câu hỏi
+          </button>
+        </div>
 
-          <div className={styles.faqList}>
-            {PLACEHOLDER_FAQ.map((question, index) => (
-              // Mục đầu mở sẵn (theo wireframe) để người dùng thấy ngay dạng câu trả lời.
-              <details key={question} className={styles.faqItem} open={index === 0}>
-                <summary className={`typeBody ${styles.faqQuestion}`}>
-                  {question}
-                  <ChevronIcon direction="down" className={styles.faqMarker} />
-                </summary>
-                <p className={`typeBodySmall ${styles.faqAnswer}`}>
-                  Nội dung trả lời sẽ được biên soạn khi hệ thống có đủ tính năng. Phần này hiện chỉ
-                  minh hoạ bố cục.
-                </p>
-              </details>
-            ))}
-          </div>
+        <div className={styles.faqList}>
+          {PLACEHOLDER_FAQ.map((question, index) => (
+            // Mục đầu mở sẵn (theo wireframe) để thấy ngay dạng câu trả lời.
+            <details key={question} className={styles.faqItem} open={index === 0}>
+              <summary className={`typeBody ${styles.faqQuestion}`}>
+                {question}
+                <ChevronIcon direction="down" className={styles.faqMarker} />
+              </summary>
+              <p className={`typeBodySmall ${styles.faqAnswer}`}>
+                Nội dung trả lời sẽ được biên soạn khi hệ thống có đủ tính năng. Phần này hiện chỉ
+                minh hoạ bố cục.
+              </p>
+            </details>
+          ))}
         </div>
       </div>
     </section>
@@ -351,7 +357,7 @@ function FaqSection() {
 function SubmitCta() {
   return (
     <section className="section">
-      <div className="container">
+      <div className="container grid">
         <div className={styles.cta}>
           <div className={styles.ctaThumb} aria-hidden="true">
             <ImageIcon />
@@ -372,8 +378,8 @@ function SubmitCta() {
 }
 
 /* ── Icon ───────────────────────────────────────────────────────────────────
- * SVG viết thẳng tại chỗ thay vì cài thư viện icon: chỉ cần ba hình, và mọi thư viện
- * icon đều nằm ngoài bảng D của decision register.
+ * SVG viết thẳng tại chỗ thay vì cài thư viện: chỉ cần ba hình, và mọi thư viện icon đều
+ * nằm ngoài bảng D của decision register.
  *
  * `currentColor` để icon ăn theo màu chữ của phần tử cha — đổi token màu là icon đổi theo.
  */
