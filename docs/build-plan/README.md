@@ -11,6 +11,7 @@ Bộ build plan chuyển kiến trúc đã duyệt thành các phase implementat
 - [Physical schema PostgreSQL](../database-schema.md)
 - [Tech stack đã duyệt](../stack-tech.md)
 - [**Decision register**](./decision-register.md) — nguồn sự thật cho mọi quyết định, version pin và tên script
+- [**Việc còn treo**](./pending-work.md) — mọi thứ đã biết là chưa làm, kèm lý do và điều đang chặn
 - [Quy trình agent và giới hạn ba vòng kiểm chứng](../../AGENTS.md)
 
 Khi có mâu thuẫn, dừng phase và đồng bộ tài liệu nguồn trước khi implementation. Không dùng build plan để tự chọn business value, library hoặc thay đổi stack.
