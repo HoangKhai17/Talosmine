@@ -1,0 +1,403 @@
+/*
+ * Design token + base style cho khu vực xác thực — BẢN PORT của
+ * `apps/web/app/globals.css`.
+ *
+ * ⚠ ĐÂY LÀ BẢN SAO CÓ CHỦ ĐÍCH, KHÔNG PHẢI SƠ SUẤT.
+ *
+ * File này được Logto phục vụ ở origin của Logto (cổng 3001), không đi qua Next.js. Không
+ * có build step, không có CSS Modules, không import được từ web app. Cách duy nhất để dùng
+ * chung một file là tải CSS từ origin của web app — làm vậy nghĩa là trang đăng nhập chỉ
+ * hiển thị đúng khi một máy chủ KHÁC còn sống, và mở thêm một nguồn tài nguyên bên ngoài
+ * ngay tại trang gõ mật khẩu. Không đáng.
+ *
+ * QUY TẮC ĐỒNG BỘ:
+ *   - Token, thang chữ và class tiện ích giữ ĐÚNG TÊN và ĐÚNG GIÁ TRỊ với bản gốc.
+ *   - Sửa bảng màu hoặc thang chữ ở `globals.css` thì PHẢI sửa cả ở đây.
+ *   - KHÔNG thêm token mới ở đây trừ khi nó chỉ thuộc về trang đăng nhập (hiện có đúng một
+ *     nhóm như vậy: màu nhấn — xem ghi chú tại chỗ).
+ *
+ * Đã lược bỏ những phần trang đăng nhập không dùng: token chiều cao ảnh danh mục/blog,
+ * `.gridDebug`, `.skipLink`. Lược bỏ để danh sách phải đồng bộ càng ngắn càng tốt.
+ */
+
+/* ── Font ─────────────────────────────────────────────────────────────────────
+ *
+ * Web app self-host Montserrat qua `next/font`. Trang này không có cơ chế đó, nên hai file
+ * subset được CHÉP THẲNG vào `fonts/` từ kết quả build của Next.
+ *
+ * Vì sao không tải từ Google Fonts: mỗi tài nguyên tải từ máy chủ bên thứ ba là một lượt rò
+ * IP và Referer của người dùng ra ngoài, ngay tại trang nhạy cảm nhất — và cũng là một nơi
+ * để chèn mã nếu bên đó bị chiếm. Cùng lý do `next/font` self-host ở web app.
+ *
+ * Chỉ lấy hai bảng mã CẦN DÙNG (latin + vietnamese), bỏ cyrillic: 46KB thay vì hơn 100KB.
+ *
+ * Montserrat là font BIẾN THIÊN — một file phục vụ mọi độ đậm, nên khai `font-weight` theo
+ * KHOẢNG `400 600` thay vì ba khối `@font-face` trỏ cùng một file.
+ *
+ * KHÔNG chép Inter. Ở bản gốc Inter chỉ là font dự phòng đứng sau Montserrat; khi Montserrat
+ * tải được thì Inter không bao giờ hiện. Chép thêm hai file cho một thứ không bao giờ thấy
+ * là lãng phí băng thông của người dùng.
+ */
+@font-face {
+  font-family: Montserrat;
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/montserrat-vietnamese.woff2") format("woff2");
+  unicode-range:
+    U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0,
+    U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+  font-family: Montserrat;
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url("/fonts/montserrat-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+:root {
+  /* ── Màu ──────────────────────────────────────────────────────────────────
+   * Giữ ĐÚNG giá trị của `apps/web/app/globals.css`. */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f7f7f5;
+  --color-text-primary: #111111;
+  --color-text-secondary: #62625f;
+  --color-text-tertiary: #8a8a86;
+  --color-border-default: #e5e5e1;
+  --color-border-hover: #c9c9c4;
+  --color-button-primary: #111111;
+  --color-button-text: #ffffff;
+
+  --color-focus: var(--color-text-primary);
+
+  /*
+   * MÀU NHẤN — TOKEN DUY NHẤT KHÔNG CÓ Ở BẢN GỐC.
+   *
+   * Thiết kế Figma của trang đăng nhập dùng một màu tím cho từ được nhấn, nút chính và
+   * link. Bảng màu đã duyệt hiện đơn sắc, không có token nào màu này.
+   *
+   * Giá trị dưới đây là ƯỚC LƯỢNG ĐỌC TỪ ẢNH THIẾT KẾ, không phải mã lấy từ Figma.
+   *
+   * ⚠ Phần còn lại của web app vẫn đơn sắc (nút chính màu đen). Muốn cả site dùng màu này
+   * thì phải thêm token tương ứng vào `globals.css` bản gốc — đó là quyết định về bảng màu,
+   * thuộc quyền chủ dự án.
+   */
+  --color-accent: #6139f6;
+  --color-accent-hover: #4f2ce0;
+  --color-accent-tint: #eeeafd;
+
+  /* ── Spacing ──────────────────────────────────────────────────────────────
+   * Thang đã duyệt. KHÔNG dùng giá trị ngoài danh sách này. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-30: 120px;
+
+  /* ── Bo góc ───────────────────────────────────────────────────────────── */
+  --radius-button: 8px;
+  --radius-input: 8px;
+  --radius-card: 12px;
+  --radius-cta: 16px;
+  --radius-tag: 999px;
+
+  /* ── Border ───────────────────────────────────────────────────────────── */
+  --border-default: 1px solid var(--color-border-default);
+  --border-hover: 1px solid var(--color-border-hover);
+
+  /* Bản gốc trỏ vào biến do `next/font` đặt. Ở đây trỏ thẳng tên họ font đã khai ở trên. */
+  --font-sans: Montserrat, system-ui, sans-serif;
+
+  /* ── Layout (mobile mặc định — mobile first) ───────────────────────────── */
+  --container-max: 1200px;
+  --container-gutter: 20px;
+  --grid-columns: 4;
+  --grid-gap: 16px;
+  --section-padding-y: 64px;
+
+  /* ── Typography (mobile mặc định) ───────────────────────────────────────
+   * ⚠ TẠM — CHỜ THIẾT KẾ, giống bản gốc: quy chuẩn của chủ dự án chỉ có bảng Desktop, các
+   * giá trị mobile là ước lượng. */
+  --type-hero-size: 40px;
+  --type-hero-line: 46px;
+  --type-h1-size: 36px;
+  --type-h1-line: 42px;
+  --type-h2-size: 30px;
+  --type-h2-line: 38px;
+  --type-h3-size: 24px;
+  --type-h3-line: 32px;
+  --type-card-title-size: 18px;
+  --type-card-title-line: 26px;
+  --type-body-large-size: 16px;
+  --type-body-large-line: 24px;
+  --type-body-size: 16px;
+  --type-body-line: 24px;
+  --type-body-small-size: 14px;
+  --type-body-small-line: 20px;
+  --type-caption-size: 12px;
+  --type-caption-line: 16px;
+
+  --weight-heading: 600;
+  --weight-body: 400;
+  --weight-caption: 500;
+
+  /* Quy chuẩn chỉ định nghĩa bảng màu sáng. Khoá ở light, giống bản gốc. */
+  color-scheme: light;
+}
+
+/* ── Tablet (từ 768px) ────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  :root {
+    --container-gutter: 32px;
+    --grid-columns: 8;
+    --grid-gap: 20px;
+    --section-padding-y: 80px;
+
+    --type-hero-size: 64px;
+    --type-hero-line: 68px;
+    --type-h1-size: 52px;
+    --type-h1-line: 60px;
+    --type-h2-size: 40px;
+    --type-h2-line: 48px;
+    --type-h3-size: 28px;
+    --type-h3-line: 36px;
+    --type-body-large-size: 18px;
+    --type-body-large-line: 28px;
+    --type-body-small-size: 14px;
+    --type-body-small-line: 21px;
+  }
+}
+
+/* ── Desktop (từ 1280px) ──────────────────────────────────────────────────── */
+@media (min-width: 1280px) {
+  :root {
+    --container-gutter: 120px;
+    --grid-columns: 12;
+    --grid-gap: 24px;
+    --section-padding-y: 96px;
+  }
+}
+
+/* ── Reset ────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* Không đặt font-size khác 100%: nó phá cỡ chữ mà người dùng tự chỉnh trong trình duyệt. */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--weight-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+img,
+picture,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+/* ── Focus ────────────────────────────────────────────────────────────────
+ * BẮT BUỘC nhìn thấy được. `:focus-visible` chỉ hiện khi điều hướng bằng bàn phím. */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* ── Typography utilities ─────────────────────────────────────────────────
+ * Dùng các class này thay vì tự set font-size trong CSS của trang. Đây chính là chỗ mà bản
+ * CSS trước của trang đăng nhập làm sai: nó viết `font-size` thẳng vào từng class bố cục,
+ * nên cỡ chữ trôi khỏi thang chung mà không ai thấy.
+ *
+ * KHÔNG đặt `letter-spacing` — giống bản gốc. */
+.typeHero {
+  font-size: var(--type-hero-size);
+  line-height: var(--type-hero-line);
+  font-weight: var(--weight-heading);
+}
+
+.typeH1 {
+  font-size: var(--type-h1-size);
+  line-height: var(--type-h1-line);
+  font-weight: var(--weight-heading);
+}
+
+.typeH2 {
+  font-size: var(--type-h2-size);
+  line-height: var(--type-h2-line);
+  font-weight: var(--weight-heading);
+}
+
+.typeH3 {
+  font-size: var(--type-h3-size);
+  line-height: var(--type-h3-line);
+  font-weight: var(--weight-heading);
+}
+
+.typeCardTitle {
+  font-size: var(--type-card-title-size);
+  line-height: var(--type-card-title-line);
+  font-weight: var(--weight-heading);
+}
+
+.typeBodyLarge {
+  font-size: var(--type-body-large-size);
+  line-height: var(--type-body-large-line);
+  font-weight: var(--weight-body);
+}
+
+.typeBody {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--weight-body);
+}
+
+.typeBodySmall {
+  font-size: var(--type-body-small-size);
+  line-height: var(--type-body-small-line);
+  font-weight: var(--weight-body);
+}
+
+.typeCaption {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--weight-caption);
+}
+
+/* Màu chữ tiện ích — dùng kèm class typography. */
+.textSecondary {
+  color: var(--color-text-secondary);
+}
+
+.textTertiary {
+  color: var(--color-text-tertiary);
+}
+
+/* ── Layout utilities ─────────────────────────────────────────────────────── */
+.container {
+  width: 100%;
+  max-width: calc(var(--container-max) + var(--container-gutter) * 2);
+  margin-inline: auto;
+  padding-inline: var(--container-gutter);
+}
+
+.section {
+  padding-block: var(--section-padding-y);
+}
+
+/* ── LƯỚI CỘT ──────────────────────────────────────────────────────────────
+ * Giữ nguyên hợp đồng của bản gốc: 4 / 8 / 12 cột theo breakpoint, số cột nằm ở
+ * `--grid-columns`. Ba luật bắt buộc chép nguyên:
+ *
+ *   1. KHÔNG `max-width` bằng px để giới hạn bề ngang khối. Ngoại lệ duy nhất: đơn vị `ch`
+ *      cho đoạn văn dài.
+ *   2. KHÔNG khai lại `display: grid` + `grid-template-columns` ở nơi khác.
+ *   3. Chỉ CON TRỰC TIẾP của `.grid` mới đặt được `grid-column`.
+ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: var(--grid-gap);
+}
+
+.gridRow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: var(--grid-gap);
+}
+
+/* Xếp dọc với khoảng cách chuẩn. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+/* Khối thông báo trung tính — viền + nền phụ, không dùng màu trạng thái vì bảng màu chưa có
+ * token success/warning/danger. */
+.notice {
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-bg-secondary);
+}
+
+/* Ẩn khỏi màn hình nhưng screen reader vẫn đọc. */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

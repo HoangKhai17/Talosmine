@@ -12,7 +12,27 @@
       là một lượt rò IP và Referer của họ ra ngoài, ngay tại nơi nhạy cảm nhất — và cũng là
       một nơi để chèn mã nếu bên đó bị chiếm.
     -->
-    <link rel="stylesheet" href="/styles.css" />
+    <!--
+      Hai file, đúng cách phân chia của `apps/web`:
+        globals.css  token, reset, thang chữ, class tiện ích  (bản port của web app)
+        auth.css     bố cục riêng của trang này               (không có font-size nào)
+
+      Thứ tự bắt buộc: `auth.css` dùng token do `globals.css` khai.
+
+      Font nạp trước bằng `preload` vì nó nằm trên đường tới nội dung đầu tiên người dùng
+      nhìn thấy; không có nó, chữ hiện bằng font hệ thống rồi nhảy khi Montserrat về.
+      `crossorigin` là BẮT BUỘC với font kể cả cùng origin — thiếu nó trình duyệt tải hai
+      lần vì hai request khác chế độ CORS.
+    -->
+    <link
+      rel="preload"
+      href="/fonts/montserrat-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="stylesheet" href="/globals.css" />
+    <link rel="stylesheet" href="/auth.css" />
   </head>
 
   <body>

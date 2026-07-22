@@ -289,18 +289,25 @@ const BENEFITS = [
 function brandPanel() {
   return el('aside', { class: 'brandPanel', 'aria-label': 'Giới thiệu' }, [
     el('div', { class: 'brandContent' }, [
-      el('p', { class: 'brandLogo', text: 'Talosmine' }),
+      el('p', { class: 'typeCardTitle brandLogo', text: 'Talosmine' }),
+      /*
+        `<h2>` THẬT, không phải `<p>` mang cỡ chữ H2.
+        Trước đây chỗ này là `<p>` vì tôi lập luận "mỗi màn hình chỉ nên có một tiêu đề".
+        Lập luận đó sai: cột trái là một landmark `<aside>` riêng, và một landmark không có
+        tiêu đề thì trình đọc màn hình không có mốc nào để nhảy vào. Thứ tự cấp bậc vẫn
+        đúng vì `<main>` (chứa `<h1>`) đứng TRƯỚC `<aside>` trong DOM — xem `authScreen`.
+      */
       // `<p>` mang cỡ chữ tiêu đề chứ không phải thẻ heading: mỗi màn hình chỉ có MỘT tiêu
       // đề thật, nằm ở cột phải. Biến câu quảng bá thành heading sẽ làm trình đọc màn hình
       // thông báo một mục lục sai.
       // Một phần câu mang màu nhấn, theo thiết kế. Ghép bằng `createTextNode` + `<span>`
       // chứ không phải `innerHTML` — cùng lý do với `el()`: không mở đường cho HTML.
-      el('p', { class: 'brandHeading' }, [
+      el('h2', { class: 'typeH2 brandHeading' }, [
         document.createTextNode('Tìm công cụ AI tốt hơn, '),
         el('span', { class: 'accent', text: 'nhanh hơn' }),
       ]),
       el('p', {
-        class: 'brandLead',
+        class: 'typeBody textSecondary brandLead',
         text: 'Cùng hàng nghìn người đang tìm đúng công cụ cho công việc của mình.',
       }),
       el(
@@ -309,9 +316,12 @@ function brandPanel() {
         BENEFITS.map((benefit) =>
           el('li', { class: 'benefit' }, [
             el('span', { class: 'benefitIcon' }, [icon(benefit.paths, 16)]),
-            el('span', { class: 'benefitText' }, [
-              el('span', { class: 'benefitTitle', text: benefit.title }),
-              el('span', { class: 'benefitNote', text: benefit.note }),
+            // `<h3>` + `<p>`, không phải hai `<span>` giống hệt nhau. Mỗi lợi ích là một
+            // mục có tiêu đề và mô tả; dùng `<span>` cho cả hai thì trình đọc màn hình đọc
+            // ra bốn dòng chữ rời rạc không biết dòng nào là tên, dòng nào là giải thích.
+            el('div', { class: 'benefitText' }, [
+              el('h3', { class: 'typeBodySmall benefitTitle', text: benefit.title }),
+              el('p', { class: 'typeCaption textTertiary', text: benefit.note }),
             ]),
           ]),
         ),
@@ -338,11 +348,14 @@ function brandPanel() {
  */
 function googleButton() {
   return [
-    el('button', { type: 'button', class: 'socialButton', disabled: '' }, [
+    el('button', { type: 'button', class: 'typeBody socialButton', disabled: '' }, [
       googleIcon(),
       el('span', { text: 'Tiếp tục với Google' }),
     ]),
-    el('p', { class: 'socialNote', text: 'Chưa cấu hình connector Google' }),
+    el('p', {
+      class: 'typeCaption textTertiary socialNote',
+      text: 'Chưa cấu hình connector Google',
+    }),
   ];
 }
 
@@ -397,14 +410,14 @@ function googleIcon() {
 function backLink() {
   const url = window.TALOSMINE_APP_URL;
   if (typeof url !== 'string' || url === '') return null;
-  return el('a', { class: 'backLink', href: url, text: 'Về trang chủ' });
+  return el('a', { class: 'typeBodySmall backLink', href: url, text: 'Về trang chủ' });
 }
 
 /** Ô mật khẩu có nút hiện/ẩn. Nút làm thật — một nút không làm gì là nói dối người dùng. */
 function passwordField(id, label, hint) {
   const input = el('input', {
     id,
-    class: 'input',
+    class: 'typeBody input',
     type: 'password',
     name: 'password',
     autocomplete: id === 'password-new' ? 'new-password' : 'current-password',
@@ -439,9 +452,9 @@ function passwordField(id, label, hint) {
   return {
     input,
     node: el('div', { class: 'field' }, [
-      el('label', { class: 'label', for: id, text: label }),
+      el('label', { class: 'typeBodySmall', for: id, text: label }),
       el('div', { class: 'inputWrap' }, [input, toggle]),
-      hint ? el('p', { class: 'hint', text: hint }) : null,
+      hint ? el('p', { class: 'typeCaption textTertiary', text: hint }) : null,
     ]),
   };
 }
@@ -458,7 +471,7 @@ function passwordField(id, label, hint) {
 function textField(id, label, placeholder, hint, autocomplete, required) {
   const input = el('input', {
     id,
-    class: 'input',
+    class: 'typeBody input',
     type: 'text',
     name: id,
     placeholder,
@@ -472,9 +485,9 @@ function textField(id, label, placeholder, hint, autocomplete, required) {
   return {
     input,
     node: el('div', { class: 'field' }, [
-      el('label', { class: 'label', for: id, text: label }),
+      el('label', { class: 'typeBodySmall', for: id, text: label }),
       input,
-      hint ? el('p', { class: 'hint', text: hint }) : null,
+      hint ? el('p', { class: 'typeCaption textTertiary', text: hint }) : null,
     ]),
   };
 }
@@ -529,23 +542,27 @@ function authScreen(config) {
     : null;
 
   const consent = isRegister
-    ? el('label', { class: 'consentRow' }, [
+    ? el('label', { class: 'typeBodySmall textSecondary consentRow' }, [
         consentInput,
         el('span', {}, [
           document.createTextNode('Tôi đồng ý với '),
           // KHÔNG phải link: hai văn bản này chưa được soạn. Một link dẫn tới 404 ngay chỗ
           // người dùng đang cam kết điều gì đó thì tệ hơn hẳn một dòng chữ.
-          el('span', { class: 'consentTerm', text: 'Điều khoản dịch vụ' }),
+          el('span', { class: 'accent', text: 'Điều khoản dịch vụ' }),
           document.createTextNode(' và '),
-          el('span', { class: 'consentTerm', text: 'Chính sách riêng tư' }),
+          el('span', { class: 'accent', text: 'Chính sách riêng tư' }),
         ]),
       ])
     : null;
 
-  const submit = el('button', { type: 'submit', class: 'submitButton', text: config.submitLabel });
+  const submit = el('button', {
+    type: 'submit',
+    class: 'typeBody submitButton',
+    text: config.submitLabel,
+  });
 
   function showError(message) {
-    errorBox.replaceChildren(el('p', { text: message }));
+    errorBox.replaceChildren(el('p', { class: 'typeBodySmall', text: message }));
     errorBox.hidden = false;
     // Đưa focus về khối lỗi để trình đọc màn hình đọc nó ngay, thay vì để người dùng tự
     // đi tìm xem có gì thay đổi.
@@ -616,26 +633,43 @@ function authScreen(config) {
     ],
   );
 
+  /*
+    THỨ TỰ TRONG DOM: `<main>` TRƯỚC, `<aside>` SAU. Thứ tự NHÌN THẤY thì ngược lại — cột
+    giới thiệu nằm bên trái — và việc đảo đó do lưới lo (xem `auth.css`).
+
+    Vì sao phải làm vậy:
+      - Cấp bậc tiêu đề đọc đúng chiều: h1 (Đăng nhập) → h2 (câu quảng bá) → h3 (lợi ích).
+        Để `<aside>` trước thì tài liệu bắt đầu bằng h2 rồi mới tới h1.
+      - Người dùng trình đọc màn hình gặp NGAY việc họ tới đây để làm, thay vì phải nghe
+        hết phần quảng bá.
+
+    Đảo bằng lưới ở đây KHÔNG tạo bẫy bàn phím: `<aside>` không chứa phần tử nào focus
+    được, nên thứ tự Tab vẫn trùng thứ tự nhìn thấy.
+  */
   return el('div', { class: 'page' }, [
-    brandPanel(),
-    el('div', { class: 'formPanel' }, [
+    el('main', { class: 'formPanel' }, [
       el('div', { class: 'formTop' }, [backLink()]),
       el('div', { class: 'formArea' }, [
-        el('h1', { class: 'title', text: config.title }),
-        el('p', { class: 'lead', text: config.lead }),
+        el('h1', { class: 'typeH2', text: config.title }),
+        el('p', { class: 'typeBodySmall textSecondary lead', text: config.lead }),
         errorBox,
         ...googleButton(),
-        el('div', { class: 'divider' }, [el('span', { text: config.dividerLabel })]),
+        el('div', { class: 'divider' }, [
+          el('span', { class: 'typeBodySmall textTertiary', text: config.dividerLabel }),
+        ]),
         form,
         // "Quên mật khẩu?" KHÔNG phải link: luồng khôi phục đã bị dời lại vì Logto chưa cấu
         // hình gửi thư. Một link không làm gì ở đây sẽ khiến người dùng bấm rồi ngồi chờ.
-        isRegister ? null : el('p', { class: 'forgotRow', text: 'Quên mật khẩu?' }),
-        el('p', { class: 'switchRow' }, [
+        isRegister
+          ? null
+          : el('p', { class: 'typeBodySmall textTertiary forgotRow', text: 'Quên mật khẩu?' }),
+        el('p', { class: 'typeBodySmall textSecondary switchRow' }, [
           el('span', { text: `${config.switchPrompt} ` }),
           el('a', { class: 'switchLink', href: config.switchHref, text: config.switchLabel }),
         ]),
       ]),
     ]),
+    brandPanel(),
   ]);
 }
 
@@ -647,20 +681,20 @@ function authScreen(config) {
  */
 function fallbackScreen(pathname) {
   return el('div', { class: 'page' }, [
-    brandPanel(),
-    el('div', { class: 'formPanel' }, [
+    el('main', { class: 'formPanel' }, [
       el('div', { class: 'formTop' }, [backLink()]),
       el('div', { class: 'formArea' }, [
-        el('h1', { class: 'title', text: 'Màn hình chưa được dựng' }),
+        el('h1', { class: 'typeH2', text: 'Màn hình chưa được dựng' }),
         el('p', {
-          class: 'lead',
+          class: 'typeBodySmall textSecondary lead',
           text: `Giao diện tuỳ chỉnh của Talosmine hiện chỉ dựng màn hình đăng nhập và đăng ký. Đường dẫn "${pathname}" cần một màn hình chưa có.`,
         }),
-        el('p', { class: 'switchRow' }, [
+        el('p', { class: 'typeBodySmall switchRow' }, [
           el('a', { class: 'switchLink', href: ROUTES.signIn, text: 'Về trang đăng nhập' }),
         ]),
       ]),
     ]),
+    brandPanel(),
   ]);
 }
 

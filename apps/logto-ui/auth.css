@@ -1,0 +1,531 @@
+/*
+ * Bố cục trang đăng nhập / đăng ký.
+ *
+ * File này CHỈ nói về vị trí, khoảng cách và nền. Cỡ chữ, độ đậm và màu chữ đến từ class
+ * tiện ích ở `globals.css` (`typeH2`, `typeBodySmall`, `textSecondary`…), đúng như cách
+ * `apps/web` làm.
+ *
+ * KHÔNG CÓ MỘT `font-size` NÀO TRONG FILE NÀY. Bản CSS trước viết cỡ chữ thẳng vào từng
+ * class bố cục — nên chữ ở đây trôi khỏi thang chung của dự án mà không ai nhận ra cho tới
+ * khi đặt hai trang cạnh nhau. Thấy `font-size` xuất hiện lại ở đây là dấu hiệu ai đó vừa
+ * đi tắt.
+ *
+ * TRÀN VIỀN CÓ CHỦ ĐÍCH: trang này KHÔNG dùng `.container`. Thiết kế cho thấy nền cột trái
+ * chạy sát mép màn hình. Đây là ngoại lệ cùng loại với băng đối tác ở trang chủ.
+ */
+
+/* ── Khung trang ──────────────────────────────────────────────────────────────
+ *
+ * Trang nằm TRÊN LƯỚI CỘT của dự án, không phải trên một tỉ lệ tự chế.
+ *
+ * `repeat(var(--grid-columns), …)` — đúng công thức của `.grid` trong `globals.css`, nên số
+ * cột tự đổi 4 / 8 / 12 theo breakpoint. Trước đây chỗ này viết `5fr 7fr`: hai cột đó không
+ * liên quan gì tới lưới của site, nên mọi thứ bên trong cũng không thể khít cột.
+ *
+ * `gap: 0` là KHÁC BIỆT DUY NHẤT so với `.grid`, và nó bắt buộc: hai cột ở đây là hai VÙNG
+ * NỀN phải chạm nhau, không phải hai ô nội dung. Một khe 24px giữa chúng sẽ thành một vạch
+ * trắng chạy dọc giữa màn hình.
+ */
+.page {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+  gap: 0;
+  /* `dvh` chứ không phải `vh`: trên di động thanh địa chỉ co giãn làm `100vh` cao hơn vùng
+   * nhìn thấy thật, đẩy nút chính xuống dưới mép màn hình. */
+  min-height: 100dvh;
+}
+
+/* Dưới desktop: mỗi vùng chiếm trọn hàng, xếp chồng. */
+.brandPanel,
+.formPanel {
+  grid-column: 1 / -1;
+}
+
+/*
+ * Desktop (từ 1280px — đúng mốc của `globals.css`): chia 5 / 7 cột TRÊN LƯỚI 12 CỘT.
+ *
+ * `1 / span 5` và `6 / -1` nói cùng một thứ tiếng với mọi khối khác trong dự án
+ * (`grid-column: span 4`, `grid-column: 3 / span 8`…), thay vì một tỉ lệ `fr` chỉ đúng ở
+ * riêng trang này.
+ *
+ * `order` đảo VỊ TRÍ NHÌN THẤY: `<main>` đứng trước trong DOM để cấp bậc tiêu đề và thứ tự
+ * đọc đúng, nhưng hiện ở bên phải. An toàn vì `<aside>` không có phần tử nào focus được —
+ * thứ tự Tab vẫn trùng thứ tự nhìn thấy.
+ *
+ * Dưới 1280px KHÔNG đảo: lúc đó xếp chồng, và phần giới thiệu nằm dưới biểu mẫu là đúng —
+ * người dùng vào đây để đăng nhập, không phải để đọc quảng cáo.
+ */
+@media (min-width: 1280px) {
+  .brandPanel {
+    grid-column: 1 / span 5;
+    order: -1;
+  }
+
+  .formPanel {
+    grid-column: 6 / -1;
+  }
+
+  .brandImage,
+  .formTop {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── Cột trái: giới thiệu ─────────────────────────────────────────────────────
+ * Trắng ở trên chuyển dần sang tím rất nhạt ở dưới, theo thiết kế. `background-color` đặt
+ * trước làm nền dự phòng cho trình duyệt không hiểu `linear-gradient`. */
+.brandPanel {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-accent-tint);
+  background-image: linear-gradient(
+    160deg,
+    var(--color-bg-primary) 0%,
+    var(--color-accent-tint) 100%
+  );
+}
+
+/*
+ * Đệm ngang dùng `--container-gutter` ở MỌI breakpoint — cùng thang với `.container` của
+ * web app (20 / 32 / 120px). Nhờ vậy chữ ở trang đăng nhập cách mép màn hình đúng bằng chữ
+ * ở mọi trang khác.
+ *
+ * Trước đây desktop bị đè xuống `--space-16` (64px) với lý do "120 quá to". Đó là sai: ở
+ * desktop một cột lưới rộng đúng 120px (globals chọn mốc 1280 để container 1200 + hai gutter
+ * 120 vừa khít), nên 120 CHÍNH LÀ một cột. Lấy 64 là rơi ra khỏi lưới, và đó là chỗ khiến
+ * khoảng cách trông lệch so với phần còn lại của site.
+ */
+.brandContent {
+  display: flex;
+  flex-direction: column;
+  padding-block: var(--space-10);
+  padding-inline: var(--container-gutter);
+}
+
+@media (min-width: 1280px) {
+  .brandContent {
+    padding-block: var(--space-12);
+  }
+}
+
+.brandLogo {
+  margin-bottom: var(--space-20);
+}
+
+/* Giới hạn theo ĐƠN VỊ CHỮ — ngoại lệ duy nhất của luật "không max-width": đây là ràng
+ * buộc độ dài dòng đọc được, không phải bố cục theo cột. */
+.brandHeading {
+  max-width: 18ch;
+}
+
+.brandLead {
+  margin-top: var(--space-4);
+  max-width: 38ch;
+}
+
+.benefitList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-top: var(--space-10);
+}
+
+.benefit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.benefitIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--space-10);
+  height: var(--space-10);
+  border-radius: var(--radius-button);
+  background-color: var(--color-border-default);
+}
+
+.benefitText {
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * Độ đậm là chỗ DUY NHẤT của thang chữ được phép xuất hiện trong file này, và luôn qua
+ * token. Lý do: `typeBodySmall` cố định weight 400, nhưng vài nhãn trong thiết kế đậm hơn
+ * mà không đổi cỡ — đúng cách `apps/web` xử lý trong các file `.module.css` của nó.
+ *
+ * `font-size` thì tuyệt đối không: cỡ chữ chỉ đến từ class `typeX`.
+ */
+.benefitTitle,
+.socialButton,
+.submitButton,
+.switchLink,
+.accent {
+  font-weight: var(--weight-caption);
+}
+
+/*
+ * Khối ảnh ẨN Ở MOBILE và TABLET.
+ *
+ * Khi xếp chồng, nó nằm giữa phần giới thiệu và biểu mẫu — người dùng phải cuộn qua một
+ * khối cao mới tới được ô đăng nhập. Việc chính của trang này là đăng nhập, nên thứ trang
+ * trí phải nhường đường.
+ */
+.brandImage {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .brandImage {
+    /* `flex: 1` để ăn hết chiều cao còn lại của cột — nền phủ kín tới đáy màn hình dù nội
+     * dung bên trên ngắn hay dài. */
+    flex: 1 1 auto;
+    min-height: var(--space-30);
+    display: grid;
+    place-items: center;
+    background-color: var(--color-border-default);
+  }
+}
+
+/* ── Cột phải: biểu mẫu ───────────────────────────────────────────────────── */
+.formPanel {
+  display: flex;
+  flex-direction: column;
+  padding-block: var(--space-6);
+  padding-inline: var(--container-gutter);
+}
+
+@media (min-width: 1280px) {
+  .formPanel {
+    padding-block: var(--space-12);
+  }
+}
+
+.formTop {
+  display: flex;
+  justify-content: flex-end;
+  min-height: var(--space-8);
+}
+
+.backLink {
+  text-decoration: none;
+}
+
+.backLink:hover {
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+/*
+ * Cột biểu mẫu căn giữa theo cả hai chiều.
+ *
+ * `max-width` theo ĐƠN VỊ CHỮ — ngoại lệ được ghi trong luật lưới. Ô nhập rộng hết màn hình
+ * thì mắt phải đi hết bề ngang để đọc nhãn rồi quay lại đầu dòng, và người dùng không biết
+ * trường nào đi với nhãn nào.
+ */
+.formArea {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  max-width: 60ch;
+  margin-inline: auto;
+  padding-block: var(--space-10);
+}
+
+.lead {
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-8);
+}
+
+/* Khối lỗi. Dùng viền + nền phụ, không dùng màu trạng thái vì bảng màu chưa có token
+ * danger. `role="alert"` đặt ở `app.js` — không có nó thì trình đọc màn hình im lặng khi
+ * đăng nhập thất bại. */
+.error {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+}
+
+/* ── Đăng nhập bằng nhà cung cấp ngoài ────────────────────────────────────────
+ * Viền chứ không nền đặc: đây là lựa chọn PHỤ. Hai nút cùng nền đặc sẽ khiến mắt không biết
+ * cái nào là đường đi mặc định. */
+.socialButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.socialButton:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-bg-secondary);
+}
+
+/* Nút bị vô hiệu phải TRÔNG bị vô hiệu — nếu không người dùng bấm mãi mà không hiểu vì sao
+ * không có gì xảy ra. */
+.socialButton:disabled {
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.socialNote {
+  margin-top: var(--space-2);
+  text-align: center;
+}
+
+/*
+ * Vạch ngăn có chữ ở giữa.
+ *
+ * Hai vạch là pseudo-element `flex: 1` nên tự chia đều phần trống hai bên — không cần biết
+ * chữ ở giữa dài bao nhiêu, và đổi chữ không phải đo lại gì.
+ */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-block: var(--space-6);
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1 1 0;
+  height: 1px;
+  background-color: var(--color-border-default);
+}
+
+/* ── Ô nhập ───────────────────────────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.input {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  background-color: var(--color-bg-primary);
+  outline: none;
+  width: 100%;
+}
+
+.input:focus {
+  border-color: var(--color-border-hover);
+}
+
+.input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+/* Khung bọc ô có nút bên trong (mật khẩu): viền ở khung, ô nhập để trần — nếu không sẽ có
+ * hai viền lồng nhau. */
+.inputWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline-end: var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  background-color: var(--color-bg-primary);
+}
+
+.inputWrap:focus-within {
+  border-color: var(--color-border-hover);
+}
+
+.inputWrap .input {
+  border: none;
+  background: transparent;
+  min-width: 0;
+}
+
+.inputToggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border: none;
+  border-radius: var(--radius-button);
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+}
+
+.inputToggle:hover {
+  color: var(--color-text-primary);
+}
+
+/*
+ * Hàng hai ô cạnh nhau (Tên / Họ).
+ *
+ * `1fr 1fr` chứ không `auto auto`: hai ô phải rộng bằng nhau bất kể nhãn dài ngắn. Dưới
+ * 768px chúng xếp chồng — hai ô nhập cạnh nhau trên màn hẹp thì mỗi ô chỉ còn chỗ cho vài
+ * ký tự. Ngưỡng lấy đúng breakpoint tablet của `globals.css`.
+ */
+.nameRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .nameRow {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ── Ô đồng ý điều khoản ──────────────────────────────────────────────────── */
+.consentRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+/* `margin-top` nhỏ để ô vuông thẳng hàng với DÒNG CHỮ ĐẦU TIÊN, không phải giữa khối chữ —
+ * chữ ở đây xuống hai dòng. */
+.consentRow input {
+  flex: none;
+  margin: 0;
+  margin-top: var(--space-1);
+  accent-color: var(--color-accent);
+}
+
+/* ── Nút chính và các link nhấn ───────────────────────────────────────────── */
+.submitButton {
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  border: none;
+  border-radius: var(--radius-button);
+  background-color: var(--color-accent);
+  color: var(--color-button-text);
+  cursor: pointer;
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+}
+
+.submitButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Từ được nhấn trong câu quảng bá, tên hai văn bản pháp lý, link chuyển màn hình. */
+.accent {
+  color: var(--color-accent);
+}
+
+.switchRow {
+  margin-top: var(--space-6);
+  text-align: center;
+}
+
+.switchLink {
+  color: var(--color-accent);
+}
+
+/* "Quên mật khẩu?" — KHÔNG phải link, nên không có `:hover`. Luồng khôi phục chưa có. */
+.forgotRow {
+  margin-top: var(--space-5);
+  text-align: center;
+}
+
+.noscript {
+  padding: var(--space-10);
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .input,
+  .inputWrap,
+  .socialButton,
+  .submitButton,
+  .inputToggle {
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+ * ĐÈ CUỐI FILE — KHỐI NÀY PHẢI Ở SAU CÙNG.
+ *
+ * CSS cùng độ đặc hiệu thì cái viết SAU thắng. Khối này đè lên `display`, `padding-inline`
+ * và `margin-inline` của `.brandPanel` / `.brandContent` / `.formPanel` / `.formArea` — mà
+ * chúng được định nghĩa ở giữa file. Đặt khối này lên trên thì các định nghĩa đó ghi đè
+ * ngược lại và không có gì thay đổi.
+ *
+ * Đây đúng là lỗi vừa mắc: khối được chèn ở đầu, đo ra không đổi một pixel, và trông y hệt
+ * như "subgrid không chạy".
+ * ══════════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 1280px) {
+  /*
+   * `subgrid` — mỗi vùng TỰ CHIA LẠI theo đúng các cột nó chiếm của lưới trang.
+   *
+   * Nhờ vậy nội dung bên trong nằm trên CHÍNH những cột đó, ở MỌI bề ngang màn hình. Lề
+   * trái phải bằng đúng MỘT CỘT (`2 / -2`), nên nó giãn theo màn hình thay vì đứng yên ở
+   * 120px.
+   *
+   * Vì sao không dùng `padding-inline: var(--container-gutter)` ở desktop: 120px chỉ trùng
+   * một cột đúng tại 1440px (đúng bề ngang mà thiết kế được vẽ). Ở 1920px một cột rộng
+   * 160px, ở 2560px là 213px — lề 120px cố định rơi ra khỏi lưới, và đo được: tiêu đề nằm
+   * ở "0.75 cột" thay vì đầu cột 2.
+   *
+   * Hàng: `auto 1fr` để khối chữ cao theo nội dung còn khối ảnh ăn hết phần cao còn lại.
+   */
+  .brandPanel,
+  .formPanel {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-template-rows: auto 1fr;
+    /* Đệm ngang giờ do cột lo, không do padding. */
+    padding-inline: 0;
+  }
+
+  .brandContent,
+  .formArea {
+    grid-column: 2 / -2;
+    /* Lề giờ do CỘT lo. Để lại padding/margin ở đây là cộng dồn hai lớp lề và nội dung
+     * trượt khỏi mốc cột — đúng lỗi vừa đo được. */
+    padding-inline: 0;
+    margin-inline: 0;
+  }
+
+  /*
+   * Ô biểu mẫu lấp đầy vùng 5 cột của nó, nhưng có TRẦN.
+   *
+   * Không có trần thì ở màn 2560px vùng đó rộng 1067px, và một biểu mẫu đăng nhập rộng hơn
+   * một mét trên màn hình là thứ không ai muốn dùng. Trần đặt bằng ĐƠN VỊ CHỮ (ngoại lệ duy
+   * nhất của luật "không max-width") và đủ rộng để KHÔNG chặn ở các bề ngang thường gặp:
+   * tại 1440px vùng cột rộng 600px, vẫn dưới trần, nên ô lấp đầy đúng 5 cột.
+   *
+   * Căn TRÁI chứ không giữa: nhờ vậy mép trái luôn nằm đúng đầu cột 7, kể cả khi trần chặn.
+   */
+  .formArea {
+    max-width: 80ch;
+  }
+}
