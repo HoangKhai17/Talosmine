@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AccountModule } from './modules/account/account.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
-import { CatalogModule } from './modules/catalog/catalog.module.js';
+import { CatalogModule } from './modules/application-catalog/catalog.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { DatabaseModule } from './shared/database.module.js';

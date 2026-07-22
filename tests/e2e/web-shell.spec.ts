@@ -14,7 +14,18 @@ import { expect, test } from '@playwright/test';
  * THÊM TRANG MỚI THÌ THÊM VÀO ĐÂY. Đây là cách rẻ nhất để một trang vừa dựng không lặng lẽ
  * bỏ qua hai lớp bảo vệ này.
  */
-const PUBLIC_PAGES = ['/', '/tools', '/blog', '/blog/bai-viet-mau', '/auth'] as const;
+const PUBLIC_PAGES = [
+  '/',
+  '/tools',
+  '/blog',
+  '/blog/bai-viet-mau',
+  '/auth',
+  '/auth/sign-up',
+  '/auth/check-email',
+  // Đường dẫn KHÔNG tồn tại — trang 404 cũng là một trang, và nó từng là trang tĩnh duy
+  // nhất còn lại nên dính đúng lỗi nonce/CSP mà cả bộ test này sinh ra để bắt.
+  '/khong-ton-tai-abc',
+] as const;
 
 test.describe('(user) shell', () => {
   test('render được và có semantic landmark', async ({ page }) => {

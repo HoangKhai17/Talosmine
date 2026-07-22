@@ -29,6 +29,26 @@ export const metadata: Metadata = {
   description: 'Talosmine web shell',
 };
 
+/**
+ * KHÔNG TRANG NÀO ĐƯỢC PRERENDER TĨNH. Đây là hệ quả bắt buộc của cách đặt CSP, không phải
+ * một lựa chọn về hiệu năng.
+ *
+ * `proxy.ts` sinh một nonce MỚI cho mỗi request rồi đưa vào `script-src`. HTML dựng sẵn lúc
+ * build mang nonce của lúc build — nonce đó không bao giờ khớp nonce trong header của
+ * request, nên trình duyệt chặn TOÀN BỘ script của trang. Trang vẫn hiện ra và trông bình
+ * thường, chỉ là React không bao giờ chạy: không nút nào bấm được, không form nào tương tác
+ * được, và console đầy lỗi mà không ai nhìn.
+ *
+ * Đây là lỗi ĐÃ CÓ SẴN, phát hiện 2026-07-22: trang 404 là trang tĩnh duy nhất còn lại và
+ * nó có 16 vi phạm CSP. Các trang khác thoát nạn nhờ tình cờ — layout `(user)` đọc cookie
+ * nên cả nhánh đó đã động sẵn.
+ *
+ * Khai ở ROOT vì đây là tính chất của TOÀN ỨNG DỤNG: hễ còn dùng nonce theo request thì
+ * không trang nào được dựng trước. Đặt rải rác ở từng nhánh chỉ là chờ tới lần quên tiếp
+ * theo. Chi phí gần bằng không — trước thay đổi này chỉ có đúng một route là tĩnh.
+ */
+export const dynamic = 'force-dynamic';
+
 export const viewport: Viewport = {
   // Một codebase cho desktop/tablet/mobile: layout co theo viewport, không có bản riêng.
   // Không đặt maximumScale/userScalable — chặn zoom là một lỗi accessibility.

@@ -1,0 +1,154 @@
+/* Danh mục ứng dụng. Chỉ dùng token từ globals.css. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+}
+
+.table caption {
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text-secondary);
+  border-bottom: var(--border-default);
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-default);
+  vertical-align: baseline;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table th {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.mono {
+  font-family: ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * URL có thể rất dài và không có dấu cách để xuống dòng.
+ *
+ * `overflow-wrap: anywhere` (đã có ở `.mono`) cho phép ngắt giữa chuỗi, còn giới hạn theo
+ * ĐƠN VỊ CHỮ giữ cột không nuốt hết bề ngang bảng. Đây là ngoại lệ được ghi trong luật lưới:
+ * giới hạn theo `ch`, không phải px.
+ */
+.urlCell {
+  max-width: 44ch;
+}
+
+.badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-tag);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.link {
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.form {
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+}
+
+.formRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 220px;
+}
+
+.input,
+.select,
+.textarea {
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  width: 100%;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: var(--space-20);
+}
+
+/* Ô nhập bị vô hiệu phải TRÔNG bị vô hiệu — dùng cho `key` ở màn hình chi tiết, nơi giá trị
+ * hiển thị để đối chiếu nhưng không sửa được. */
+.input:disabled {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+}
+
+.hint {
+  color: var(--color-text-tertiary);
+}
+
+.button {
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-button-primary);
+  color: var(--color-button-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.buttonSecondary {
+  composes: button;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.empty {
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--color-text-secondary);
+}

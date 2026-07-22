@@ -1,17 +1,17 @@
 /*
- * Trang đăng nhập — bố cục hai cột theo wireframe Figma của chủ dự án.
+ * Khung hai cột của khu vực xác thực — dùng chung cho trang đăng nhập và đăng ký.
  *
- * TRÀN VIỀN CÓ CHỦ ĐÍCH: trang này KHÔNG nằm trên lưới 12 cột của site. Thiết kế cho thấy
+ * TRÀN VIỀN CÓ CHỦ ĐÍCH: khung này KHÔNG nằm trên lưới 12 cột của site. Thiết kế cho thấy
  * cột trái có nền chạy sát mép trái và mép trên màn hình, còn cột phải chiếm hết phần còn
  * lại — không có `container` nào ở giữa. Đây là ngoại lệ hợp lệ của luật lưới, cùng loại
  * với băng đối tác ở trang chủ.
  *
  * Vì thế `grid-template-columns` ở đây KHÔNG phải "định nghĩa cột thứ hai" mà luật 2 cấm:
- * nó chia màn hình thành hai vùng, không chia nội dung thành cột.
+ * nó chia MÀN HÌNH thành hai vùng, không chia nội dung thành cột.
  *
- * MÀU: thiết kế dùng nền tím nhạt cho cột trái và nút tím cho "Đăng nhập". Bảng màu đã
+ * MÀU: thiết kế dùng nền tím nhạt cho cột trái và nút tím cho hành động chính. Bảng màu đã
  * duyệt của dự án hiện KHÔNG có token nào màu tím — toàn bộ site đang đơn sắc, nút chính
- * màu đen. Ở đây dùng token hiện có để trang đăng nhập không lạc khỏi phần còn lại. Muốn
+ * màu đen. Ở đây dùng token hiện có để khu vực xác thực không lạc khỏi phần còn lại. Muốn
  * có màu nhấn thì thêm token vào globals.css trước, đừng viết mã màu thẳng vào file này.
  */
 
@@ -175,147 +175,4 @@
   max-width: 42ch;
   margin-inline: auto;
   padding-block: var(--space-10);
-}
-
-.formLead {
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-8);
-}
-
-/* Khối lỗi trả về từ `/auth/callback`. Dùng viền + nền phụ, không dùng màu trạng thái vì
- * bảng màu chưa có token danger. */
-.error {
-  margin-bottom: var(--space-6);
-  padding: var(--space-4);
-  border: var(--border-default);
-  border-radius: var(--radius-card);
-  background-color: var(--color-bg-secondary);
-}
-
-.socialButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-5);
-  border: var(--border-default);
-  border-radius: var(--radius-button);
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.socialButton:hover:not(:disabled) {
-  border-color: var(--color-border-hover);
-  background-color: var(--color-bg-secondary);
-}
-
-/* Nút bị vô hiệu phải TRÔNG bị vô hiệu — nếu không người dùng bấm mãi mà không hiểu vì sao
- * không có gì xảy ra. */
-.socialButton:disabled {
-  color: var(--color-text-tertiary);
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.socialNote {
-  margin-top: var(--space-2);
-  text-align: center;
-  color: var(--color-text-tertiary);
-}
-
-/*
- * Vạch ngăn có chữ "hoặc" ở giữa.
- *
- * Hai vạch là pseudo-element `flex: 1` nên chúng tự chia đều phần trống hai bên — không
- * cần biết chữ ở giữa dài bao nhiêu, và đổi chữ không phải đo lại gì.
- */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin-block: var(--space-6);
-  color: var(--color-text-tertiary);
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1 1 0;
-  height: 1px;
-  background-color: var(--color-border-default);
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.input {
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-default);
-  border-radius: var(--radius-input);
-  background-color: var(--color-bg-primary);
-  outline: none;
-}
-
-.input:focus {
-  border-color: var(--color-border-hover);
-}
-
-.input::placeholder {
-  color: var(--color-text-tertiary);
-}
-
-.submitButton {
-  margin-top: var(--space-2);
-  padding: var(--space-4);
-  border: none;
-  border-radius: var(--radius-button);
-  background-color: var(--color-button-primary);
-  color: var(--color-button-text);
-  cursor: pointer;
-}
-
-.forgot {
-  margin-top: var(--space-5);
-  text-align: center;
-}
-
-/*
- * Đường đăng nhập THẬT.
- *
- * Tách hẳn ra khỏi biểu mẫu bằng vạch trên, vì nó không thuộc biểu mẫu — nó là lối đi khác.
- * Khối này sẽ biến mất khi biểu mẫu được nối thật (hoặc khi chốt là không nối).
- */
-.realLogin {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: var(--border-default);
-  text-align: center;
-}
-
-.realLoginLink {
-  color: var(--color-text-primary);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .socialButton,
-  .input,
-  .backLink {
-    transition:
-      border-color 150ms ease,
-      background-color 150ms ease;
-  }
 }

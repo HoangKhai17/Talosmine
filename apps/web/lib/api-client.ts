@@ -156,6 +156,45 @@ export interface AdminRoleView {
   permissions: string[];
 }
 
+/* ── Catalog (P3) ─────────────────────────────────────────────────────────────
+ * Khớp view của `apps/control-plane/src/modules/application-catalog`. */
+
+/** Ứng dụng nhìn từ phía admin — thấy MỌI trạng thái, kể cả `draft`. */
+export interface AdminApplicationView {
+  id: string;
+  key: string;
+  displayName: string;
+  description: string | null;
+  imageUrl: string | null;
+  launchUrl: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Một entry trong allowlist redirect.
+ *
+ * `uri` đã được CHUẨN HOÁ ở server. Hiển thị đúng chuỗi này chứ không phải chuỗi người dùng
+ * vừa gõ — nó mới là giá trị mà IdP sẽ đem đi so khớp từng ký tự.
+ */
+export interface RedirectUriView {
+  id: string;
+  purpose: 'login' | 'logout';
+  uri: string;
+  createdAt: string;
+}
+
+export interface FeatureView {
+  id: string;
+  key: string;
+  displayName: string;
+  description: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AdminAssignmentView {
   id: string;
   accountId: string;

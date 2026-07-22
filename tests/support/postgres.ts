@@ -121,3 +121,39 @@ export async function applyAllMigrations(sql: Sql): Promise<number> {
   }
   return statements.length;
 }
+
+const ROLLBACK_DIR = new URL('../../apps/control-plane/drizzle/rollback/', import.meta.url);
+
+/**
+ * Thứ tự gỡ P3, NGƯỢC với thứ tự tạo.
+ *
+ * Danh sách này cố ý viết tay chứ không suy ra từ journal: rollback không phải là "đảo
+ * ngược journal" một cách máy móc. Nó là một quy trình có chủ đích, và thứ tự của nó là
+ * điều cần được đọc và review — xem `apps/control-plane/drizzle/rollback/README.md`.
+ */
+const P3_ROLLBACK_ORDER = [
+  '0009_catalog_permissions.down.sql',
+  '0008_service_identities.down.sql',
+  '0007_catalog.down.sql',
+] as const;
+
+/**
+ * Chạy bài gỡ P3 theo đúng thứ tự ngược, đưa schema về trạng thái cuối P2.
+ *
+ * Trả về số statement đã chạy. Ném lỗi ngay tại statement đầu tiên thất bại — không nuốt
+ * lỗi, vì một bước rollback lỗi mà vẫn chạy tiếp sẽ để lại schema nửa vời, thứ tệ hơn cả
+ * không rollback.
+ */
+export async function applyP3Rollback(sql: Sql): Promise<number> {
+  let count = 0;
+
+  for (const file of P3_ROLLBACK_ORDER) {
+    const raw = await readFile(new URL(file, ROLLBACK_DIR), 'utf8');
+    for (const statement of splitStatements(raw)) {
+      await sql.unsafe(statement);
+      count += 1;
+    }
+  }
+
+  return count;
+}

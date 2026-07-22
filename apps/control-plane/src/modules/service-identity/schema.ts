@@ -1,6 +1,6 @@
 import { index, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { controlPlane } from '../account/schema.js';
-import { applications } from './schema.js';
+import { applications } from '../application-catalog/schema.js';
 
 /**
  * `service_identities` — danh tính máy-với-máy của từng ứng dụng. Khớp migration 0008.
@@ -9,8 +9,13 @@ import { applications } from './schema.js';
  * (database-schema mục 8.1). Control Plane xác minh token M2M bằng CHỮ KÝ qua JWKS — nó
  * không cần biết secret, nên lưu secret chỉ tạo thêm thứ để mất.
  *
- * Đặt trong module Catalog vì service identity thuộc về một application và ra đời cùng
- * catalog. Khi P3 mở service scope, cân nhắc tách thành module riêng.
+ * VÌ SAO LÀ MODULE RIÊNG chứ không nằm trong Catalog: P4 sẽ mở rộng chính đối tượng này
+ * (scope, cấp/thu hồi credential, endpoint quản lý). Để nó trong Catalog thì P4 buộc phải
+ * sửa vào module của Catalog để làm việc của mình — đúng kiểu ranh giới bị bào mòn dần.
+ * Tách bây giờ tốn một lần `git mv`; tách sau khi có ba consumer thì không.
+ *
+ * Phụ thuộc MỘT CHIỀU: service-identity biết Catalog (vì FK trỏ tới `applications`),
+ * Catalog KHÔNG biết service-identity. Đảo chiều là có vòng tròn.
  */
 
 export const SERVICE_IDENTITY_STATUSES = ['active', 'revoked'] as const;

@@ -36,6 +36,7 @@ interface NavItem {
  */
 const NAV_ITEMS: NavItem[] = [
   { href: '/admin', label: 'Tài khoản', permission: 'account:read' },
+  { href: '/admin/catalog', label: 'Danh mục ứng dụng', permission: 'catalog:read' },
   { href: '/admin/audit', label: 'Nhật ký', permission: 'audit:read' },
   { href: '/admin/roles', label: 'Vai trò', permission: 'admin_role:manage' },
 ];
