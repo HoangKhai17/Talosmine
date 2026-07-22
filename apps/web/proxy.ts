@@ -47,9 +47,50 @@ function buildContentSecurityPolicy(nonce: string): string {
   ].join('; ');
 }
 
+/**
+ * Cửa vào xác thực → chuyển thẳng sang luồng OIDC, ngay tại proxy.
+ *
+ * VÌ SAO Ở ĐÂY CHỨ KHÔNG PHẢI TRONG PAGE: `redirect()` của một Server Component chạy trong
+ * lúc render đang stream, nên Next không đặt được mã 307 nữa — nó trả 200 kèm một trang
+ * đầy đủ (đo được: 26KB) rồi mới nhảy bằng JavaScript. Người dùng thấy khung trang loé lên
+ * rồi biến mất. Proxy chạy TRƯỚC khi render nên trả được 307 thật, không tốn một byte HTML.
+ *
+ * `/auth` có tham số `error` thì KHÔNG chuyển hướng: đó là lỗi quay về từ callback và cần
+ * hiển thị. Chuyển hướng luôn sẽ tạo vòng lặp lỗi → đăng nhập → lỗi mà người dùng không bao
+ * giờ đọc được lý do.
+ *
+ * Trả `null` nghĩa là "không phải việc của hàm này".
+ */
+function authEntryRedirect(request: NextRequest): URL | null {
+  const { pathname, searchParams, origin } = request.nextUrl;
+
+  if (pathname === '/auth/sign-up') {
+    return new URL('/auth/login?screen=register', origin);
+  }
+
+  if (pathname === '/auth' && !searchParams.has('error')) {
+    const target = new URL('/auth/login', origin);
+    const returnTo = searchParams.get('returnTo');
+    // Chuyển tiếp `returnTo` NGUYÊN VĂN. `/auth/login` đã có `safeReturnTo` kiểm nó; kiểm
+    // hai lần bằng hai đoạn code khác nhau là cách để hai chỗ lệch luật nhau.
+    if (returnTo) target.searchParams.set('returnTo', returnTo);
+    return target;
+  }
+
+  return null;
+}
+
 const proxy: NextProxy = async (request: NextRequest) => {
   const nonce = createNonce();
   const contentSecurityPolicy = buildContentSecurityPolicy(nonce);
+
+  const authRedirect = authEntryRedirect(request);
+  if (authRedirect) {
+    return NextResponse.redirect(authRedirect, {
+      // Không bao giờ cache: mỗi lần đăng nhập phải sinh state/nonce mới ở `/auth/login`.
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  }
 
   /**
    * Lớp chặn admin thứ nhất, chạy trên server trước khi bất kỳ route nào render.

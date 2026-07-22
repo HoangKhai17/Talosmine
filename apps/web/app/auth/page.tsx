@@ -1,33 +1,29 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { DraftNote, FormDivider, GoogleButton, TextField } from './auth-form';
+import { redirect } from 'next/navigation';
 import styles from './auth-form.module.css';
 import { AuthShell } from './auth-shell';
-import { PasswordField } from './password-field';
 
 export const metadata: Metadata = {
   title: 'Talosmine — Đăng nhập',
 };
 
 /**
- * Trang đăng nhập — bố cục hai cột theo wireframe Figma của chủ dự án.
+ * Cửa vào đăng nhập.
  *
- * ⚠ BIỂU MẪU CHƯA NỐI VÀO ĐÂU, VÀ ĐÓ LÀ CÓ CHỦ ĐÍCH.
+ * TRANG NÀY KHÔNG CÒN BIỂU MẪU. Trước đây nó dựng sẵn ô tên đăng nhập và mật khẩu theo
+ * thiết kế Figma, nhưng biểu mẫu đó không nối vào đâu — và khi giao diện thật đã nằm bên
+ * nhà cung cấp danh tính (`apps/logto-ui`), giữ nó lại là có HAI biểu mẫu giống hệt nhau,
+ * một cái chạy và một cái không. Người dùng gõ vào cái không chạy rồi tưởng hệ thống hỏng.
  *
- * Hiện tại mật khẩu người dùng KHÔNG BAO GIỜ đi qua code của Talosmine: `/auth/login` đẩy
- * người dùng sang trang đăng nhập của Logto, họ gõ mật khẩu ở đó, rồi quay về với một
- * authorization code. Web app của chúng ta chưa từng nhìn thấy mật khẩu nào.
+ * Thiết kế Figma không mất đi: nó chính là giao diện đang chạy ở trang đăng nhập của IdP.
  *
- * Muốn biểu mẫu này chạy thật thì phải gọi Experience API của Logto, tức là mật khẩu sẽ đi
- * qua trang này. Kể từ lúc đó, mọi lỗ XSS và mọi thư viện trong cây phụ thuộc của web app
- * đều trở thành rủi ro lộ mật khẩu. Đó là một đánh đổi về kiến trúc bảo mật, thuộc quyền
- * quyết định của chủ dự án (DEC-G01) — nên tôi dựng bố cục và dừng ở đó.
+ * Vì vậy trang này chỉ còn hai việc:
+ *   1. Không có lỗi  → chuyển thẳng sang `/auth/login` để bắt đầu OIDC.
+ *   2. Có lỗi từ callback → dừng lại và nói cho người dùng biết, kèm đường thử lại.
  *
- * `<form method="post">` dù chưa có `action`: mặc định của form là GET, mà GET sẽ đẩy mật
- * khẩu vừa gõ lên THANH ĐỊA CHỈ và vào lịch sử duyệt web. POST không có đích đến thì chỉ
- * trả lỗi 405 — vô hại.
- *
- * Đường đăng nhập THẬT vẫn còn nguyên ở cuối trang, không bị bố cục mới làm mất.
+ * Nếu chuyển hướng cả khi có lỗi thì người dùng rơi vào vòng lặp: lỗi → đăng nhập → lỗi,
+ * và không bao giờ đọc được lý do.
  */
 export default async function AuthPage({
   searchParams,
@@ -40,70 +36,39 @@ export default async function AuthPage({
     ? `/auth/login?returnTo=${encodeURIComponent(returnTo)}`
     : '/auth/login';
 
+  // `redirect()` ném một exception đặc biệt của Next để dừng render — nên nó phải nằm
+  // TRƯỚC mọi thứ khác, và không cần `return` sau nó.
+  if (!error) {
+    redirect(loginHref);
+  }
+
   return (
     <AuthShell>
-      <h1 className="typeH2">Đăng nhập</h1>
+      <h1 className="typeH2">Chưa đăng nhập được</h1>
 
       <p className={`typeBodySmall textSecondary ${styles.lead}`}>
-        Đăng nhập để lưu công cụ, tạo bộ sưu tập và theo dõi những cập nhật mới nhất.
+        Phiên đăng nhập không hoàn tất. Việc này thường xảy ra khi trang đăng nhập bị mở quá lâu,
+        hoặc khi bạn quay lại bằng nút Back giữa chừng.
       </p>
 
-      <DraftNote>
-        Bản dựng bố cục — biểu mẫu này chưa nối. Dùng liên kết ở cuối trang để đăng nhập thật.
-      </DraftNote>
-
-      {error ? (
-        <div className={styles.error} role="alert">
-          <p className="typeBodySmall">{error}</p>
-        </div>
-      ) : null}
-
-      <GoogleButton />
-      <FormDivider label="hoặc" />
-
-      <form className={styles.form} method="post">
-        <TextField
-          id="login-email"
-          label="Địa chỉ thư điện tử"
-          type="email"
-          name="email"
-          placeholder="Nhập địa chỉ thư của bạn"
-          autoComplete="email"
-        />
-
-        <PasswordField />
-
-        <button type="submit" className={`typeBody ${styles.submitButton}`}>
-          Đăng nhập
-        </button>
-      </form>
-
-      <p className={`typeBodySmall ${styles.switchRow}`}>
-        {/* Không phải link: luồng khôi phục đã được dời lại (DEC-B14) vì Logto chưa cấu hình
-            SMTP. Một link dẫn tới hư không tệ hơn một dòng chữ. */}
-        <span className="textTertiary">Quên mật khẩu?</span>
-      </p>
-
-      <p className={`typeBodySmall ${styles.switchRow}`}>
-        Chưa có tài khoản?{' '}
-        <Link className={styles.switchLink} href="/auth/sign-up">
-          Đăng ký
-        </Link>
-      </p>
+      <div className={styles.error} role="alert">
+        <p>{error}</p>
+      </div>
 
       {/*
-        ĐƯỜNG ĐĂNG NHẬP THẬT — đang chạy được ngay bây giờ.
-
-        `<a>` thường chứ KHÔNG phải `<Link>`: `/auth/login` là route handler trả redirect 307
-        sang IdP, không phải trang React. Client-side navigation của Next sẽ cố fetch nó như
-        một payload RSC và không đi tới đâu.
+        `<a>` thường chứ KHÔNG phải `<Link>`: `/auth/login` là route handler trả redirect
+        307 sang IdP, không phải trang React. Client-side navigation của Next sẽ cố fetch nó
+        như một payload RSC và không đi tới đâu.
       */}
-      <div className={styles.realLogin}>
-        <p className="typeCaption textTertiary">Để đăng nhập thật:</p>
-        <a className={`typeBodySmall ${styles.realLoginLink}`} href={loginHref}>
-          Đăng nhập qua trang an toàn của nhà cung cấp danh tính →
-        </a>
-      </div>
+      <a className={`typeBody ${styles.submitButton}`} href={loginHref}>
+        Thử đăng nhập lại
+      </a>
+
+      <p className={`typeBodySmall ${styles.switchRow}`}>
+        <Link className={styles.switchLink} href="/">
+          Về trang chủ
+        </Link>
+      </p>
     </AuthShell>
   );
 }

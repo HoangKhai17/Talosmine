@@ -27,7 +27,20 @@ export async function GET(request: Request): Promise<Response> {
   const state = client.randomState();
   const nonce = client.randomNonce();
 
-  const returnTo = safeReturnTo(new URL(request.url).searchParams.get('returnTo'));
+  const params = new URL(request.url).searchParams;
+  const returnTo = safeReturnTo(params.get('returnTo'));
+
+  /**
+   * Mở thẳng màn hình ĐĂNG KÝ thay vì đăng nhập.
+   *
+   * `first_screen` là tham số riêng của Logto, không thuộc chuẩn OIDC. Đã kiểm chứng trên
+   * bản 1.41 (2026-07-22): `/oidc/auth?...&first_screen=register` chuyển hướng tới
+   * `/register`, không có tham số thì tới `/sign-in`.
+   *
+   * Chỉ nhận đúng MỘT giá trị từ query. Không chuyển tiếp thẳng giá trị người dùng gõ vào
+   * tham số của IdP — đó là cách một tham số vô hại trở thành chỗ chèn thứ khác.
+   */
+  const firstScreen = params.get('screen') === 'register' ? { first_screen: 'register' } : {};
 
   const authorizationUrl = client.buildAuthorizationUrl(configuration, {
     redirect_uri: redirectUri(cfg),
@@ -36,6 +49,7 @@ export async function GET(request: Request): Promise<Response> {
     code_challenge_method: 'S256',
     state,
     nonce,
+    ...firstScreen,
   });
 
   const transaction: Transaction = { state, nonce, codeVerifier, returnTo };

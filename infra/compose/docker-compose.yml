@@ -145,6 +145,28 @@ services:
     # Lần chạy đầu cần seed schema của Logto. `db seed` idempotent: đã seed rồi thì bỏ qua,
     # nên để nguyên trong entrypoint cũng không hỏng ở các lần khởi động sau.
     entrypoint: ['sh', '-c', 'npm run cli db seed -- --swe && npm start']
+    volumes:
+      # ── Giao diện đăng nhập của Talosmine ───────────────────────────────────
+      #
+      # Mount ĐÈ lên thư mục giao diện mặc định của Logto. Từ đây, trang mà người dùng thấy
+      # ở `/sign-in` và `/register` là ba file tĩnh trong `apps/logto-ui/`.
+      #
+      # VÌ SAO MOUNT CHỨ KHÔNG DÙNG TÍNH NĂNG "CUSTOM UI ASSETS" CỦA LOGTO:
+      #
+      #   1. Tính năng đó nhận một file ZIP rồi đẩy lên object storage. Instance này chưa
+      #      cấu hình storage provider nào (bảng `systems` chỉ có `alterationState`), nên
+      #      lệnh upload sẽ trả 500. Dùng được thì phải dựng thêm một dịch vụ lưu trữ.
+      #   2. Kể cả có storage, giao diện khi đó nằm trong database dưới dạng một zip mờ
+      #      đục — không diff được, không review được, không có trong git. Cùng lý do ta
+      #      không tạo bảng bằng tay mà viết migration.
+      #
+      # `:ro` — container không có việc gì phải ghi vào đây.
+      #
+      # ⚠ MOUNT NÀY THAY TOÀN BỘ giao diện của Logto, không chỉ hai màn hình. Bật thêm bất
+      # kỳ luồng nào ở Logto (quên mật khẩu, MFA, đăng nhập mạng xã hội) thì phải dựng thêm
+      # màn hình tương ứng trong `apps/logto-ui/`, nếu không luồng đó rơi vào màn hình dự
+      # phòng. Xem `apps/logto-ui/README.md`.
+      - ../../apps/logto-ui:/etc/logto/packages/experience/dist:ro
     environment:
       NODE_ENV: production
       DB_URL: postgres://logto:${LOGTO_DB_PASSWORD:?bắt buộc}@db:5432/logto

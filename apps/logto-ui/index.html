@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Talosmine — Đăng nhập</title>
+
+    <!--
+      KHÔNG có favicon, không có font từ CDN, không có script bên ngoài.
+
+      Trang này là trang người dùng gõ mật khẩu. Mỗi tài nguyên tải từ máy chủ bên thứ ba
+      là một lượt rò IP và Referer của họ ra ngoài, ngay tại nơi nhạy cảm nhất — và cũng là
+      một nơi để chèn mã nếu bên đó bị chiếm.
+    -->
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+
+  <body>
+    <!--
+      MỘT tài liệu HTML phục vụ mọi đường dẫn của Logto (/sign-in, /register, …). Đây là
+      SPA: `app.js` đọc `location.pathname` rồi hiện đúng màn hình.
+
+      Toàn bộ nội dung dựng bằng JavaScript thay vì viết sẵn ở đây, để chỉ có MỘT nguồn sự
+      thật cho mỗi màn hình. Viết sẵn HTML rồi lại dựng bằng JS là cách chắc chắn để hai bản
+      lệch nhau.
+    -->
+    <!--
+      `#root` là VỎ TRỐNG, KHÔNG mang class bố cục nào.
+
+      Trước đây nó mang `class="page"`, trong khi `app.js` cũng dựng một `div.page` bên
+      trong — thành hai lưới hai cột lồng nhau. Lưới ngoài đặt trọn màn hình vào cột thứ
+      nhất của nó, nên toàn bộ trang co lại còn khoảng 40% bề ngang và nửa phải bỏ trống.
+      Lỗi chỉ lộ ra ở màn rộng: dưới 1024px cả hai lưới đều một cột nên trông vẫn bình
+      thường.
+
+      Bố cục thuộc về màn hình do `app.js` dựng. Vỏ này không được biết gì về nó.
+    -->
+    <div id="root">
+      <noscript>
+        <div class="noscript">
+          <p>Trang đăng nhập cần JavaScript để hoạt động.</p>
+        </div>
+      </noscript>
+    </div>
+
+    <!-- `config.js` phải nạp TRƯỚC `app.js`: app đọc `window.TALOSMINE_APP_URL` lúc render. -->
+    <script src="/config.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
