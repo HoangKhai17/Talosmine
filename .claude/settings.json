@@ -117,7 +117,8 @@
       "Bash(grep -vE \"^\\\\s*--|^\\\\s*$\" apps/control-plane/drizzle/migrations/0009_catalog_permissions.sql)",
       "Bash(cp apps/control-plane/src/modules/application-catalog/catalog-lookup.service.ts /tmp/lookup.bak)",
       "Bash(cp /tmp/lookup.bak apps/control-plane/src/modules/application-catalog/catalog-lookup.service.ts)",
-      "Bash(rm -f /tmp/lookup.bak)"
+      "Bash(rm -f /tmp/lookup.bak)",
+      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" check \"docs\" 2>&1 | Select-Object -Last 3; \\(Get-Content \"docs\\\\build-plan\\\\pending-work.md\" | Measure-Object -Line\\).Lines; Select-String -Path \"docs\\\\build-plan\\\\pending-work.md\" -Pattern \"^### \" | ForEach-Object { $_.Line } | Select-Object -Last 14)"
     ],
     "additionalDirectories": [
       "\\tmp"
