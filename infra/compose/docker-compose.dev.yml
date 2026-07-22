@@ -14,8 +14,12 @@
 #   - File này KHÔNG BAO GIỜ được dùng ở staging/production. Lệnh production chỉ nêu
 #     docker-compose.yml. P8 coi việc một service ngoài Caddy publish port ra Internet
 #     là stop condition.
-#   - Overlay chỉ THÊM `ports`. Nó không đổi image, network, volume hay biến môi trường,
-#     nên baseline vẫn là nguồn sự thật duy nhất về cấu hình.
+#   - Overlay THÊM `ports`, và thêm ĐÚNG MỘT service chỉ tồn tại ở dev (`mailpit`). Nó
+#     không đổi image, network, volume hay biến môi trường của các service có trong
+#     baseline, nên baseline vẫn là nguồn sự thật duy nhất về cấu hình chung.
+#
+#     (Trước 2026-07-22 dòng này ghi "overlay chỉ THÊM ports". Việc thêm `mailpit` phá bất
+#     biến đó, nên nó được viết lại thay vì để câu cũ nói sai sự thật.)
 
 # Cổng host cố ý KHÔNG dùng 5432/6543 mặc định.
 # Máy dev này đã có một PostgreSQL khác chạy trên 5432 (dự án khác của chủ dự án).
@@ -43,3 +47,49 @@ services:
       # loopback nên không lộ ra LAN.
       - '127.0.0.1:3001:3001'
       - '127.0.0.1:3002:3002'
+    volumes:
+      # Mount ĐÈ `config.js` bằng bản dev (địa chỉ web app = localhost:3000).
+      #
+      # Baseline giữ `config.js` với giá trị TRỐNG — mặc định an toàn cho production, link
+      # "Về trang chủ" tự ẩn. Chỉ overlay này mới trỏ nó về localhost, và lệnh production
+      # không bao giờ nêu overlay này.
+      #
+      # Đây là giá trị DUY NHẤT trong gói giao diện khác nhau giữa hai môi trường. Để
+      # compose chọn file thay vì sửa mã nguồn lúc deploy — sửa tay ở bước triển khai là
+      # việc sớm muộn có người quên.
+      - ../../apps/logto-ui/config.dev.js:/etc/logto/packages/experience/dist/config.js:ro
+
+  # ── Mailpit — BẪY THƯ, chỉ dùng khi phát triển ────────────────────────────────
+  #
+  # ⚠ MAILPIT KHÔNG GỬI THƯ ĐI ĐÂU CẢ. Nó nhận kết nối SMTP, nuốt thư vào, hiện lên giao
+  # diện web rồi DỪNG. Không người nhận nào nhận được gì.
+  #
+  # ⚠ TUYỆT ĐỐI KHÔNG DÙNG Ở PRODUCTION. Hai lý do, cái nào cũng đủ để chặn:
+  #
+  #   1. Người dùng đăng ký xong sẽ không bao giờ nhận được thư xác minh — và hệ thống
+  #      KHÔNG báo lỗi, vì Mailpit trả về "đã nhận, thành công". Log sạch, mọi thứ trông
+  #      bình thường, chỉ là không ai nhận được gì. Phải có người phàn nàn mới biết.
+  #
+  #   2. Giao diện web của nó chứa MỌI link đặt lại mật khẩu còn hiệu lực và địa chỉ thư
+  #      của MỌI người dùng. Ai mở được cổng đó là chiếm được bất kỳ tài khoản nào: bấm
+  #      "quên mật khẩu" rồi vào đây đọc link.
+  #
+  # Nó nằm trong file này — file mà lệnh production KHÔNG BAO GIỜ nêu tới — chính vì vậy.
+  mailpit:
+    container_name: talosmine-mailpit
+    # Pin cả tag lẫn digest, giống mọi image khác trong dự án: tag có thể bị đẩy lại trỏ
+    # sang bản khác, digest thì không.
+    image: axllent/mailpit:v1.28@sha256:c6cf0b06eb516a0b80a8a5251f945c131e6beb8396112964404f62856487f5bd
+    restart: unless-stopped
+    environment:
+      # Giữ thư trong RAM: hộp thư dev không cần sống qua lần khởi động lại, và không có
+      # volume nghĩa là không có nơi nào trên đĩa vô tình giữ lại link đặt lại mật khẩu.
+      MP_MAX_MESSAGES: '500'
+      MP_SMTP_AUTH_ACCEPT_ANY: '1'
+      MP_SMTP_AUTH_ALLOW_INSECURE: '1'
+    ports:
+      # 8025 -> giao diện web đọc thư. Bind loopback, không lộ ra LAN.
+      # KHÔNG publish 1025 (SMTP): Logto gọi nó qua mạng nội bộ bằng tên `mailpit`, host
+      # không cần tới. Mở thêm một cổng không ai dùng chỉ là thêm bề mặt.
+      - '127.0.0.1:8025:8025'
+    networks: [talosmine-internal]

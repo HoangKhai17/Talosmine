@@ -162,6 +162,12 @@ services:
       #
       # `:ro` — container không có việc gì phải ghi vào đây.
       #
+      # `config.js` trong gói này mang giá trị AN TOÀN CHO PRODUCTION (địa chỉ web app để
+      # trống ⇒ link "Về trang chủ" tự ẩn). Dev overlay mount đè `config.dev.js` lên nó.
+      #
+      # Mặc định nghiêng về an toàn có chủ đích: quên cấu hình thì mất một link, chứ không
+      # phải có một link trỏ về `localhost` trên trang đăng nhập production.
+      #
       # ⚠ MOUNT NÀY THAY TOÀN BỘ giao diện của Logto, không chỉ hai màn hình. Bật thêm bất
       # kỳ luồng nào ở Logto (quên mật khẩu, MFA, đăng nhập mạng xã hội) thì phải dựng thêm
       # màn hình tương ứng trong `apps/logto-ui/`, nếu không luồng đó rơi vào màn hình dự

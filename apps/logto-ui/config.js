@@ -5,13 +5,14 @@
  * đâu. Không có cách nào suy ra: `redirect_uri` của OIDC không lộ ra cho JavaScript, và
  * `document.referrer` bị mất qua chuỗi chuyển hướng.
  *
- * Vì vậy địa chỉ web app phải được KHAI BÁO. File này tách riêng để đổi nó không phải đụng
- * vào `app.js`, và để môi trường khác mount đè đúng một file nhỏ.
+ * GIÁ TRỊ Ở ĐÂY LÀ MẶC ĐỊNH CHO PRODUCTION, và nó cố ý ĐỂ TRỐNG.
  *
- * ĐỂ TRỐNG THÌ LINK "Về trang chủ" TỰ ẨN. Đó là mặc định an toàn: thà thiếu một link còn
- * hơn có một link dẫn tới máy chủ sai — nhất là ở trang đăng nhập, nơi một địa chỉ lạ là
- * dấu hiệu của lừa đảo.
+ * Để trống thì link "Về trang chủ" TỰ ẨN. Đó là mặc định nghiêng về an toàn: quên cấu hình
+ * thì mất một link, chứ không phải có một link trỏ về `localhost` trên trang đăng nhập
+ * production — mà ở trang đăng nhập, một địa chỉ lạ chính là dấu hiệu của lừa đảo.
  *
- * ⚠ LÊN PRODUCTION PHẢI ĐỔI. Giá trị dưới đây là địa chỉ dev.
+ * Dev KHÔNG sửa file này. `docker-compose.dev.yml` mount đè `config.dev.js` lên nó.
+ *
+ * Khi có tên miền thật: điền vào đây và commit. Không sửa file lúc deploy.
  */
-window.TALOSMINE_APP_URL = 'http://localhost:3000';
+window.TALOSMINE_APP_URL = '';

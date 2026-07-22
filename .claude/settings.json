@@ -162,7 +162,12 @@
       "PowerShell(docker exec talosmine-logto sh -c \"ls /etc/logto/packages/core/connectors 2>/dev/null | head -40\")",
       "PowerShell(docker exec talosmine-logto sh -c \"ls /etc/logto/packages/core/connectors 2>/dev/null | wc -l\")",
       "PowerShell(\"=== connector co san trong container ===\")",
-      "PowerShell(\"=== so luong ===\")"
+      "PowerShell(\"=== so luong ===\")",
+      "PowerShell(docker pull axllent/mailpit:v1.28 2>&1)",
+      "PowerShell(\"=== digest that ===\")",
+      "PowerShell(node infra/scripts/configure-logto-email.mjs 2>&1)",
+      "Bash(git check-ignore *)",
+      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" check \"infra/scripts\" \"apps/logto-ui\" 2>&1 | Select-String -Pattern \"×|Found\" | Select-Object -First 5; node --check infra/scripts/configure-logto-email.mjs; \"cu phap script OK\"; \"--- git status ---\"; git status --porcelain | ForEach-Object { \"  $_\" })"
     ],
     "additionalDirectories": [
       "\\tmp"
