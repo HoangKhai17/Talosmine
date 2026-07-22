@@ -13,6 +13,18 @@
       một nơi để chèn mã nếu bên đó bị chiếm.
     -->
     <!--
+      ⚠⚠ `?v=` — PHẢI TĂNG SỐ NÀY MỖI KHI SỬA app.js, globals.css HOẶC auth.css. ⚠⚠
+
+      Logto phục vụ file tĩnh với `Cache-Control: max-age=604800` — BẢY NGÀY — và ta không
+      đổi được header đó (nó là static server của Logto, không phải của mình).
+
+      Riêng chính file HTML này thì `no-cache`, nên nó luôn tải mới. Vì vậy đổi số `v` ở đây
+      là cách DUY NHẤT buộc trình duyệt lấy bản mới của JS/CSS.
+
+      Quên tăng số = sửa xong nhưng không ai thấy gì thay đổi, kể cả sau khi tải lại trang.
+      Đã mắc đúng lỗi này ngày 2026-07-22: nhiều vòng sửa liên tiếp không hiện ra vì trình
+      duyệt vẫn dùng bản cũ trong cache.
+
       Hai file, đúng cách phân chia của `apps/web`:
         globals.css  token, reset, thang chữ, class tiện ích  (bản port của web app)
         auth.css     bố cục riêng của trang này               (không có font-size nào)
@@ -23,6 +35,8 @@
       nhìn thấy; không có nó, chữ hiện bằng font hệ thống rồi nhảy khi Montserrat về.
       `crossorigin` là BẮT BUỘC với font kể cả cùng origin — thiếu nó trình duyệt tải hai
       lần vì hai request khác chế độ CORS.
+
+      Font KHÔNG cần `?v=`: tên file đã gắn với nội dung, đổi font là đổi tên file.
     -->
     <link
       rel="preload"
@@ -31,8 +45,8 @@
       type="font/woff2"
       crossorigin
     />
-    <link rel="stylesheet" href="/globals.css" />
-    <link rel="stylesheet" href="/auth.css" />
+    <link rel="stylesheet" href="/globals.css?v=3" />
+    <link rel="stylesheet" href="/auth.css?v=3" />
   </head>
 
   <body>
@@ -63,8 +77,9 @@
       </noscript>
     </div>
 
-    <!-- `config.js` phải nạp TRƯỚC `app.js`: app đọc `window.TALOSMINE_APP_URL` lúc render. -->
-    <script src="/config.js"></script>
-    <script src="/app.js"></script>
+    <!-- `config.js` phải nạp TRƯỚC `app.js`: app đọc `window.TALOSMINE_APP_URL` lúc render.
+         `?v=` — xem ghi chú ở <head>. Tăng số khi sửa file. -->
+    <script src="/config.js?v=3"></script>
+    <script src="/app.js?v=3"></script>
   </body>
 </html>

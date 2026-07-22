@@ -42,9 +42,9 @@
 }
 
 /*
- * Desktop (từ 1280px — đúng mốc của `globals.css`): chia 5 / 7 cột TRÊN LƯỚI 12 CỘT.
+ * Desktop (từ 1280px — đúng mốc của `globals.css`): chia 6 / 6 cột TRÊN LƯỚI 12 CỘT.
  *
- * `1 / span 5` và `6 / -1` nói cùng một thứ tiếng với mọi khối khác trong dự án
+ * `1 / span 6` và `7 / -1` nói cùng một thứ tiếng với mọi khối khác trong dự án
  * (`grid-column: span 4`, `grid-column: 3 / span 8`…), thay vì một tỉ lệ `fr` chỉ đúng ở
  * riêng trang này.
  *
@@ -57,12 +57,12 @@
  */
 @media (min-width: 1280px) {
   .brandPanel {
-    grid-column: 1 / span 5;
+    grid-column: 1 / span 6;
     order: -1;
   }
 
   .formPanel {
-    grid-column: 6 / -1;
+    grid-column: 7 / -1;
   }
 
   .brandImage,
@@ -518,12 +518,12 @@
   /*
    * Ô biểu mẫu lấp đầy vùng 5 cột của nó, nhưng có TRẦN.
    *
-   * Không có trần thì ở màn 2560px vùng đó rộng 1067px, và một biểu mẫu đăng nhập rộng hơn
+   * Không có trần thì ở màn 2560px vùng đó rộng 853px, và một biểu mẫu đăng nhập rộng hơn
    * một mét trên màn hình là thứ không ai muốn dùng. Trần đặt bằng ĐƠN VỊ CHỮ (ngoại lệ duy
    * nhất của luật "không max-width") và đủ rộng để KHÔNG chặn ở các bề ngang thường gặp:
-   * tại 1440px vùng cột rộng 600px, vẫn dưới trần, nên ô lấp đầy đúng 5 cột.
+   * tại 1440px vùng cột rộng 480px, vẫn dưới trần, nên ô lấp đầy đúng 4 cột.
    *
-   * Căn TRÁI chứ không giữa: nhờ vậy mép trái luôn nằm đúng đầu cột 7, kể cả khi trần chặn.
+   * Căn TRÁI chứ không giữa: nhờ vậy mép trái luôn nằm đúng đầu cột 8, kể cả khi trần chặn.
    */
   .formArea {
     max-width: 80ch;

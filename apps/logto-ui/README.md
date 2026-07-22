@@ -27,7 +27,27 @@ Không dùng tính năng "custom UI assets" có sẵn của Logto vì hai lý do
 2. Kể cả có storage, giao diện khi đó nằm trong database dưới dạng một zip mờ đục: không
    diff được, không review được, không có trong git.
 
-Đổi giao diện = sửa file ở đây + `docker compose restart logto`. Không cần build.
+Đổi giao diện = sửa file ở đây. **Không cần build, không cần restart** — bind mount đọc
+thẳng từ đĩa.
+
+## ⚠ Sửa file xong phải tăng `?v=` trong `index.html`
+
+Logto phục vụ file tĩnh với `Cache-Control: max-age=604800` — **bảy ngày** — và ta không đổi
+được header đó (static server của Logto, không phải của mình).
+
+Riêng `index.html` là `no-cache` nên luôn tải mới. Vì vậy đổi số `v` trong đó là cách **duy
+nhất** buộc trình duyệt lấy bản mới của `app.js` / `globals.css` / `auth.css`:
+
+```html
+<link rel="stylesheet" href="/globals.css?v=2" />
+<script src="/app.js?v=2"></script>
+```
+
+**Quên tăng số = sửa xong nhưng không ai thấy gì thay đổi, kể cả sau khi F5.** Đã mắc đúng
+lỗi này ngày 2026-07-22: nhiều vòng sửa liên tiếp không hiện ra vì trình duyệt vẫn dùng bản
+cũ trong cache, và mất khá lâu mới nhận ra vấn đề không nằm ở code.
+
+Thư mục `fonts/` không cần `?v=`: đổi font là đổi tên file.
 
 ## Luồng gọi API
 

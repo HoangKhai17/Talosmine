@@ -155,7 +155,14 @@
       "PowerShell($p = \\(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess; if \\($p\\) { taskkill /PID $p /T /F | Out-Null }; Start-Sleep -Seconds 1; if \\(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue\\) { \"VAN CON\" } else { \"cong 3000 da dong\" }; \"--- file cuoi cung ---\"; Get-ChildItem \"apps\\\\logto-ui\" -Recurse -File | ForEach-Object { \"{0,6:N0}  {1}\" -f $_.Length, $_.FullName.Replace\\(\"$PWD\\\\apps\\\\logto-ui\\\\\",\"\"\\) })",
       "Bash(grep -n \"el\\('h1'\\\\|el\\('h2'\\\\|el\\('h3'\\\\|el\\('p'\\\\|el\\('span'\\\\|el\\('aside'\\\\|el\\('div', { class: 'formPanel'\\\\|el\\('div', { class: 'page'\" apps/logto-ui/app.js)",
       "Bash(node probe-align.mjs)",
-      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" format --write \"apps/logto-ui\" 2>&1 | Select-Object -Last 1; & \"node_modules\\\\.bin\\\\biome.CMD\" check \"apps/logto-ui\" \"apps/web\" 2>&1 | Select-String -Pattern \"×|Found\" | Select-Object -First 4; node --check apps/logto-ui/app.js; \"cu phap OK\"; \"--- con font-size trong auth.css? ---\"; \\(Select-String -Path \"apps\\\\logto-ui\\\\auth.css\" -Pattern \"^\\\\s+font-size\" | Measure-Object\\).Count; $p = \\(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess; if \\($p\\) { taskkill /PID $p /T /F | Out-Null }; \"cong 3000 da dong\")"
+      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" format --write \"apps/logto-ui\" 2>&1 | Select-Object -Last 1; & \"node_modules\\\\.bin\\\\biome.CMD\" check \"apps/logto-ui\" \"apps/web\" 2>&1 | Select-String -Pattern \"×|Found\" | Select-Object -First 4; node --check apps/logto-ui/app.js; \"cu phap OK\"; \"--- con font-size trong auth.css? ---\"; \\(Select-String -Path \"apps\\\\logto-ui\\\\auth.css\" -Pattern \"^\\\\s+font-size\" | Measure-Object\\).Count; $p = \\(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess; if \\($p\\) { taskkill /PID $p /T /F | Out-Null }; \"cong 3000 da dong\")",
+      "Bash(node probe66.mjs)",
+      "Bash(rm -f probe66.mjs)",
+      "PowerShell($p = \\(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess; if \\($p\\) { taskkill /PID $p /T /F | Out-Null }; Start-Sleep -Seconds 2; if \\(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue\\) { \"VAN CON BI CHIEM\" } else { \"cong 3000 DA TRA LAI cho ban\" }; \"--- container ---\"; docker ps --format \"{{.Names}}\")",
+      "PowerShell(docker exec talosmine-logto sh -c \"ls /etc/logto/packages/core/connectors 2>/dev/null | head -40\")",
+      "PowerShell(docker exec talosmine-logto sh -c \"ls /etc/logto/packages/core/connectors 2>/dev/null | wc -l\")",
+      "PowerShell(\"=== connector co san trong container ===\")",
+      "PowerShell(\"=== so luong ===\")"
     ],
     "additionalDirectories": [
       "\\tmp"
