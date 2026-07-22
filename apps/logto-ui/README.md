@@ -51,53 +51,80 @@ Thư mục `fonts/` không cần `?v=`: đổi font là đổi tên file.
 
 ## Luồng gọi API
 
-Cả hai màn hình dùng **Experience API** của chính Logto, cùng origin, bốn chặng:
-
-| Chặng | Đăng nhập | Đăng ký |
-|---|---|---|
-| 1 | `PUT /api/experience` `{interactionEvent:'SignIn'}` | `{interactionEvent:'Register'}` |
-| 2 | `POST /api/experience/verification/password` | `POST /api/experience/verification/new-password-identity` |
-| 3 | `POST /api/experience/identification` `{verificationId}` | như bên trái |
-| 4 | `POST /api/experience/submit` → `{redirectTo}` | như bên trái |
-
+Mọi màn hình dùng **Experience API** của chính Logto, cùng origin.
 `credentials: 'same-origin'` là bắt buộc — phiên tương tác nằm trong cookie Logto đặt lúc
 `/oidc/auth` chuyển hướng tới đây.
 
-Sau chặng 4, trình duyệt đi tới `redirectTo`, và từ đó luồng OIDC hiện có của Talosmine
-tiếp quản: `/auth/callback` đổi code lấy phiên và tạo tài khoản trong Control Plane. **Không
-có dòng code nào ở phía Talosmine phải sửa.**
+**Đăng nhập** — bốn chặng, nhận cả email lẫn tên đăng nhập:
+
+```
+PUT  /api/experience                        {interactionEvent:'SignIn'}
+POST /api/experience/verification/password  {identifier:{type,value}, password}
+POST /api/experience/identification         {verificationId}
+POST /api/experience/submit              -> {redirectTo}
+```
+
+`identifier.type` do `identifierFor()` chọn: có dấu `@` thì `email`, không thì `username`.
+
+**Đăng ký** — HAI BƯỚC, vì phải chứng minh người đăng ký sở hữu hộp thư đó. Không có bước
+này thì ai cũng đăng ký bằng địa chỉ của người khác rồi chiếm luôn đường khôi phục mật khẩu
+của họ.
+
+```
+Bước 1 (màn hình biểu mẫu)
+  PUT  /api/experience                                  {interactionEvent:'Register'}
+  POST /api/experience/verification/verification-code   {identifier, interactionEvent}
+                                                     -> {verificationId}
+
+Bước 2 (màn hình nhập mã)
+  POST /api/experience/verification/verification-code/verify  {identifier, verificationId, code}
+                                                           -> {verificationId MỚI}
+  POST /api/experience/profile     {type:'email', verificationId}
+  POST /api/experience/profile     {type:'password', value}
+  POST /api/experience/profile     {type:'extraProfile', values}   (tuỳ chọn)
+  POST /api/experience/identification  {}      <- chính bước này TẠO tài khoản
+  POST /api/experience/submit               -> {redirectTo}
+```
+
+Thứ tự không đổi được. Gắn hồ sơ SAU bước định danh thì dữ liệu không vào tài khoản vừa tạo.
+
+Màn hình nhập mã **thay nội dung, không chuyển trang**: phiên tương tác nằm trong cookie phía
+máy chủ và mã gắn với chính phiên đó. Điều hướng sang URL khác sẽ khởi tạo lại phiên, và
+người dùng gõ đúng mã vẫn bị báo sai.
+
+Sau chặng cuối, trình duyệt đi tới `redirectTo` và luồng OIDC hiện có của Talosmine tiếp
+quản: `/auth/callback` đổi code lấy phiên và tạo tài khoản trong Control Plane. **Không có
+dòng code nào ở phía Talosmine phải sửa.**
 
 ## Vào màn hình đăng ký
 
-Logto nhận tham số `first_screen=register` trên authorization request (đã kiểm chứng trên
-bản 1.41; tham số cũ `interaction_mode=signUp` cũng còn chạy). Không có tham số thì vào
-`/sign-in`.
+Logto nhận `first_screen=register` trên authorization request (đã kiểm chứng trên bản 1.41;
+tham số cũ `interaction_mode=signUp` cũng còn chạy). Không có tham số thì vào `/sign-in`.
 
 ## Giới hạn đang có
 
-**Mount này thay TOÀN BỘ giao diện của Logto, không chỉ hai màn hình.** Mọi đường dẫn khác
-rơi vào màn hình dự phòng trong `app.js`.
+**Mount này thay TOÀN BỘ giao diện của Logto.** Mọi đường dẫn chưa dựng rơi vào màn hình dự
+phòng trong `app.js` — nó nói thẳng "chưa có", thay vì để trang trắng.
 
-Hiện không đường nào trong số đó tới được, vì cấu hình Logto chỉ bật username + mật khẩu:
-không social connector, không MFA, không SMTP. **Bật thêm bất kỳ thứ gì thì phải dựng thêm
-màn hình ở đây trước.**
+| Màn hình | Trạng thái |
+|---|---|
+| `/sign-in` | ✅ email hoặc tên đăng nhập + mật khẩu |
+| `/register` | ✅ email + xác minh bằng mã |
+| `/forgot-password` | ✗ **màn hình dự phòng** — Logto hỗ trợ và connector thư đã sẵn sàng, chỉ chưa dựng giao diện |
+| MFA, đăng nhập mạng xã hội, màn hình đồng ý | ✗ chưa bật ở Logto nên chưa tới được |
 
-Những thứ có mặt trong bố cục nhưng CHƯA CHẠY. Không cái nào giả vờ chạy được: nút chưa có
-gì phía sau thì để `disabled`, chữ chưa có đích đến thì không phải link.
+**BẬT THÊM BẤT KỲ THỨ GÌ Ở LOGTO THÌ PHẢI DỰNG THÊM MÀN HÌNH Ở ĐÂY TRƯỚC.**
 
-- **"Tiếp tục với Google"** — nút `disabled`, chưa cấu hình connector nào (`socialSignIn: {}`).
-- **"Quên mật khẩu?"** — chữ, không phải link. Logto chưa cấu hình SMTP (`pending-work.md` A1).
+Những thứ có trong bố cục nhưng chưa chạy — không cái nào giả vờ chạy được:
+
+- **"Tiếp tục với Google"** — nút `disabled`, chưa cấu hình connector (`socialSignIn: {}`)
 - **"Điều khoản dịch vụ" / "Chính sách riêng tư"** — chữ mang màu nhấn như thiết kế nhưng
-  không phải link: hai văn bản chưa được soạn.
-- **Ô nhập là TÊN ĐĂNG NHẬP, không phải email**, khác thiết kế Figma. Đây là quyết định của
-  chủ dự án (2026-07-22): giữ `signUp.identifiers: ["username"]`, đổi sang email tính sau.
-  Đổi ở Logto thì phải đổi `identifier.type` trong `app.js` theo. Ô đăng nhập ĐÃ nhận diện
-  sẵn địa chỉ thư (có dấu `@` thì gửi `type: 'email'`), nên bật email ở Logto là chạy.
+  không phải link: hai văn bản chưa được soạn
 
-**Link "Về trang chủ"** đọc `window.TALOSMINE_APP_URL` từ `config.js` và **tự ẩn khi để
-trống**. Trang này do Logto phục vụ nên không suy ra được địa chỉ web app: `redirect_uri`
-không lộ cho JavaScript, `document.referrer` mất qua chuỗi chuyển hướng. ⚠ Giá trị mặc định
-là địa chỉ dev — **lên production phải đổi**.
+**Link "Về trang chủ"** đọc `window.TALOSMINE_APP_URL` từ `config.js` và **tự ẩn khi trống**.
+Trang này do Logto phục vụ nên không suy ra được địa chỉ web app: `redirect_uri` không lộ cho
+JavaScript, `document.referrer` mất qua chuỗi chuyển hướng. `config.js` trong git để TRỐNG
+(an toàn cho production); `docker-compose.dev.yml` mount đè `config.dev.js` cho máy cá nhân.
 
 ## Cấu trúc CSS — giống hệt `apps/web`
 

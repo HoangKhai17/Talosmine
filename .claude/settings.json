@@ -167,7 +167,22 @@
       "PowerShell(\"=== digest that ===\")",
       "PowerShell(node infra/scripts/configure-logto-email.mjs 2>&1)",
       "Bash(git check-ignore *)",
-      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" check \"infra/scripts\" \"apps/logto-ui\" 2>&1 | Select-String -Pattern \"×|Found\" | Select-Object -First 5; node --check infra/scripts/configure-logto-email.mjs; \"cu phap script OK\"; \"--- git status ---\"; git status --porcelain | ForEach-Object { \"  $_\" })"
+      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" check \"infra/scripts\" \"apps/logto-ui\" 2>&1 | Select-String -Pattern \"×|Found\" | Select-Object -First 5; node --check infra/scripts/configure-logto-email.mjs; \"cu phap script OK\"; \"--- git status ---\"; git status --porcelain | ForEach-Object { \"  $_\" })",
+      "Bash(node infra/scripts/configure-logto-email.mjs)",
+      "Bash(curl -s http://localhost:3001/api/swagger.json)",
+      "PowerShell(node infra/scripts/test-logto-email.mjs 2>&1)",
+      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" format --write \"infra/scripts\" 2>&1 | Select-Object -Last 1; & \"node_modules\\\\.bin\\\\biome.CMD\" check \"infra/scripts\" 2>&1 | Select-String -Pattern \"×|Found\" | Select-Object -First 4; node --check infra/scripts/test-logto-email.mjs; node --check infra/scripts/configure-logto-email.mjs; \"cu phap ca hai script OK\"; \"--- thu trong Mailpit ---\"; \\(Invoke-WebRequest \"http://localhost:8025/api/v1/messages?limit=3\" -UseBasicParsing\\).Content | ConvertFrom-Json | ForEach-Object { \"tong so thu: \" + $_.messages_count })",
+      "PowerShell(node infra/scripts/configure-logto-sign-in.mjs 2>&1)",
+      "Bash(node infra/scripts/configure-logto-sign-in.mjs)",
+      "PowerShell(python \"C:\\\\Users\\\\ACER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\d--WorkSpace-ADA-Bamboo-PROJECT-BBOTECH-Talosmine\\\\b41f1779-9a59-4072-96c1-8165f4e61058\\\\scratchpad\\\\email-ui.py\")",
+      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" format --write \"apps/logto-ui\" \"infra/scripts\" 2>&1 | Select-Object -Last 1; & \"node_modules\\\\.bin\\\\biome.CMD\" check \"apps/logto-ui\" \"infra/scripts\" 2>&1 | Select-String -Pattern \"×|Found\" | Select-Object -First 4; node --check apps/logto-ui/app.js; \"cu phap OK\"; $p = \\(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess; if \\($p\\) { taskkill /PID $p /T /F | Out-Null }; \"cong 3000 da tra lai\")",
+      "PowerShell(& \"node_modules\\\\.bin\\\\biome.CMD\" check \"apps/logto-ui\" \"infra/scripts\" 2>&1 | Select-String -Pattern \"×\" -Context 2,6 | Select-Object -First 1 | ForEach-Object { $_.Context.PreContext + $_.Line + $_.Context.PostContext })",
+      "Bash(./node_modules/.bin/biome check *)",
+      "Bash(node --check apps/logto-ui/app.js)",
+      "Bash(./node_modules/.bin/biome format *)",
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { $c | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; \"PID $\\($_.OwningProcess\\)  $\\($p.ProcessName\\)  $\\($p.Path\\)\" } } else { \"port 3000: TRONG \\(khong ai nghe\\)\" })",
+      "PowerShell(curl.exe -s -o NUL -w \"sign-in HTTP %{http_code}`n\" http://localhost:3001/sign-in)",
+      "Read(//d/WorkSpace_ADA_Bamboo/PROJECT_BBOTECH/Talosmine/node_modules/.bin/**)"
     ],
     "additionalDirectories": [
       "\\tmp"

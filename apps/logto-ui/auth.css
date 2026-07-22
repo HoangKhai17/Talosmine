@@ -10,26 +10,40 @@
  * khi đặt hai trang cạnh nhau. Thấy `font-size` xuất hiện lại ở đây là dấu hiệu ai đó vừa
  * đi tắt.
  *
- * TRÀN VIỀN CÓ CHỦ ĐÍCH: trang này KHÔNG dùng `.container`. Thiết kế cho thấy nền cột trái
- * chạy sát mép màn hình. Đây là ngoại lệ cùng loại với băng đối tác ở trang chủ.
+ * TRÀN VIỀN NHƯNG VẪN TRONG CONTAINER: trang này không dùng class `.container`, nhưng lưới
+ * của nó dựng lại ĐÚNG hệ cột đó (xem `.page`). Nền chạy sát mép màn hình theo thiết kế,
+ * còn chữ vẫn nằm trên cùng các mốc cột như mọi trang khác — hai việc khác nhau, và bản
+ * trước gộp làm một nên mất luôn container.
  */
 
 /* ── Khung trang ──────────────────────────────────────────────────────────────
  *
- * Trang nằm TRÊN LƯỚI CỘT của dự án, không phải trên một tỉ lệ tự chế.
+ * LƯỚI TRÀN VIỀN CÓ CONTAINER — nền chạy sát mép màn hình, nhưng CHỮ nằm đúng trên lưới
+ * cột của container, giống mọi trang khác.
  *
- * `repeat(var(--grid-columns), …)` — đúng công thức của `.grid` trong `globals.css`, nên số
- * cột tự đổi 4 / 8 / 12 theo breakpoint. Trước đây chỗ này viết `5fr 7fr`: hai cột đó không
- * liên quan gì tới lưới của site, nên mọi thứ bên trong cũng không thể khít cột.
+ * Bản trước chia lưới trên TOÀN BỀ NGANG MÀN HÌNH và đặt `gap: 0`. Hai hệ quả đều sai:
+ * cột ở đây rộng theo viewport chứ không theo container 1420px, và khoảng cách giữa các
+ * cột bằng 0 thay vì 24px. Nói cách khác nó chỉ trông giống lưới chứ không phải lưới của
+ * dự án.
  *
- * `gap: 0` là KHÁC BIỆT DUY NHẤT so với `.grid`, và nó bắt buộc: hai cột ở đây là hai VÙNG
- * NỀN phải chạm nhau, không phải hai ô nội dung. Một khe 24px giữa chúng sẽ thành một vạch
- * trắng chạy dọc giữa màn hình.
+ * Cách làm đúng — ba nhóm track:
+ *
+ *     [full-start] gutter [content-start] 12 cột nội dung [content-end] gutter [full-end]
+ *
+ * Hai track ngoài `minmax(--container-gutter, 1fr)` nuốt phần dư của màn hình rộng, nên
+ * phần nội dung không bao giờ vượt `--container-max`. Đây chính là hành vi của `.container`,
+ * chỉ khác ở chỗ NỀN vẫn phủ được ra tới mép.
+ *
+ * Nền phủ tới mép bằng cách kéo tới `full-start` / `full-end`; nội dung bên trong bám vào
+ * các track `content`.
  */
 .page {
   display: grid;
-  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
-  gap: 0;
+  grid-template-columns:
+    [full-start] minmax(var(--container-gutter), 1fr)
+    [content-start] repeat(var(--grid-columns), minmax(0, 1fr)) [content-end]
+    minmax(var(--container-gutter), 1fr) [full-end];
+  column-gap: var(--grid-gap);
   /* `dvh` chứ không phải `vh`: trên di động thanh địa chỉ co giãn làm `100vh` cao hơn vùng
    * nhìn thấy thật, đẩy nút chính xuống dưới mép màn hình. */
   min-height: 100dvh;
@@ -38,45 +52,44 @@
 /* Dưới desktop: mỗi vùng chiếm trọn hàng, xếp chồng. */
 .brandPanel,
 .formPanel {
-  grid-column: 1 / -1;
+  grid-column: full-start / full-end;
 }
 
 /*
- * Desktop (từ 1280px — đúng mốc của `globals.css`): chia 6 / 6 cột TRÊN LƯỚI 12 CỘT.
+ * Desktop (từ 1280px — mốc "desktop" của `globals.css`): chia 6 / 6 cột.
  *
- * `1 / span 6` và `7 / -1` nói cùng một thứ tiếng với mọi khối khác trong dự án
- * (`grid-column: span 4`, `grid-column: 3 / span 8`…), thay vì một tỉ lệ `fr` chỉ đúng ở
- * riêng trang này.
+ * `full-start / 7` và `7 / full-end` dùng SỐ VẠCH của phần nội dung, nên đường chia nằm
+ * đúng giữa cột 6 và cột 7 của lưới 12 cột. Hai vùng CHẠM NHAU chứ không hở: vạch 7 vừa là
+ * điểm kết của vùng trái vừa là điểm bắt đầu của vùng phải, và khoảng gap nằm trọn bên
+ * trong vùng trái.
  *
  * `order` đảo VỊ TRÍ NHÌN THẤY: `<main>` đứng trước trong DOM để cấp bậc tiêu đề và thứ tự
- * đọc đúng, nhưng hiện ở bên phải. An toàn vì `<aside>` không có phần tử nào focus được —
+ * đọc đúng, nhưng hiện ở bên phải. An toàn vì `<aside>` không chứa phần tử nào focus được —
  * thứ tự Tab vẫn trùng thứ tự nhìn thấy.
- *
- * Dưới 1280px KHÔNG đảo: lúc đó xếp chồng, và phần giới thiệu nằm dưới biểu mẫu là đúng —
- * người dùng vào đây để đăng nhập, không phải để đọc quảng cáo.
  */
 @media (min-width: 1280px) {
   .brandPanel {
-    grid-column: 1 / span 6;
+    grid-column: full-start / 7;
     order: -1;
   }
 
   .formPanel {
-    grid-column: 7 / -1;
-  }
-
-  .brandImage,
-  .formTop {
-    grid-column: 1 / -1;
+    grid-column: 7 / full-end;
   }
 }
 
 /* ── Cột trái: giới thiệu ─────────────────────────────────────────────────────
  * Trắng ở trên chuyển dần sang tím rất nhạt ở dưới, theo thiết kế. `background-color` đặt
- * trước làm nền dự phòng cho trình duyệt không hiểu `linear-gradient`. */
+ * trước làm nền dự phòng cho trình duyệt không hiểu `linear-gradient`.
+ *
+ * `subgrid` để nội dung bên trong nằm trên ĐÚNG các cột mà vùng này chiếm của lưới trang —
+ * không phải trên một lưới con tự chế. `grid-template-rows: auto 1fr` cho khối chữ cao theo
+ * nội dung còn khối ảnh ăn hết phần cao còn lại.
+ */
 .brandPanel {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-template-rows: auto 1fr;
   background-color: var(--color-accent-tint);
   background-image: linear-gradient(
     160deg,
@@ -86,24 +99,26 @@
 }
 
 /*
- * Đệm ngang dùng `--container-gutter` ở MỌI breakpoint — cùng thang với `.container` của
- * web app (20 / 32 / 120px). Nhờ vậy chữ ở trang đăng nhập cách mép màn hình đúng bằng chữ
- * ở mọi trang khác.
+ * Chữ bám vào CÁC CỘT NỘI DUNG, bỏ qua track gutter.
  *
- * Trước đây desktop bị đè xuống `--space-16` (64px) với lý do "120 quá to". Đó là sai: ở
- * desktop một cột lưới rộng đúng 120px (globals chọn mốc 1280 để container 1200 + hai gutter
- * 120 vừa khít), nên 120 CHÍNH LÀ một cột. Lấy 64 là rơi ra khỏi lưới, và đó là chỗ khiến
- * khoảng cách trông lệch so với phần còn lại của site.
+ * Không còn `padding-inline: var(--container-gutter)` như bản trước: khoảng cách tới mép
+ * màn hình giờ do chính track gutter của lưới trang lo. Giữ cả hai là cộng dồn hai lớp lề
+ * và chữ trượt khỏi mốc cột.
+ *
+ * Xếp chồng (dưới 1280px): vùng này trải `full-start → full-end`, nên phải bỏ gutter ở CẢ
+ * HAI đầu → `2 / -2`.
  */
 .brandContent {
+  grid-column: 2 / -2;
   display: flex;
   flex-direction: column;
   padding-block: var(--space-10);
-  padding-inline: var(--container-gutter);
 }
 
 @media (min-width: 1280px) {
+  /* Hai cột: vùng này chỉ có gutter ở đầu trái, nên chỉ bỏ một đầu → `2 / -1`. */
   .brandContent {
+    grid-column: 2 / -1;
     padding-block: var(--space-12);
   }
 }
@@ -179,34 +194,37 @@
 
 @media (min-width: 1280px) {
   .brandImage {
-    /* `flex: 1` để ăn hết chiều cao còn lại của cột — nền phủ kín tới đáy màn hình dù nội
-     * dung bên trên ngắn hay dài. */
-    flex: 1 1 auto;
-    min-height: var(--space-30);
+    /* Trải TRỌN vùng, kể cả track gutter: đây là khối nền, phải chạm mép màn hình. */
+    grid-column: 1 / -1;
     display: grid;
     place-items: center;
+    min-height: var(--space-30);
     background-color: var(--color-border-default);
   }
 }
 
-/* ── Cột phải: biểu mẫu ───────────────────────────────────────────────────── */
+/* ── Cột phải: biểu mẫu ─────────────────────────────────────────────────────── */
 .formPanel {
-  display: flex;
-  flex-direction: column;
-  padding-block: var(--space-6);
-  padding-inline: var(--container-gutter);
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-template-rows: auto 1fr;
 }
 
-@media (min-width: 1280px) {
-  .formPanel {
-    padding-block: var(--space-12);
-  }
-}
-
+/* Hàng trên cùng trải trọn vùng để link "Về trang chủ" nằm sát mép phải của container. */
 .formTop {
+  grid-column: 2 / -2;
   display: flex;
   justify-content: flex-end;
   min-height: var(--space-8);
+  padding-block: var(--space-6);
+}
+
+@media (min-width: 1280px) {
+  .formTop {
+    /* Hai cột: vùng này chỉ có gutter ở đầu PHẢI → bỏ một đầu bên phải. */
+    grid-column: 1 / -2;
+    padding-block: var(--space-12) 0;
+  }
 }
 
 .backLink {
@@ -226,7 +244,8 @@
  * trường nào đi với nhãn nào.
  */
 .formArea {
-  flex: 1 1 auto;
+  /* Xếp chồng: bỏ gutter ở cả hai đầu. */
+  grid-column: 2 / -2;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -474,58 +493,57 @@
 /* ══════════════════════════════════════════════════════════════════════════════
  * ĐÈ CUỐI FILE — KHỐI NÀY PHẢI Ở SAU CÙNG.
  *
- * CSS cùng độ đặc hiệu thì cái viết SAU thắng. Khối này đè lên `display`, `padding-inline`
- * và `margin-inline` của `.brandPanel` / `.brandContent` / `.formPanel` / `.formArea` — mà
- * chúng được định nghĩa ở giữa file. Đặt khối này lên trên thì các định nghĩa đó ghi đè
- * ngược lại và không có gì thay đổi.
+ * CSS cùng độ đặc hiệu thì cái viết SAU thắng. Khối này đè `grid-column` và `max-width` của
+ * `.formArea`, mà chúng được định nghĩa ở giữa file. Đặt khối này lên trên thì các định
+ * nghĩa đó ghi đè ngược lại và không có gì thay đổi.
  *
- * Đây đúng là lỗi vừa mắc: khối được chèn ở đầu, đo ra không đổi một pixel, và trông y hệt
- * như "subgrid không chạy".
+ * Đây đúng là lỗi đã mắc ngày 2026-07-22: khối được chèn ở đầu file, đo ra không đổi một
+ * pixel, và trông y hệt như "subgrid không chạy".
  * ══════════════════════════════════════════════════════════════════════════════ */
 @media (min-width: 1280px) {
   /*
-   * `subgrid` — mỗi vùng TỰ CHIA LẠI theo đúng các cột nó chiếm của lưới trang.
+   * Biểu mẫu bám cột 7 → 12, bỏ track gutter bên phải.
    *
-   * Nhờ vậy nội dung bên trong nằm trên CHÍNH những cột đó, ở MỌI bề ngang màn hình. Lề
-   * trái phải bằng đúng MỘT CỘT (`2 / -2`), nên nó giãn theo màn hình thay vì đứng yên ở
-   * 120px.
+   * Vì sao không dùng `padding-inline: var(--container-gutter)`: 120px chỉ trùng một cột
+   * đúng tại 1440px (bề ngang mà thiết kế được vẽ). Lề cố định thì ở màn khác nó rơi ra
+   * ngoài lưới — đã đo được tiêu đề nằm ở "0.75 cột" thay vì đầu cột.
    *
-   * Vì sao không dùng `padding-inline: var(--container-gutter)` ở desktop: 120px chỉ trùng
-   * một cột đúng tại 1440px (đúng bề ngang mà thiết kế được vẽ). Ở 1920px một cột rộng
-   * 160px, ở 2560px là 213px — lề 120px cố định rơi ra khỏi lưới, và đo được: tiêu đề nằm
-   * ở "0.75 cột" thay vì đầu cột 2.
+   * Căn TRÁI (`margin-inline: 0`) chứ không giữa: mép trái luôn nằm đúng vạch 7, kể cả khi
+   * trần `max-width` chặn lại.
    *
-   * Hàng: `auto 1fr` để khối chữ cao theo nội dung còn khối ảnh ăn hết phần cao còn lại.
-   */
-  .brandPanel,
-  .formPanel {
-    display: grid;
-    grid-template-columns: subgrid;
-    grid-template-rows: auto 1fr;
-    /* Đệm ngang giờ do cột lo, không do padding. */
-    padding-inline: 0;
-  }
-
-  .brandContent,
-  .formArea {
-    grid-column: 2 / -2;
-    /* Lề giờ do CỘT lo. Để lại padding/margin ở đây là cộng dồn hai lớp lề và nội dung
-     * trượt khỏi mốc cột — đúng lỗi vừa đo được. */
-    padding-inline: 0;
-    margin-inline: 0;
-  }
-
-  /*
-   * Ô biểu mẫu lấp đầy vùng 5 cột của nó, nhưng có TRẦN.
-   *
-   * Không có trần thì ở màn 2560px vùng đó rộng 853px, và một biểu mẫu đăng nhập rộng hơn
-   * một mét trên màn hình là thứ không ai muốn dùng. Trần đặt bằng ĐƠN VỊ CHỮ (ngoại lệ duy
-   * nhất của luật "không max-width") và đủ rộng để KHÔNG chặn ở các bề ngang thường gặp:
-   * tại 1440px vùng cột rộng 480px, vẫn dưới trần, nên ô lấp đầy đúng 4 cột.
-   *
-   * Căn TRÁI chứ không giữa: nhờ vậy mép trái luôn nằm đúng đầu cột 8, kể cả khi trần chặn.
+   * Trần `80ch` để ở màn rất rộng biểu mẫu không kéo dài ra vô tận. Đủ rộng để KHÔNG chặn ở
+   * các bề ngang thường gặp: tại 1920px sáu cột nội dung rộng khoảng 686px, vẫn dưới trần.
    */
   .formArea {
+    grid-column: 1 / -2;
     max-width: 80ch;
+    margin-inline: 0;
+    padding-block: var(--space-10) var(--space-12);
   }
+}
+
+/*
+ * Nút trông như link.
+ *
+ * Dùng cho "Gửi lại mã" và "Đổi địa chỉ thư": chúng là HÀNH ĐỘNG, không phải điều hướng —
+ * không có URL nào để mở trong tab mới, và bấm vào chúng thay đổi trạng thái của trang.
+ *
+ * Vì vậy chúng phải là `<button>` để bàn phím và trình đọc màn hình hiểu đúng, rồi mới tạo
+ * hình dáng link bằng CSS. Làm ngược lại — `<a href="#">` cho một hành động — là lỗi
+ * accessibility phổ biến nhất trong các biểu mẫu.
+ */
+.linkButton {
+  border: none;
+  padding: 0;
+  background: none;
+  color: var(--color-accent);
+  font-weight: var(--weight-caption);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+  cursor: pointer;
+}
+
+.linkButton:disabled {
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
 }

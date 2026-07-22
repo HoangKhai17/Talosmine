@@ -76,7 +76,7 @@
       }
     },
     {
-      "includes": ["scripts/**", "**/*.config.ts", "**/*.config.mjs"],
+      "includes": ["scripts/**", "infra/scripts/**", "**/*.config.ts", "**/*.config.mjs"],
       "linter": {
         "rules": {
           "suspicious": {
@@ -86,7 +86,18 @@
       }
     },
     {
-      "includes": ["apps/web/app/globals.css"],
+      "includes": ["apps/logto-ui/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noRedundantUseStrict": "off",
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/app/globals.css", "apps/logto-ui/globals.css"],
       "linter": {
         "rules": {
           "complexity": {

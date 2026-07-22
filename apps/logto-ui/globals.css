@@ -123,7 +123,16 @@
   --font-sans: Montserrat, system-ui, sans-serif;
 
   /* ── Layout (mobile mặc định — mobile first) ───────────────────────────── */
-  --container-max: 1200px;
+  /*
+   * 1420px — theo bảng quy chuẩn của chủ dự án (2026-07-22).
+   *
+   * Trước đó ghi 1200px; đó là con số tôi ước lượng khi chưa có bảng, và nó SAI. Hệ quả:
+   * mọi trang đều hẹp hơn thiết kế 220px ở desktop.
+   *
+   * Cách `.container` dùng nó: `max-width = 1420 + 2 × 120 = 1660px`. Trên frame 1920px,
+   * phần nội dung rộng đúng 1420 và còn 250px thở mỗi bên.
+   */
+  --container-max: 1420px;
   --container-gutter: 20px;
   --grid-columns: 4;
   --grid-gap: 16px;

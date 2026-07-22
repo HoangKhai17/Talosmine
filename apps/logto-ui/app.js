@@ -24,18 +24,21 @@
 const ROUTES = {
   signIn: '/sign-in',
   register: '/register',
+  forgotPassword: '/forgot-password',
 };
 
 /**
- * Quy tắc tên đăng nhập, lấy nguyên từ hợp đồng của Experience API
- * (`/api/experience/verification/new-password-identity`): bắt đầu bằng chữ cái hoặc dấu
- * gạch dưới, sau đó là chữ/số/gạch dưới.
+ * Kiểm địa chỉ thư — CỐ Ý LỎNG, lấy đúng biểu thức mà Experience API dùng
+ * (`/^\S+@\S+\.\S+$/`).
  *
- * Chép luật ở đây KHÔNG phải để thay máy chủ kiểm — máy chủ vẫn kiểm — mà để người dùng
- * biết ngay lúc gõ thay vì gửi đi rồi nhận lỗi khó hiểu. Luật này khớp bản 1.41; nếu Logto
- * đổi, chỗ này phải đổi theo.
+ * Không dùng một biểu thức "chuẩn RFC" phức tạp hơn: mọi biểu thức như vậy đều từ chối
+ * nhầm những địa chỉ hợp lệ nhưng lạ mắt, và thứ duy nhất chứng minh một hộp thư có thật
+ * là GỬI THƯ TỚI ĐÓ — mà luồng này làm đúng việc đó ở bước sau.
+ *
+ * Chép luật của máy chủ để người dùng biết ngay lúc gõ, không phải gửi đi rồi nhận lỗi khó
+ * hiểu. Máy chủ vẫn kiểm lại.
  */
-const USERNAME_PATTERN = /^[A-Za-z_]\w*$/;
+const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
 
 /* ── Gọi API ────────────────────────────────────────────────────────────────── */
 
@@ -124,28 +127,66 @@ async function signIn(username, password) {
 }
 
 /**
- * Đăng ký. Khác đăng nhập ở `interactionEvent`, endpoint tạo định danh, và bước hồ sơ.
+ * Đăng ký — CHẶNG 1: gửi mã xác minh tới địa chỉ thư.
  *
- * TÊN VÀ HỌ LÀ TUỲ CHỌN, và lỗi ở bước đó KHÔNG chặn việc tạo tài khoản. Đó là đánh đổi có
- * chủ đích: mất một tên hiển thị thì sửa được sau trong trang tài khoản, còn chặn người dùng
- * tạo tài khoản vì một trường trang trí thì không sửa được — họ bỏ đi.
+ * Đăng ký bằng email là luồng HAI BƯỚC, khác hẳn đăng nhập. Logto phải chắc chắn người
+ * đăng ký thật sự sở hữu hộp thư đó trước khi tạo tài khoản — nếu không, ai cũng đăng ký
+ * được bằng địa chỉ của người khác rồi chiếm luôn đường khôi phục mật khẩu của họ.
  *
- * Lỗi vẫn được ghi ra console để người vận hành thấy, chứ không nuốt im lặng.
+ * Trả về `verificationId` để chặng 2 dùng.
  */
-async function register(username, password, profile) {
+async function sendRegistrationCode(email) {
   await callExperience('PUT', '/api/experience', { interactionEvent: 'Register' });
 
   const verification = await callExperience(
     'POST',
-    '/api/experience/verification/new-password-identity',
+    '/api/experience/verification/verification-code',
     {
-      identifier: { type: 'username', value: username },
-      password,
+      identifier: { type: 'email', value: email },
+      interactionEvent: 'Register',
     },
   );
 
-  // Hồ sơ gắn TRƯỚC bước định danh: chính bước định danh mới kích hoạt việc tạo tài khoản,
-  // nên mọi dữ liệu muốn đi kèm phải có mặt trước đó.
+  return verification.verificationId;
+}
+
+/**
+ * Đăng ký — CHẶNG 2: xác minh mã rồi tạo tài khoản.
+ *
+ * Thứ tự các lời gọi KHÔNG đổi được:
+ *   1. verify   — đổi mã lấy một `verificationId` MỚI (cái cũ chỉ chứng minh "đã gửi")
+ *   2. profile  — gắn email đã xác minh, rồi mật khẩu, rồi tên hiển thị
+ *   3. identification — chính bước này kích hoạt việc TẠO tài khoản
+ *   4. submit   — kết thúc phiên tương tác, trả về nơi cần chuyển hướng tới
+ *
+ * Gắn hồ sơ SAU bước định danh thì dữ liệu không đi vào tài khoản vừa tạo.
+ *
+ * TÊN VÀ HỌ LÀ TUỲ CHỌN, và lỗi ở bước đó KHÔNG chặn việc tạo tài khoản: mất một tên hiển
+ * thị thì sửa được sau trong trang tài khoản, còn chặn người dùng tạo tài khoản vì một
+ * trường trang trí thì không sửa được — họ bỏ đi. Lỗi vẫn ghi ra console cho người vận
+ * hành thấy, không nuốt im lặng.
+ */
+async function completeRegistration({ email, code, verificationId, password, profile }) {
+  const verified = await callExperience(
+    'POST',
+    '/api/experience/verification/verification-code/verify',
+    {
+      identifier: { type: 'email', value: email },
+      verificationId,
+      code,
+    },
+  );
+
+  await callExperience('POST', '/api/experience/profile', {
+    type: 'email',
+    verificationId: verified.verificationId,
+  });
+
+  await callExperience('POST', '/api/experience/profile', {
+    type: 'password',
+    value: password,
+  });
+
   const values = {};
   if (profile.givenName) values.givenName = profile.givenName;
   if (profile.familyName) values.familyName = profile.familyName;
@@ -161,9 +202,7 @@ async function register(username, password, profile) {
     }
   }
 
-  await callExperience('POST', '/api/experience/identification', {
-    verificationId: verification.verificationId,
-  });
+  await callExperience('POST', '/api/experience/identification', {});
 
   const result = await callExperience('POST', '/api/experience/submit');
   return result.redirectTo;
@@ -180,31 +219,27 @@ async function register(username, password, profile) {
  * thì người dùng không biết phải sửa gì. Thông tin đó dù sao cũng lộ ra qua chính việc đăng
  * ký thất bại.
  */
-function describeError(error, mode, identifier) {
+function describeError(error, mode) {
   if (!(error instanceof ExperienceError)) {
     return 'Không kết nối được tới máy chủ. Kiểm tra đường truyền rồi thử lại.';
   }
 
   if (mode === 'signIn' && (error.status === 401 || error.status === 422)) {
-    /**
-     * Người dùng gõ một địa chỉ thư và bị từ chối.
-     *
-     * Nói riêng trường hợp này KHÔNG làm rò rỉ gì: câu trả lời giống hệt nhau với mọi địa
-     * chỉ thư, dù nó có tồn tại hay không. Nó chỉ nói về CẤU HÌNH của hệ thống, thứ ai cũng
-     * phát hiện được sau vài lần thử.
-     *
-     * Còn nếu để nguyên "tên đăng nhập hoặc mật khẩu không đúng", người dùng sẽ ngồi gõ lại
-     * mật khẩu năm lần trong khi vấn đề nằm ở chỗ khác hẳn.
-     */
-    if (identifier && identifier.type === 'email') {
-      return 'Hiện chỉ đăng nhập được bằng TÊN ĐĂNG NHẬP. Đăng nhập bằng địa chỉ thư chưa được bật.';
-    }
+    return 'Thông tin đăng nhập không đúng.';
+  }
 
-    return 'Tên đăng nhập hoặc mật khẩu không đúng.';
+  if (error.code === 'user.email_already_in_use') {
+    return 'Địa chỉ thư này đã có tài khoản. Bạn thử đăng nhập xem sao.';
   }
 
   if (error.code === 'user.username_already_in_use') {
     return 'Tên đăng nhập này đã có người dùng. Chọn tên khác giúp bạn.';
+  }
+
+  // Mã sai hoặc hết hạn — nói rõ để người dùng biết là bấm "Gửi lại mã", chứ không phải
+  // quay lại sửa địa chỉ thư.
+  if (error.code?.startsWith('verification_code.')) {
+    return 'Mã xác minh không đúng hoặc đã hết hạn. Bấm "Gửi lại mã" để nhận mã mới.';
   }
 
   if (error.code.startsWith('password.')) {
@@ -468,11 +503,13 @@ function passwordField(id, label, hint) {
  *
  * `required` chỉ đặt cho ô bắt buộc: tên và họ là tuỳ chọn.
  */
-function textField(id, label, placeholder, hint, autocomplete, required) {
+function textField(id, label, placeholder, hint, autocomplete, required, type = 'text') {
   const input = el('input', {
     id,
     class: 'typeBody input',
-    type: 'text',
+    // `type="email"` bật bàn phím có `@` trên di động và cảnh báo sớm của trình duyệt.
+    // KHÔNG thay cho kiểm tra ở máy chủ — nó chỉ giúp người dùng gõ đỡ vất vả.
+    type,
     name: id,
     placeholder,
     autocomplete,
@@ -490,6 +527,133 @@ function textField(id, label, placeholder, hint, autocomplete, required) {
       hint ? el('p', { class: 'typeCaption textTertiary', text: hint }) : null,
     ]),
   };
+}
+
+/**
+ * Dòng "Quên mật khẩu?".
+ *
+ * Đã có connector thư nên luồng khôi phục của Logto hoạt động được. Đây là link THẬT tới
+ * màn hình của Logto, không còn là chữ chết như trước.
+ */
+function forgotPasswordRow() {
+  return el('p', { class: 'typeBodySmall forgotRow' }, [
+    el('a', { class: 'switchLink', href: ROUTES.forgotPassword, text: 'Quên mật khẩu?' }),
+  ]);
+}
+
+/**
+ * Màn hình nhập mã xác minh — chặng 2 của đăng ký.
+ *
+ * Trả về MẢNG phần tử chứ không phải một khối bọc, để nó thay thẳng nội dung `.formArea` và
+ * giữ nguyên bố cục cột như màn hình trước.
+ */
+function codeStep({ pending, errorBox, showError, onBack }) {
+  const code = el('input', {
+    id: 'verification-code',
+    class: 'typeBody input',
+    // `inputmode="numeric"` bật bàn phím số trên di động; `autocomplete="one-time-code"` cho
+    // phép iOS/Android gợi ý mã vừa nhận được trong tin nhắn hoặc thư.
+    type: 'text',
+    inputmode: 'numeric',
+    autocomplete: 'one-time-code',
+    maxlength: '6',
+    placeholder: '••••••',
+    required: '',
+  });
+
+  const submit = el('button', {
+    type: 'submit',
+    class: 'typeBody submitButton',
+    text: 'Xác minh và tạo tài khoản',
+  });
+
+  const resend = el('button', {
+    type: 'button',
+    class: 'typeBodySmall linkButton',
+    text: 'Gửi lại mã',
+  });
+
+  resend.addEventListener('click', async () => {
+    resend.disabled = true;
+    resend.textContent = 'Đang gửi…';
+    errorBox.hidden = true;
+    try {
+      // Gửi lại tạo ra một `verificationId` MỚI. Giữ cái cũ thì mã mới sẽ bị coi là sai.
+      pending.verificationId = await sendRegistrationCode(pending.email);
+      resend.textContent = 'Đã gửi lại mã';
+    } catch (error) {
+      showError(describeError(error, 'register'));
+      resend.textContent = 'Gửi lại mã';
+    } finally {
+      resend.disabled = false;
+    }
+  });
+
+  const form = el(
+    'form',
+    {
+      class: 'form',
+      novalidate: '',
+      onSubmit: async (event) => {
+        event.preventDefault();
+        if (submit.disabled) return;
+
+        const value = code.value.trim();
+        if (value === '') {
+          showError('Nhập mã xác minh vừa nhận được.');
+          return;
+        }
+
+        submit.disabled = true;
+        submit.textContent = 'Đang tạo tài khoản…';
+        errorBox.hidden = true;
+
+        try {
+          const redirectTo = await completeRegistration({ ...pending, code: value });
+          window.location.replace(redirectTo);
+        } catch (error) {
+          showError(describeError(error, 'register'));
+          submit.disabled = false;
+          submit.textContent = 'Xác minh và tạo tài khoản';
+        }
+      },
+    },
+    [
+      el('div', { class: 'field' }, [
+        el('label', { class: 'typeBodySmall', for: 'verification-code', text: 'Mã xác minh' }),
+        code,
+      ]),
+      submit,
+    ],
+  );
+
+  // Đưa con trỏ vào ô mã ngay: người dùng vừa chuyển từ hộp thư sang, việc duy nhất họ cần
+  // làm là dán mã vào.
+  queueMicrotask(() => code.focus());
+
+  return [
+    el('h1', { class: 'typeH2', text: 'Kiểm tra hộp thư' }),
+    el('p', { class: 'typeBodySmall textSecondary lead' }, [
+      document.createTextNode('Chúng tôi đã gửi mã xác minh tới '),
+      // Hiện lại địa chỉ để người dùng phát hiện ngay nếu vừa gõ nhầm, thay vì ngồi chờ một
+      // thư không bao giờ tới.
+      el('span', { class: 'accent', text: pending.email }),
+    ]),
+    errorBox,
+    form,
+    el('p', { class: 'typeBodySmall textSecondary switchRow' }, [
+      el('span', { text: 'Không nhận được thư? ' }),
+      resend,
+    ]),
+    el('p', { class: 'typeBodySmall switchRow' }, [
+      el('button', {
+        type: 'button',
+        class: 'typeBodySmall linkButton',
+        text: '← Đổi địa chỉ thư',
+        onClick: onBack,
+      }),
+    ]),
+  ];
 }
 
 /**
@@ -512,22 +676,36 @@ function authScreen(config) {
     : null;
 
   /*
-    THIẾT KẾ GHI "Email address", NHƯNG Ô NÀY LÀ TÊN ĐĂNG NHẬP.
+    ĐĂNG KÝ chỉ nhận ĐỊA CHỈ THƯ; ĐĂNG NHẬP nhận cả hai.
 
-    Cấu hình Logto hiện tại là `signUp.identifiers: ["username"]`, và chủ dự án đã chốt giữ
-    nguyên (2026-07-22). Đặt nhãn "Email" cho một ô chỉ nhận tên đăng nhập là nói dối người
-    dùng ngay ở bước đầu tiên — và họ sẽ gõ email rồi không hiểu vì sao không vào được.
+    Khớp đúng cấu hình Logto do `infra/scripts/configure-logto-sign-in.mjs` đặt:
+      signUp.identifiers  = ['email']
+      signIn.methods      = email + username
+
+    Vì sao đăng nhập vẫn nhận tên đăng nhập: các tài khoản tạo trước khi bật email chỉ có
+    username và cột email rỗng. Bỏ nó đi là khoá họ ra ngoài — trong đó có tài khoản quản trị.
+
+    Nhãn phải nói đúng thứ ô đó nhận. Ghi "Email" cho một ô cũng nhận username, hay ngược
+    lại, đều khiến người dùng gõ sai rồi không hiểu vì sao.
   */
-  const username = textField(
-    'username',
-    'Tên đăng nhập',
-    'ten_dang_nhap',
-    isRegister
-      ? 'Bắt đầu bằng chữ cái hoặc dấu gạch dưới; chỉ gồm chữ, số và dấu gạch dưới.'
-      : undefined,
-    'username',
-    true,
-  );
+  const identifier = isRegister
+    ? textField(
+        'email',
+        'Địa chỉ thư điện tử',
+        'ban@vidu.com',
+        'Chúng tôi sẽ gửi mã xác minh tới địa chỉ này.',
+        'email',
+        true,
+        'email',
+      )
+    : textField(
+        'username',
+        'Tên đăng nhập hoặc địa chỉ thư',
+        'ten_dang_nhap',
+        undefined,
+        'username',
+        true,
+      );
 
   const password = passwordField(
     isRegister ? 'password-new' : 'password',
@@ -580,18 +758,27 @@ function authScreen(config) {
         event.preventDefault();
         if (submit.disabled) return;
 
-        const usernameValue = username.input.value.trim();
+        const identifierValue = identifier.input.value.trim();
         const passwordValue = password.input.value;
 
-        if (usernameValue === '' || passwordValue === '') {
-          showError('Nhập đủ tên đăng nhập và mật khẩu.');
+        if (identifierValue === '' || passwordValue === '') {
+          showError(
+            isRegister
+              ? 'Nhập đủ địa chỉ thư và mật khẩu.'
+              : 'Nhập đủ tên đăng nhập (hoặc địa chỉ thư) và mật khẩu.',
+          );
           return;
         }
 
-        if (isRegister && !USERNAME_PATTERN.test(usernameValue)) {
-          showError(
-            'Tên đăng nhập phải bắt đầu bằng chữ cái hoặc dấu gạch dưới, và chỉ gồm chữ, số, dấu gạch dưới.',
-          );
+        if (isRegister && !EMAIL_PATTERN.test(identifierValue)) {
+          showError('Địa chỉ thư chưa đúng định dạng.');
+          return;
+        }
+
+        if (isRegister && passwordValue.length < 8) {
+          // Máy chủ cũng kiểm, nhưng bắt sớm ở đây thì người dùng không phải chờ hết một
+          // vòng gửi mã rồi mới biết mật khẩu chưa đạt.
+          showError('Mật khẩu cần ít nhất 8 ký tự.');
           return;
         }
 
@@ -607,18 +794,27 @@ function authScreen(config) {
         errorBox.hidden = true;
 
         try {
-          const redirectTo = isRegister
-            ? await register(usernameValue, passwordValue, {
+          if (isRegister) {
+            // Đăng ký DỪNG ở đây: chỉ mới gửi mã. Việc tạo tài khoản nằm ở màn hình sau.
+            const verificationId = await sendRegistrationCode(identifierValue);
+            showCodeStep({
+              email: identifierValue,
+              password: passwordValue,
+              verificationId,
+              profile: {
                 givenName: givenName.input.value.trim(),
                 familyName: familyName.input.value.trim(),
-              })
-            : await signIn(usernameValue, passwordValue);
+              },
+            });
+            return;
+          }
 
+          const redirectTo = await signIn(identifierValue, passwordValue);
           // `replace` chứ không `assign`: người dùng bấm Back sẽ không quay lại trang đăng
           // nhập đã dùng xong.
           window.location.replace(redirectTo);
         } catch (error) {
-          showError(describeError(error, config.mode, identifierFor(usernameValue)));
+          showError(describeError(error, config.mode));
           submit.disabled = false;
           submit.textContent = config.submitLabel;
         }
@@ -626,7 +822,7 @@ function authScreen(config) {
     },
     [
       isRegister ? el('div', { class: 'nameRow' }, [givenName.node, familyName.node]) : null,
-      username.node,
+      identifier.node,
       password.node,
       consent,
       submit,
@@ -646,29 +842,46 @@ function authScreen(config) {
     Đảo bằng lưới ở đây KHÔNG tạo bẫy bàn phím: `<aside>` không chứa phần tử nào focus
     được, nên thứ tự Tab vẫn trùng thứ tự nhìn thấy.
   */
-  return el('div', { class: 'page' }, [
-    el('main', { class: 'formPanel' }, [
-      el('div', { class: 'formTop' }, [backLink()]),
-      el('div', { class: 'formArea' }, [
-        el('h1', { class: 'typeH2', text: config.title }),
-        el('p', { class: 'typeBodySmall textSecondary lead', text: config.lead }),
-        errorBox,
-        ...googleButton(),
-        el('div', { class: 'divider' }, [
-          el('span', { class: 'typeBodySmall textTertiary', text: config.dividerLabel }),
-        ]),
-        form,
-        // "Quên mật khẩu?" KHÔNG phải link: luồng khôi phục đã bị dời lại vì Logto chưa cấu
-        // hình gửi thư. Một link không làm gì ở đây sẽ khiến người dùng bấm rồi ngồi chờ.
-        isRegister
-          ? null
-          : el('p', { class: 'typeBodySmall textTertiary forgotRow', text: 'Quên mật khẩu?' }),
-        el('p', { class: 'typeBodySmall textSecondary switchRow' }, [
-          el('span', { text: `${config.switchPrompt} ` }),
-          el('a', { class: 'switchLink', href: config.switchHref, text: config.switchLabel }),
-        ]),
-      ]),
+  const formArea = el('div', { class: 'formArea' }, [
+    el('h1', { class: 'typeH2', text: config.title }),
+    el('p', { class: 'typeBodySmall textSecondary lead', text: config.lead }),
+    errorBox,
+    ...googleButton(),
+    el('div', { class: 'divider' }, [
+      el('span', { class: 'typeBodySmall textTertiary', text: config.dividerLabel }),
     ]),
+    form,
+    isRegister ? null : forgotPasswordRow(),
+    el('p', { class: 'typeBodySmall textSecondary switchRow' }, [
+      el('span', { text: `${config.switchPrompt} ` }),
+      el('a', { class: 'switchLink', href: config.switchHref, text: config.switchLabel }),
+    ]),
+  ]);
+
+  /**
+   * Đổi sang màn hình nhập mã xác minh — THAY NỘI DUNG, KHÔNG chuyển trang.
+   *
+   * Phải làm vậy: phiên tương tác đang mở nằm trong cookie phía máy chủ, và mã vừa gửi gắn
+   * với chính phiên đó. Chuyển sang một URL khác sẽ khởi tạo lại phiên và mã trở thành vô
+   * dụng — người dùng nhận thư, gõ mã đúng, và bị báo sai.
+   */
+  function showCodeStep(pending) {
+    formArea.replaceChildren(
+      ...codeStep({
+        pending,
+        errorBox,
+        showError,
+        onBack: () => {
+          // Quay lại biểu mẫu: dựng LẠI cả màn hình thay vì khôi phục trạng thái cũ, vì
+          // phiên tương tác ở máy chủ cũng phải bắt đầu lại từ đầu.
+          document.getElementById('root').replaceChildren(authScreen(config));
+        },
+      }),
+    );
+  }
+
+  return el('div', { class: 'page' }, [
+    el('main', { class: 'formPanel' }, [el('div', { class: 'formTop' }, [backLink()]), formArea]),
     brandPanel(),
   ]);
 }
@@ -720,6 +933,11 @@ function render() {
       switchHref: ROUTES.signIn,
       switchLabel: 'Đăng nhập',
     });
+  } else if (pathname.startsWith(ROUTES.forgotPassword)) {
+    // CHƯA DỰNG. Logto có luồng này và connector thư đã sẵn sàng, nhưng màn hình nhập địa
+    // chỉ → nhập mã → đặt mật khẩu mới thì chưa viết. Rơi vào màn hình dự phòng là ĐÚNG:
+    // nó nói thẳng là chưa có, thay vì hiện một biểu mẫu không dẫn tới đâu.
+    screen = fallbackScreen(pathname);
   } else if (pathname.startsWith(ROUTES.signIn)) {
     document.title = 'Talosmine — Đăng nhập';
     screen = authScreen({

@@ -138,8 +138,19 @@ async function api(endpoint, token, path, init = {}) {
 async function main() {
   const env = await loadEnv();
 
-  // Admin endpoint, không phải endpoint người dùng: Management API sống ở cổng 3002.
-  const endpoint = (env.LOGTO_ADMIN_ENDPOINT ?? 'http://localhost:3002').replace(/\/$/, '');
+  /**
+   * ENDPOINT CHÍNH (3001), KHÔNG phải admin endpoint (3002).
+   *
+   * Cả hai cổng đều có `/oidc/token`, nên nhầm lẫn rất dễ xảy ra — và lỗi trả về là
+   * `invalid_client`, nghe như sai App ID chứ không phải sai cổng.
+   *
+   * Lý do: 3002 phục vụ tenant `admin` của chính Logto (Admin Console); ứng dụng ta tạo
+   * nằm ở tenant `default`, do 3001 phục vụ. Xin token cho một client của tenant này ở cửa
+   * của tenant kia thì đúng là không tồn tại.
+   *
+   * Management API cũng nằm ở 3001 (`/api/...`), cùng cổng.
+   */
+  const endpoint = (env.LOGTO_ENDPOINT ?? 'http://localhost:3001').replace(/\/$/, '');
 
   const appId = required(env, 'LOGTO_M2M_APP_ID', 'Xem hướng dẫn bootstrap ở `.env.example`.');
   const appSecret = required(env, 'LOGTO_M2M_APP_SECRET', 'Xem `.env.example`.');
@@ -190,19 +201,19 @@ async function main() {
     templates: [
       {
         usageType: 'Register',
-        type: 'text/plain',
+        contentType: 'text/plain',
         subject: 'Mã xác minh tài khoản Talosmine',
         content: 'Mã xác minh của bạn là {{code}}. Mã có hiệu lực trong 10 phút.',
       },
       {
         usageType: 'SignIn',
-        type: 'text/plain',
+        contentType: 'text/plain',
         subject: 'Mã đăng nhập Talosmine',
         content: 'Mã đăng nhập của bạn là {{code}}. Mã có hiệu lực trong 10 phút.',
       },
       {
         usageType: 'ForgotPassword',
-        type: 'text/plain',
+        contentType: 'text/plain',
         subject: 'Đặt lại mật khẩu Talosmine',
         content:
           'Mã đặt lại mật khẩu của bạn là {{code}}. Mã có hiệu lực trong 10 phút.\n' +
@@ -210,20 +221,26 @@ async function main() {
       },
       {
         usageType: 'Generic',
-        type: 'text/plain',
+        contentType: 'text/plain',
         subject: 'Mã xác minh Talosmine',
         content: 'Mã xác minh của bạn là {{code}}.',
       },
     ],
   };
 
-  // Chỉ thêm `auth` khi có tài khoản: Mailpit không cần, và gửi `auth` rỗng làm
-  // nodemailer thử đăng nhập rồi hỏng bắt tay.
-  const user = env.SMTP_USER?.trim();
-  const password = env.SMTP_PASSWORD?.trim();
-  if (user) {
-    config.auth = { user, pass: password ?? '' };
-  }
+  /**
+   * `auth` là TRƯỜNG BẮT BUỘC của connector, không phải tuỳ chọn.
+   *
+   * Điều đó hơi trái trực giác với Mailpit — nó không cần xác thực gì. Nhưng lược đồ của
+   * Logto từ chối cấu hình thiếu `auth`, nên phải gửi một cặp giá trị.
+   *
+   * Với Mailpit thì gửi gì cũng được: container đặt `MP_SMTP_AUTH_ACCEPT_ANY=1`, chấp nhận
+   * mọi thông tin đăng nhập. Dùng chuỗi `mailpit` cho dễ nhận ra trong log, thay vì một
+   * chuỗi rỗng trông như thiếu cấu hình.
+   */
+  const user = env.SMTP_USER?.trim() || 'mailpit';
+  const password = env.SMTP_PASSWORD?.trim() || 'mailpit';
+  config.auth = { user, pass: password };
 
   const token = await getAccessToken(endpoint, appId, appSecret);
 
@@ -247,7 +264,7 @@ async function main() {
   console.log(`   host   ${host}:${port}`);
   console.log(`   secure ${config.secure}  requireTLS ${config.requireTLS}`);
   console.log(`   từ     ${fromEmail}`);
-  console.log(`   xác thực ${config.auth ? `có (${user})` : 'không'}`);
+  console.log(`   tài khoản ${user}`);
 }
 
 main().catch((error) => {
