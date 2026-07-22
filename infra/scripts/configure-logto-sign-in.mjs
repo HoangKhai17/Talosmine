@@ -45,6 +45,19 @@ const SIGN_IN = {
 };
 
 /**
+ * KHÔI PHỤC MẬT KHẨU — mặc định của Logto là MẢNG RỖNG, tức luồng này TẮT.
+ *
+ * Không có dòng này thì `POST /api/experience/identification` trong luồng `ForgotPassword`
+ * trả `422 session.not_supported_for_forgot_password`. Thông điệp đó nghe như "Logto không
+ * làm được", nhưng thật ra là "chưa ai bật" — đã mất một vòng gỡ lỗi vì hiểu nhầm đúng chỗ
+ * này, sau khi giao diện đã dựng xong và chạy đúng tới bước cuối.
+ *
+ * Chỉ bật đường THƯ ĐIỆN TỬ. `PhoneVerificationCode` cần connector SMS, mà ta không có; bật
+ * nó lên là hứa một lối khôi phục không bao giờ gửi được gì.
+ */
+const FORGOT_PASSWORD = { forgotPasswordMethods: ['EmailVerificationCode'] };
+
+/**
  * Thương hiệu và ngôn ngữ.
  *
  * `branding: {}` XOÁ ô logo. Mặc định của Logto trỏ vào `https://logto.io/logo.svg` —
@@ -98,7 +111,7 @@ async function main() {
 
   await api(env, token, '/api/sign-in-exp', {
     method: 'PATCH',
-    body: JSON.stringify({ signUp: SIGN_UP, signIn: SIGN_IN, ...BRANDING }),
+    body: JSON.stringify({ signUp: SIGN_UP, signIn: SIGN_IN, ...FORGOT_PASSWORD, ...BRANDING }),
   });
 
   const after = await api(env, token, '/api/sign-in-exp');
@@ -110,11 +123,23 @@ async function main() {
 
   console.log(`trước: ${show(before)}`);
   console.log(`sau  : ${show(after)}`);
+  console.log(
+    `khôi phục mật khẩu: ${after.forgotPasswordMethods?.join('+') || '(TẮT — luồng quên mật khẩu sẽ hỏng)'}`,
+  );
   console.log(`logo : ${after.branding.logoUrl || '(trống — không tải ảnh từ bên ngoài)'}`);
   console.log(
     `ngôn ngữ: ${after.languageInfo.fallbackLanguage}` +
       `${after.languageInfo.autoDetect ? ' (tự đoán)' : ' (cố định)'}`,
   );
+
+  // Đọc lại và kiểm, không tin lời PATCH. Nếu thiết lập không vào được thì màn hình quên mật
+  // khẩu sẽ hỏng ở bước cuối cùng — chỗ tệ nhất để phát hiện, vì người dùng đã nhập mã xong.
+  if (!after.forgotPasswordMethods?.includes('EmailVerificationCode')) {
+    throw new Error(
+      'Đã PATCH nhưng `forgotPasswordMethods` vẫn không chứa `EmailVerificationCode`.\n' +
+        'Luồng quên mật khẩu sẽ trả 422 `session.not_supported_for_forgot_password` ở bước xác minh mã.',
+    );
+  }
 }
 
 main().catch((error) => {

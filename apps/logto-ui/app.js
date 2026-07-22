@@ -12,10 +12,12 @@
  * KHÔNG CÓ THƯ VIỆN NÀO. Không React, không bundler, không package. Đây là trang người dùng
  * gõ mật khẩu — mỗi phụ thuộc thêm vào là một cửa nữa cho tấn công chuỗi cung ứng.
  *
- * ⚠ FILE NÀY THAY THẾ TOÀN BỘ GIAO DIỆN CỦA LOGTO, không chỉ hai màn hình. Mọi đường dẫn
- * khác (quên mật khẩu, MFA, đăng nhập mạng xã hội, màn hình đồng ý) sẽ rơi vào nhánh dự
- * phòng ở cuối file. Hiện không đường nào trong số đó tới được, vì cấu hình Logto chỉ bật
- * username + mật khẩu. BẬT THÊM BẤT KỲ THỨ GÌ Ở LOGTO THÌ PHẢI DỰNG THÊM MÀN HÌNH Ở ĐÂY.
+ * ⚠ FILE NÀY THAY THẾ TOÀN BỘ GIAO DIỆN CỦA LOGTO, không chỉ vài màn hình. Đã dựng: đăng
+ * nhập, đăng ký, quên mật khẩu. Mọi đường dẫn khác (MFA, đăng nhập mạng xã hội, màn hình
+ * đồng ý) rơi vào nhánh dự phòng ở cuối file — hiện không đường nào tới được, vì cấu hình
+ * Logto chưa bật thứ nào trong số đó.
+ *
+ * BẬT THÊM BẤT KỲ THỨ GÌ Ở LOGTO THÌ PHẢI DỰNG THÊM MÀN HÌNH Ở ĐÂY TRƯỚC.
  */
 
 'use strict';
@@ -25,6 +27,15 @@ const ROUTES = {
   signIn: '/sign-in',
   register: '/register',
   forgotPassword: '/forgot-password',
+  /*
+    Logto tự đá tới đây khi KHÔNG CÓ PHIÊN TƯƠNG TÁC.
+
+    Xảy ra mỗi lần ai đó gõ thẳng `localhost:3001/sign-in` vào thanh địa chỉ, hoặc mở lại
+    một tab cũ. Phiên tương tác được tạo ở `/oidc/auth`, tức là khi web app khởi động luồng
+    đăng nhập — không có bước đó thì Logto không biết đang đăng nhập vào ứng dụng nào, với
+    `redirect_uri` nào, `state` nào.
+  */
+  unknownSession: '/unknown-session',
 };
 
 /**
@@ -209,6 +220,94 @@ async function completeRegistration({ email, code, verificationId, password, pro
 }
 
 /**
+ * Quên mật khẩu — CHẶNG 1: gửi mã tới địa chỉ thư.
+ *
+ * `interactionEvent: 'ForgotPassword'` phải xuất hiện ở CẢ HAI lời gọi. Ở `PUT /api/experience`
+ * nó đặt loại phiên tương tác; ở lời gọi gửi mã nó chọn MẪU THƯ. Đặt lệch nhau thì người dùng
+ * nhận một lá thư nói về việc đăng ký trong lúc họ đang khôi phục mật khẩu.
+ */
+async function sendPasswordResetCode(email) {
+  await callExperience('PUT', '/api/experience', { interactionEvent: 'ForgotPassword' });
+
+  const verification = await callExperience(
+    'POST',
+    '/api/experience/verification/verification-code',
+    {
+      identifier: { type: 'email', value: email },
+      interactionEvent: 'ForgotPassword',
+    },
+  );
+
+  return verification.verificationId;
+}
+
+/**
+ * Quên mật khẩu — CHẶNG 2: đổi mã lấy quyền đặt lại mật khẩu.
+ *
+ * Tách khỏi chặng 3 CÓ CHỦ ĐÍCH. Gộp "xác minh mã" và "đặt mật khẩu mới" vào một lần gửi thì
+ * mật khẩu bị chính sách từ chối sẽ TIÊU LUÔN cái mã — người dùng phải quay lại hộp thư xin
+ * mã mới chỉ vì gõ mật khẩu quá ngắn. Tách ra thì họ sửa mật khẩu và gửi lại ngay.
+ *
+ * `identification` là BẮT BUỘC, giống hai luồng kia: `PUT /api/experience/profile/password`
+ * trả 404 `session.identifier_not_found` nếu phiên chưa biết đang đổi mật khẩu cho ai.
+ *
+ * ⚠ BƯỚC NÀY PHỤ THUỘC MỘT THIẾT LẬP Ở LOGTO. Nếu `forgotPasswordMethods` trong sign-in
+ * experience KHÔNG chứa `EmailVerificationCode`, lời gọi này trả:
+ *
+ *     HTTP 422  session.not_supported_for_forgot_password
+ *
+ * Mặc định của Logto là MẢNG RỖNG, tức luồng khôi phục tắt. Đã mất một vòng gỡ lỗi vì thông
+ * điệp nghe như "Logto không hỗ trợ khôi phục mật khẩu" trong khi thật ra là "chưa ai bật".
+ * `infra/scripts/configure-logto-sign-in.mjs` bật nó, và có chốt chặn báo lỗi nếu thiếu.
+ */
+async function verifyPasswordResetCode({ email, code, verificationId }) {
+  const verified = await callExperience(
+    'POST',
+    '/api/experience/verification/verification-code/verify',
+    {
+      identifier: { type: 'email', value: email },
+      verificationId,
+      code,
+    },
+  );
+
+  await callExperience('POST', '/api/experience/identification', {
+    verificationId: verified.verificationId,
+  });
+}
+
+/**
+ * Quên mật khẩu — CHẶNG 3: đặt mật khẩu mới.
+ *
+ * `PUT` chứ không `POST` (đã đọc từ swagger của chính Logto đang chạy), và đường dẫn là
+ * `/profile/password` — KHÁC với `/profile` mà luồng đăng ký dùng. Hai đường dẫn khác nhau vì
+ * việc chúng làm khác nhau: một cái gắn hồ sơ cho tài khoản đang tạo, một cái ghi đè mật khẩu
+ * của tài khoản đã có.
+ *
+ * `submit` mới là chỗ mật khẩu THẬT SỰ được ghi và mọi bản ghi tương tác bị xoá.
+ *
+ * ⚠ `submit` TRẢ 204, KHÔNG PHẢI 200 — khác với luồng đăng nhập và đăng ký.
+ *
+ * Swagger của Logto 1.41 khai một kiểu trả về duy nhất cho endpoint này: 200 kèm `redirectTo`
+ * bắt buộc. Với `ForgotPassword` thì thực tế là 204 rỗng — hợp lý, vì đổi mật khẩu xong KHÔNG
+ * đăng nhập người dùng vào, nên chẳng có đâu để chuyển tới.
+ *
+ * Đọc `result.redirectTo` từ `undefined` ném TypeError, và `describeError` không nhận ra nó
+ * là lỗi API nên hiện "Không kết nối được tới máy chủ" — NGAY SAU KHI mật khẩu đã đổi thành
+ * công. Người dùng được báo là hỏng trong khi mọi thứ đã xong, và họ sẽ thử lại bằng mật khẩu
+ * cũ. Đã đo đúng tình huống này bằng luồng thật trước khi sửa.
+ *
+ * Trả `undefined` một cách có chủ đích. `?.` để nếu bản Logto sau này đổi sang 200 kèm
+ * `redirectTo` thì màn hình tự dùng, không phải sửa lại.
+ */
+async function resetPassword(password) {
+  await callExperience('PUT', '/api/experience/profile/password', { password });
+
+  const result = await callExperience('POST', '/api/experience/submit');
+  return result?.redirectTo;
+}
+
+/**
  * Đổi lỗi của máy chủ thành câu người dùng đọc được.
  *
  * KHÔNG NÓI TÀI KHOẢN CÓ TỒN TẠI HAY KHÔNG khi đăng nhập thất bại. Phân biệt "sai mật khẩu"
@@ -226,6 +325,23 @@ function describeError(error, mode) {
 
   if (mode === 'signIn' && (error.status === 401 || error.status === 422)) {
     return 'Thông tin đăng nhập không đúng.';
+  }
+
+  /*
+    KHÔI PHỤC MẬT KHẨU: không xác nhận địa chỉ thư này có tài khoản hay không.
+
+    Biểu mẫu quên mật khẩu là chỗ dò danh sách người dùng dễ nhất trên cả site — nó nhận địa
+    chỉ thư từ người lạ và không đòi hỏi gì. Trả lời "không có tài khoản nào dùng địa chỉ này"
+    biến nó thành công cụ kiểm tra hàng loạt: ai đã đăng ký, ai chưa.
+
+    Câu trả lời ở đây cố ý MƠ HỒ và giống hệt nhau cho cả hai trường hợp. Người dùng thật vẫn
+    đi tiếp được vì họ có mã trong hộp thư; người dò thì không rút ra được thông tin gì.
+
+    Đây là ĐÁNH ĐỔI có ý thức: người gõ nhầm địa chỉ sẽ ngồi chờ một lá thư không tới. Dòng
+    hướng dẫn ở màn hình nhập mã có hiện lại địa chỉ vừa gõ để họ tự phát hiện.
+  */
+  if (mode === 'forgotPassword' && (error.code === 'user.user_not_exist' || error.status === 404)) {
+    return 'Nếu địa chỉ này có tài khoản, mã xác minh đã được gửi tới hộp thư. Kiểm tra thư giúp bạn.';
   }
 
   if (error.code === 'user.email_already_in_use') {
@@ -455,7 +571,10 @@ function passwordField(id, label, hint) {
     class: 'typeBody input',
     type: 'password',
     name: 'password',
-    autocomplete: id === 'password-new' ? 'new-password' : 'current-password',
+    // `new-password` cho MỌI ô đặt mật khẩu mới, kể cả ô nhập lại. Đặt `current-password`
+    // cho ô nhập lại thì trình quản lý mật khẩu điền mật khẩu CŨ vào đó, và người dùng bị
+    // báo "hai lần nhập chưa khớp" mà không hiểu vì sao.
+    autocomplete: id.startsWith('password-') ? 'new-password' : 'current-password',
     required: '',
   });
 
@@ -542,12 +661,16 @@ function forgotPasswordRow() {
 }
 
 /**
- * Màn hình nhập mã xác minh — chặng 2 của đăng ký.
+ * Màn hình nhập mã xác minh — DÙNG CHUNG cho đăng ký và khôi phục mật khẩu.
+ *
+ * Hai luồng cùng cần đúng một thứ: một ô mã, một nút gửi lại, một đường lùi. Chép thành hai
+ * bản là cách chắc chắn để sau này sửa lỗi ở một bên rồi quên bên kia — nên phần khác nhau
+ * (chữ hiển thị, việc làm khi gửi) đi vào tham số.
  *
  * Trả về MẢNG phần tử chứ không phải một khối bọc, để nó thay thẳng nội dung `.formArea` và
  * giữ nguyên bố cục cột như màn hình trước.
  */
-function codeStep({ pending, errorBox, showError, onBack }) {
+function codeStep({ pending, errorBox, showError, onBack, mode, labels, sendCode, onSubmit }) {
   const code = el('input', {
     id: 'verification-code',
     class: 'typeBody input',
@@ -564,7 +687,7 @@ function codeStep({ pending, errorBox, showError, onBack }) {
   const submit = el('button', {
     type: 'submit',
     class: 'typeBody submitButton',
-    text: 'Xác minh và tạo tài khoản',
+    text: labels.submit,
   });
 
   const resend = el('button', {
@@ -579,10 +702,10 @@ function codeStep({ pending, errorBox, showError, onBack }) {
     errorBox.hidden = true;
     try {
       // Gửi lại tạo ra một `verificationId` MỚI. Giữ cái cũ thì mã mới sẽ bị coi là sai.
-      pending.verificationId = await sendRegistrationCode(pending.email);
+      pending.verificationId = await sendCode(pending.email);
       resend.textContent = 'Đã gửi lại mã';
     } catch (error) {
-      showError(describeError(error, 'register'));
+      showError(describeError(error, mode));
       resend.textContent = 'Gửi lại mã';
     } finally {
       resend.disabled = false;
@@ -605,16 +728,15 @@ function codeStep({ pending, errorBox, showError, onBack }) {
         }
 
         submit.disabled = true;
-        submit.textContent = 'Đang tạo tài khoản…';
+        submit.textContent = labels.pending;
         errorBox.hidden = true;
 
         try {
-          const redirectTo = await completeRegistration({ ...pending, code: value });
-          window.location.replace(redirectTo);
+          await onSubmit(value);
         } catch (error) {
-          showError(describeError(error, 'register'));
+          showError(describeError(error, mode));
           submit.disabled = false;
-          submit.textContent = 'Xác minh và tạo tài khoản';
+          submit.textContent = labels.submit;
         }
       },
     },
@@ -649,7 +771,7 @@ function codeStep({ pending, errorBox, showError, onBack }) {
       el('button', {
         type: 'button',
         class: 'typeBodySmall linkButton',
-        text: '← Đổi địa chỉ thư',
+        text: labels.back,
         onClick: onBack,
       }),
     ]),
@@ -871,6 +993,17 @@ function authScreen(config) {
         pending,
         errorBox,
         showError,
+        mode: 'register',
+        labels: {
+          submit: 'Xác minh và tạo tài khoản',
+          pending: 'Đang tạo tài khoản…',
+          back: '← Đổi địa chỉ thư',
+        },
+        sendCode: sendRegistrationCode,
+        onSubmit: async (value) => {
+          const redirectTo = await completeRegistration({ ...pending, code: value });
+          window.location.replace(redirectTo);
+        },
         onBack: () => {
           // Quay lại biểu mẫu: dựng LẠI cả màn hình thay vì khôi phục trạng thái cũ, vì
           // phiên tương tác ở máy chủ cũng phải bắt đầu lại từ đầu.
@@ -882,6 +1015,272 @@ function authScreen(config) {
 
   return el('div', { class: 'page' }, [
     el('main', { class: 'formPanel' }, [el('div', { class: 'formTop' }, [backLink()]), formArea]),
+    brandPanel(),
+  ]);
+}
+
+/**
+ * Màn hình quên mật khẩu — BA BƯỚC trong CÙNG MỘT TRANG.
+ *
+ * Không chuyển URL giữa các bước, cùng lý do với màn hình nhập mã của đăng ký: phiên tương
+ * tác nằm trong cookie phía máy chủ và gắn với `interactionEvent: 'ForgotPassword'` do bước 1
+ * đặt. Điều hướng sang địa chỉ khác sẽ khởi tạo lại phiên, và mã người dùng vừa nhận được
+ * trở thành vô dụng dù họ gõ đúng.
+ *
+ *   1. nhập địa chỉ thư   → gửi mã
+ *   2. nhập mã            → xác minh + định danh
+ *   3. đặt mật khẩu mới   → ghi và kết thúc
+ */
+function forgotPasswordScreen() {
+  const errorBox = el('div', { class: 'error', role: 'alert', tabindex: '-1' }, []);
+  errorBox.hidden = true;
+
+  function showError(message) {
+    errorBox.replaceChildren(el('p', { class: 'typeBodySmall', text: message }));
+    errorBox.hidden = false;
+    errorBox.focus();
+  }
+
+  const formArea = el('div', { class: 'formArea' }, []);
+
+  /* ── Bước 1: địa chỉ thư ─────────────────────────────────────────────────── */
+  function showEmailStep(prefill) {
+    const email = textField(
+      'email',
+      'Địa chỉ thư điện tử',
+      'ban@vidu.com',
+      'Chúng tôi sẽ gửi mã xác minh tới địa chỉ này.',
+      'email',
+      true,
+      'email',
+    );
+    email.input.value = prefill || '';
+
+    const submit = el('button', {
+      type: 'submit',
+      class: 'typeBody submitButton',
+      text: 'Gửi mã xác minh',
+    });
+
+    const form = el(
+      'form',
+      {
+        class: 'form',
+        novalidate: '',
+        onSubmit: async (event) => {
+          event.preventDefault();
+          if (submit.disabled) return;
+
+          const value = email.input.value.trim().toLowerCase();
+          if (value === '') {
+            showError('Nhập địa chỉ thư của tài khoản.');
+            return;
+          }
+          if (!EMAIL_PATTERN.test(value)) {
+            showError('Địa chỉ thư chưa đúng định dạng.');
+            return;
+          }
+
+          submit.disabled = true;
+          submit.textContent = 'Đang gửi…';
+          errorBox.hidden = true;
+
+          try {
+            const verificationId = await sendPasswordResetCode(value);
+            showCodeStep({ email: value, verificationId });
+          } catch (error) {
+            showError(describeError(error, 'forgotPassword'));
+            submit.disabled = false;
+            submit.textContent = 'Gửi mã xác minh';
+          }
+        },
+      },
+      [email.node, submit],
+    );
+
+    formArea.replaceChildren(
+      el('h1', { class: 'typeH2', text: 'Quên mật khẩu' }),
+      el('p', {
+        class: 'typeBodySmall textSecondary lead',
+        text: 'Nhập địa chỉ thư của tài khoản. Chúng tôi sẽ gửi một mã để bạn đặt lại mật khẩu.',
+      }),
+      errorBox,
+      form,
+      el('p', { class: 'typeBodySmall switchRow' }, [
+        el('a', { class: 'switchLink', href: ROUTES.signIn, text: '← Quay lại đăng nhập' }),
+      ]),
+    );
+  }
+
+  /* ── Bước 2: mã xác minh ─────────────────────────────────────────────────── */
+  function showCodeStep(pending) {
+    formArea.replaceChildren(
+      ...codeStep({
+        pending,
+        errorBox,
+        showError,
+        mode: 'forgotPassword',
+        labels: {
+          submit: 'Xác minh mã',
+          pending: 'Đang xác minh…',
+          back: '← Đổi địa chỉ thư',
+        },
+        sendCode: sendPasswordResetCode,
+        onSubmit: async (value) => {
+          await verifyPasswordResetCode({ ...pending, code: value });
+          showPasswordStep(pending.email);
+        },
+        // Đổi địa chỉ thư = làm lại từ đầu, kể cả ở phía máy chủ: bước 1 sẽ gọi lại
+        // `PUT /api/experience` và đặt lại phiên tương tác.
+        onBack: () => showEmailStep(pending.email),
+      }),
+    );
+  }
+
+  /* ── Bước 3: mật khẩu mới ────────────────────────────────────────────────── */
+  function showPasswordStep(email) {
+    const password = passwordField('password-new', 'Mật khẩu mới', 'Ít nhất 8 ký tự');
+    const confirm = passwordField('password-confirm', 'Nhập lại mật khẩu mới');
+
+    const submit = el('button', {
+      type: 'submit',
+      class: 'typeBody submitButton',
+      text: 'Đặt lại mật khẩu',
+    });
+
+    const form = el(
+      'form',
+      {
+        class: 'form',
+        novalidate: '',
+        onSubmit: async (event) => {
+          event.preventDefault();
+          if (submit.disabled) return;
+
+          const value = password.input.value;
+
+          if (value.length < 8) {
+            showError('Mật khẩu cần ít nhất 8 ký tự.');
+            return;
+          }
+
+          /*
+            Ô nhập lại là THẬT SỰ CẦN ở màn hình này, khác với lúc đăng ký.
+            Gõ sai mật khẩu lúc đăng ký thì người dùng phát hiện ngay ở lần đăng nhập kế tiếp
+            và vẫn còn đường khôi phục. Gõ sai ở ĐÂY thì đường khôi phục vừa dùng xong: mã đã
+            tiêu, và họ bị khoá ra khỏi tài khoản cho tới khi xin mã mới.
+          */
+          if (value !== confirm.input.value) {
+            showError('Hai lần nhập mật khẩu chưa khớp nhau.');
+            return;
+          }
+
+          submit.disabled = true;
+          submit.textContent = 'Đang đặt lại…';
+          errorBox.hidden = true;
+
+          try {
+            const redirectTo = await resetPassword(value);
+
+            // Bản Logto hiện tại trả 204 nên `redirectTo` là `undefined` — xem `resetPassword`.
+            // Nhánh chuyển hướng giữ lại phòng khi bản sau đổi hành vi.
+            if (redirectTo) {
+              window.location.replace(redirectTo);
+              return;
+            }
+
+            showDoneStep(email);
+          } catch (error) {
+            showError(describeError(error, 'forgotPassword'));
+            submit.disabled = false;
+            submit.textContent = 'Đặt lại mật khẩu';
+          }
+        },
+      },
+      [password.node, confirm.node, submit],
+    );
+
+    queueMicrotask(() => password.input.focus());
+
+    formArea.replaceChildren(
+      el('h1', { class: 'typeH2', text: 'Đặt mật khẩu mới' }),
+      el('p', { class: 'typeBodySmall textSecondary lead' }, [
+        document.createTextNode('Mật khẩu mới cho tài khoản '),
+        el('span', { class: 'accent', text: email }),
+      ]),
+      errorBox,
+      form,
+    );
+  }
+
+  /* ── Bước 4: báo đã xong ─────────────────────────────────────────────────── */
+  /*
+   * Màn hình này BẮT BUỘC PHẢI CÓ, không phải trang trí.
+   *
+   * `submit` trả 204 và không đăng nhập người dùng vào, nên không có chuyển hướng nào tự xảy
+   * ra. Thiếu màn hình này thì biểu mẫu đứng im sau khi bấm, và người dùng không có cách nào
+   * biết mật khẩu đã đổi hay chưa — họ sẽ bấm lại, hoặc bỏ đi rồi thử đăng nhập bằng mật khẩu
+   * cũ.
+   *
+   * Đường đi tiếp là `ROUTES.signIn` chứ không phải web app: phiên tương tác OIDC vẫn đang mở,
+   * nên `/sign-in` dựng lại được màn hình đăng nhập ngay trong phiên đó.
+   */
+  function showDoneStep(email) {
+    formArea.replaceChildren(
+      el('h1', { class: 'typeH2', text: 'Đã đổi mật khẩu' }),
+      el('p', { class: 'typeBodySmall textSecondary lead' }, [
+        document.createTextNode('Mật khẩu của '),
+        el('span', { class: 'accent', text: email }),
+        document.createTextNode(' đã được đặt lại. Đăng nhập bằng mật khẩu mới để tiếp tục.'),
+      ]),
+      el('a', { class: 'typeBody submitButton doneLink', href: ROUTES.signIn, text: 'Đăng nhập' }),
+    );
+  }
+
+  showEmailStep('');
+
+  return el('div', { class: 'page' }, [
+    el('main', { class: 'formPanel' }, [el('div', { class: 'formTop' }, [backLink()]), formArea]),
+    brandPanel(),
+  ]);
+}
+
+/**
+ * Màn hình cho `/unknown-session`.
+ *
+ * TÁCH RIÊNG khỏi màn hình dự phòng, vì hai tình huống khác hẳn nhau và gộp lại thì thông
+ * điệp thành sai. Màn hình dự phòng nói "chưa dựng" — nhưng `/sign-in` ĐÃ dựng; thứ thiếu là
+ * phiên tương tác. Nói nhầm ở đây khiến người đọc đi tìm lỗi trong giao diện, trong khi việc
+ * cần làm chỉ là vào bằng đúng cửa.
+ */
+function unknownSessionScreen() {
+  const appUrl = typeof window.TALOSMINE_APP_URL === 'string' ? window.TALOSMINE_APP_URL : '';
+
+  return el('div', { class: 'page' }, [
+    el('main', { class: 'formPanel' }, [
+      el('div', { class: 'formTop' }, [backLink()]),
+      el('div', { class: 'formArea' }, [
+        el('h1', { class: 'typeH2', text: 'Phiên đăng nhập đã hết' }),
+        el('p', {
+          class: 'typeBodySmall textSecondary lead',
+          text:
+            'Trang đăng nhập cần được mở từ chính Talosmine. Mở thẳng địa chỉ này, hoặc để tab ' +
+            'mở quá lâu, thì phiên không còn — nên chưa biết bạn đang đăng nhập vào đâu.',
+        }),
+        // Chỉ hiện nút khi biết địa chỉ web app. Đoán bừa một địa chỉ ở trang đăng nhập là
+        // đúng cái dấu hiệu của lừa đảo mà người dùng được dạy phải cảnh giác.
+        appUrl === ''
+          ? el('p', {
+              class: 'typeBodySmall textTertiary',
+              text: 'Quay lại Talosmine rồi bấm Đăng nhập để bắt đầu lại.',
+            })
+          : el('a', {
+              class: 'typeBody submitButton doneLink',
+              href: `${appUrl}/auth`,
+              text: 'Bắt đầu lại từ Talosmine',
+            }),
+      ]),
+    ]),
     brandPanel(),
   ]);
 }
@@ -919,14 +1318,19 @@ function render() {
 
   let screen;
 
-  if (pathname.startsWith(ROUTES.register)) {
+  if (pathname.startsWith(ROUTES.unknownSession)) {
+    document.title = 'Talosmine — Phiên đăng nhập đã hết';
+    screen = unknownSessionScreen();
+  } else if (pathname.startsWith(ROUTES.register)) {
     document.title = 'Talosmine — Tạo tài khoản';
     screen = authScreen({
       mode: 'register',
       title: 'Tạo tài khoản',
       lead: 'Tham gia Talosmine để lưu công cụ, tạo bộ sưu tập và theo dõi những cập nhật mới nhất.',
-      // Thiết kế ghi "or use email", nhưng ô định danh ở đây là tên đăng nhập.
-      dividerLabel: 'hoặc dùng tên đăng nhập',
+      // Nhãn phải nói đúng thứ ô bên dưới nhận. Trước đây ghi "hoặc dùng tên đăng nhập" —
+      // đúng khi đăng ký còn dùng username, và SAI kể từ lúc chuyển sang email. Đã thấy trên
+      // ảnh render: vạch ngăn nói tên đăng nhập trong khi ô ngay dưới ghi "Địa chỉ thư".
+      dividerLabel: 'hoặc dùng địa chỉ thư',
       submitLabel: 'Tạo tài khoản',
       pendingLabel: 'Đang tạo…',
       switchPrompt: 'Đã có tài khoản?',
@@ -934,10 +1338,8 @@ function render() {
       switchLabel: 'Đăng nhập',
     });
   } else if (pathname.startsWith(ROUTES.forgotPassword)) {
-    // CHƯA DỰNG. Logto có luồng này và connector thư đã sẵn sàng, nhưng màn hình nhập địa
-    // chỉ → nhập mã → đặt mật khẩu mới thì chưa viết. Rơi vào màn hình dự phòng là ĐÚNG:
-    // nó nói thẳng là chưa có, thay vì hiện một biểu mẫu không dẫn tới đâu.
-    screen = fallbackScreen(pathname);
+    document.title = 'Talosmine — Quên mật khẩu';
+    screen = forgotPasswordScreen();
   } else if (pathname.startsWith(ROUTES.signIn)) {
     document.title = 'Talosmine — Đăng nhập';
     screen = authScreen({

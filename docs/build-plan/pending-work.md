@@ -15,39 +15,38 @@
 
 Agent **không** tự quyết mục nào trong phần này (DEC-G01).
 
-### A1. Recovery flow — ĐANG CHẶN EXIT GATE P2
+### A1. Recovery flow — ✅ ĐÃ XONG (2026-07-22)
 
-Luồng khôi phục truy cập khi người dùng quên mật khẩu.
+Luồng khôi phục truy cập khi người dùng quên mật khẩu. **Đã hiện thực và kiểm chứng bằng
+trình duyệt thật, đầu đến cuối.**
 
-§18 của phase-2 nêu rõ: phải **hoặc** hiện thực, **hoặc** ra quyết định loại bỏ rồi cập
-nhật đồng bộ **bốn** nguồn — `docs/index.md`, `docs/modular.md`, OpenAPI/browser contract,
-và build plan. Có quyết định mà chưa cập nhật đủ bốn thì P2 vẫn `blocked`.
+**Đường đi hiện tại:** `/sign-in` → "Quên mật khẩu?" → `/forgot-password` (giao diện của ta
+trong `apps/logto-ui`) → nhập thư → nhận mã qua SMTP → nhập mã → đặt mật khẩu mới → màn hình
+báo xong → đăng nhập lại.
 
-**Đã kiểm chứng (2026-07-21):** Logto **có sẵn** luồng quên mật khẩu qua email, nhưng
-hiện **không dùng được**:
+Bốn chặng gọi Experience API, ghi chi tiết trong `apps/logto-ui/README.md`.
 
-```
-connectors:        0 dòng          ← chưa có kênh gửi email
-signIn.methods:    username only   ← chưa bật email làm định danh
-trang /sign-in:    không có link "Forgot password"
-```
+**Ba thứ chỉ lộ ra khi chạy thật, không có trong tài liệu của Logto:**
 
-Logto tự ẩn chức năng này khi thiếu hai điều kiện trên — không phải bị tắt ở đâu đó.
-
-**Cần chốt:** nhà cung cấp email. Đây là quyết định có ràng buộc về **nơi lưu dữ liệu**,
-cùng lý do đã khiến bỏ Auth0 (DEC-T22):
-
-| Hướng | Đánh đổi |
+| Phát hiện | Hệ quả nếu không biết |
 |---|---|
-| SMTP tự vận hành | Dữ liệu không rời hạ tầng của chủ dự án. Phải tự lo deliverability, SPF/DKIM/DMARC |
-| Nhà cung cấp trong nước | Cân bằng giữa tiện và nơi trú dữ liệu |
-| SendGrid / Mailgun / SES | Dễ nhất, deliverability tốt, nhưng email người dùng đi ra máy chủ nước ngoài |
+| `forgotPasswordMethods` mặc định là **mảng rỗng** | `identification` trả `422 session.not_supported_for_forgot_password`, nghe như Logto không hỗ trợ |
+| `submit` trả **204**, không phải 200 kèm `redirectTo` như swagger khai | Đọc `result.redirectTo` ném TypeError → người dùng thấy "Không kết nối được tới máy chủ" **ngay sau khi mật khẩu đã đổi thành công** |
+| Sau `submit`, người dùng **không** được đăng nhập vào | Không có chuyển hướng nào tự xảy ra; thiếu màn hình báo xong thì biểu mẫu đứng im và không ai biết đã xong hay chưa |
 
-Sau khi có email connector, **phía Talosmine không phải viết thêm dòng code nào** — bật
-lên trong Logto Admin Console là chạy. Đó là toàn bộ giá trị của việc giao xác thực cho IdP.
+Cả ba đều đã sửa. `infra/scripts/configure-logto-sign-in.mjs` bật `forgotPasswordMethods`
+và **đọc lại để kiểm**, ném lỗi nếu không vào — vì nếu thiết lập này thiếu thì luồng hỏng ở
+bước cuối cùng, chỗ tệ nhất để phát hiện.
 
-Lưu ý: tài khoản đã tồn tại hiện có `email` rỗng (đăng ký bằng username), nên chưa khôi
-phục được cho tới khi bổ sung email.
+**Không lộ tài khoản nào tồn tại:** biểu mẫu quên mật khẩu nhận địa chỉ thư từ người lạ và
+không đòi hỏi gì, nên nó là chỗ dò danh sách người dùng dễ nhất. Câu trả lời cho địa chỉ
+không có tài khoản giống hệt câu trả lời cho địa chỉ có.
+
+**§18 của phase-2 đã thoả:** đã hiện thực, không phải loại bỏ, nên không cần cập nhật bốn
+nguồn theo nhánh "quyết định loại bỏ".
+
+**Còn treo, không chặn:** e2e trong `tests/e2e` chưa có bài đọc Mailpit — chặn bởi B2
+(fixture phiên đăng nhập). Việc kiểm chứng hiện làm bằng script chạy tay.
 
 ### A2. CAPTCHA — DEC-T23 (`proposed`)
 
@@ -216,50 +215,60 @@ giả vờ chạy: nút chưa có backend thì để `disabled` hoặc render b�
   nằm trên URL và chia sẻ được link.
 - **Ô tìm kiếm ở hero** và **bộ lọc `/tools`** — chưa có đích đến, chặn bởi F1.
 - **Form newsletter** — chưa có backend.
-- **Biểu mẫu đăng nhập / đăng ký** (`/auth`, `/auth/sign-up`) — cố ý chưa nối. Xem C5.
-- **"Mở ứng dụng thư" và "Gửi lại"** (`/auth/check-email`) — chặn bởi A1 (chưa có SMTP).
+- ~~**Biểu mẫu đăng nhập / đăng ký**~~ — ✅ đã nối, xem C5. `/auth` và `/auth/sign-up` giờ
+  chuyển hướng 307 sang Logto; biểu mẫu thật nằm ở `apps/logto-ui`.
+- **`/auth/check-email` trong Next.js** — giờ **không còn đường nào tới**. Việc nhập mã đã
+  chuyển vào `apps/logto-ui` (cùng trang, không đổi URL — phiên tương tác nằm trong cookie
+  của Logto). **Cần chủ dự án quyết: giữ hay xoá.** Để nguyên thì nó là một trang chết mà
+  người rà soát sau sẽ tưởng là còn dùng.
 
-### C5. Biểu mẫu xác thực theo Figma — quyết định kiến trúc chưa chốt
+### C5. Biểu mẫu xác thực theo Figma — ✅ ĐÃ CHỐT VÀ ĐÃ LÀM (2026-07-22)
 
-`/auth`, `/auth/sign-up` và `/auth/check-email` đã dựng theo thiết kế Figma, nhưng **biểu
-mẫu không nối vào đâu, và đó là chủ đích**.
+**Chủ dự án chọn hướng "Bring your own UI".** Mật khẩu người dùng đi **thẳng từ trình duyệt
+tới Logto**, không đi qua code của Talosmine — giữ nguyên tính chất đã có, chỉ thay lớp giao
+diện.
 
-Hiện tại mật khẩu người dùng **chưa bao giờ đi qua code của Talosmine**: `/auth/login` đẩy
-sang Logto, người dùng gõ mật khẩu ở đó, rồi quay về với một authorization code. Đường đăng
-nhập thật vẫn còn nguyên ở cuối trang.
+| Hướng | Giao diện | Mật khẩu đi tới | |
+|---|---|---|---|
+| Giữ nguyên | Trang mặc định của Logto | Logto | bỏ |
+| **Bring your own UI** | **Thiết kế Figma** | **Logto** | ✅ chọn |
+| Experience API trong Next.js | Thiết kế Figma | **App của ta** rồi mới tới Logto | bỏ — kéo mật khẩu vào phạm vi code của mình |
 
-Ba hướng, chủ dự án chọn:
+**Không dùng tính năng `customUiAssets` có sẵn của Logto.** Nó nhận một file zip rồi đẩy lên
+object storage; instance hiện chưa cấu hình storage provider nào nên upload trả 500. Và kể
+cả có, giao diện khi đó nằm trong database dưới dạng một zip mờ đục — không diff được, không
+review được, không có trong git. Thay vào đó `docker-compose.yml` **mount đè** thư mục
+`apps/logto-ui` lên thư mục giao diện của Logto.
 
-| Hướng | Giao diện | Mật khẩu đi tới |
-|---|---|---|
-| Giữ nguyên | Trang mặc định của Logto | Logto |
-| **Bring your own UI** (`customUiAssets`) | **Thiết kế Figma** | **Logto** |
-| Experience API trong Next.js | Thiết kế Figma | **App của ta** rồi mới tới Logto |
+Đã dựng: `/sign-in`, `/register`, `/forgot-password`. Chi tiết trong
+`apps/logto-ui/README.md`.
 
-Hướng giữa cho đúng thứ đang cần mà không kéo mật khẩu vào phạm vi code của mình. Cái giá:
-gói tải lên là HTML/CSS/JS **tĩnh thuần**, nên bố cục hiện tại phải chuyển thể chứ không
-copy được.
-
-Ba thứ cần sửa ở Logto trước, độc lập với hướng nào (đã đọc từ API của instance đang chạy,
-2026-07-22):
+Bốn thứ ở Logto nêu trong bản cũ của mục này **đã xử lý xong**, bằng script chứ không bấm
+tay (`infra/scripts/configure-logto-*.mjs`) — cấu hình này nằm trong database của Logto,
+không nằm trong git, nên bấm tay thì máy dev một kiểu và production một kiểu:
 
 ```
-branding.logoUrl: "https://logto.io/logo.svg"   ← trang đăng nhập đang tải logo TỪ MÁY CHỦ
-                                                   CỦA LOGTO: rò IP và Referer của người
-                                                   dùng sang bên thứ ba
-languageInfo:     { autoDetect: true, fallbackLanguage: "en" }
-                                                ← lý do giao diện nhảy sang tiếng Pháp
-hideLogtoBranding: false                        ← dòng "Powered by Logto" ở chân trang
-signUp.identifiers: ["username"]                ← đăng ký bằng tên đăng nhập, KHÔNG phải email
-socialSignIn:     {}                            ← chưa có connector Google nào
+branding.logoUrl    -> xoa han (truoc do tai logo TU MAY CHU CUA LOGTO, ro IP va Referer
+                       cua nguoi dung sang ben thu ba ngay tai trang go mat khau)
+languageInfo        -> { autoDetect: false, fallbackLanguage: 'en' }  (ly do giao dien tung
+                       nhay sang tieng Phap)
+signUp.identifiers  -> ['email'] co xac minh; signIn nhan ca email lan username
+forgotPasswordMethods -> ['EmailVerificationCode']   (xem A1)
 ```
 
-Logto 1.41 **không có tiếng Việt** (đã thử `?lng=vi` → rơi về tiếng Anh). Muốn tiếng Việt
-phải tự thêm qua Custom Phrases.
+Hai thứ **chưa** xử lý được:
 
-Cấu hình này nằm trong **database của Logto, không nằm trong git**. Chỉnh tay qua Admin
-Console thì máy dev một kiểu, production một kiểu. Nên viết script gọi Management API đặt
-trong `infra/` — cùng lý do không tạo bảng bằng tay mà viết migration.
+- `hideLogtoBranding` là tính năng **trả phí**, bản OSS từ chối thẳng. Không cần: dòng
+  "Powered by Logto" nằm trong giao diện mặc định, mà ta đã thay toàn bộ.
+- `socialSignIn: {}` — chưa có connector Google. Nút "Tiếp tục với Google" để `disabled` kèm
+  ghi chú, không giả vờ chạy được.
+
+Logto 1.41 **không có tiếng Việt** (đã thử `?lng=vi` → rơi về tiếng Anh). Giao diện của ta
+viết cứng tiếng Việt nên phần lớn chữ không phụ thuộc thiết lập này.
+
+**Còn treo:** hai văn bản "Điều khoản dịch vụ" và "Chính sách riêng tư" chưa được soạn, nên
+trong biểu mẫu chúng là chữ mang màu nhấn chứ không phải link — một link dẫn tới 404 ngay
+chỗ người dùng đang cam kết điều gì đó thì tệ hơn hẳn.
 
 ### C4. Bảng màu dark
 

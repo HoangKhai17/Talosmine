@@ -182,7 +182,14 @@
       "Bash(./node_modules/.bin/biome format *)",
       "PowerShell($c = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { $c | ForEach-Object { $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue; \"PID $\\($_.OwningProcess\\)  $\\($p.ProcessName\\)  $\\($p.Path\\)\" } } else { \"port 3000: TRONG \\(khong ai nghe\\)\" })",
       "PowerShell(curl.exe -s -o NUL -w \"sign-in HTTP %{http_code}`n\" http://localhost:3001/sign-in)",
-      "Read(//d/WorkSpace_ADA_Bamboo/PROJECT_BBOTECH/Talosmine/node_modules/.bin/**)"
+      "Read(//d/WorkSpace_ADA_Bamboo/PROJECT_BBOTECH/Talosmine/node_modules/.bin/**)",
+      "PowerShell(pnpm exec biome check apps/logto-ui/auth.css apps/logto-ui/globals.css apps/web/app/globals.css 2>&1)",
+      "Bash(pnpm exec *)",
+      "PowerShell($env:Path = \"$env:APPDATA\\\\npm;$env:Path\"; & \"$env:APPDATA\\\\npm\\\\pnpm.cmd\" exec biome check apps/logto-ui/auth.css apps/logto-ui/globals.css apps/web/app/globals.css 2>&1 | Select-Object -Last 20)",
+      "PowerShell(node node_modules/@biomejs/biome/bin/biome check apps/logto-ui/auth.css apps/logto-ui/globals.css apps/web/app/globals.css 2>&1)",
+      "PowerShell(node node_modules/@biomejs/biome/bin/biome check --write apps/logto-ui/auth.css 2>&1)",
+      "PowerShell(node node_modules/@playwright/test/cli.js test tests/e2e/grid.spec.ts 2>&1)",
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 3000 -State Listen; $p = Get-Process -Id $c.OwningProcess; \"PID $\\($p.Id\\)  $\\($p.ProcessName\\)  start $\\($p.StartTime\\)\"; \\(Get-CimInstance Win32_Process -Filter \"ProcessId=$\\($p.Id\\)\"\\).CommandLine)"
     ],
     "additionalDirectories": [
       "\\tmp"

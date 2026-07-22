@@ -30,7 +30,7 @@
  *
  *     [full-start] gutter [content-start] 12 cột nội dung [content-end] gutter [full-end]
  *
- * Hai track ngoài `minmax(--container-gutter, 1fr)` nuốt phần dư của màn hình rộng, nên
+ * Hai track ngoài rộng đúng bằng lề của `.container` (xem `--page-gutter` bên dưới), nên
  * phần nội dung không bao giờ vượt `--container-max`. Đây chính là hành vi của `.container`,
  * chỉ khác ở chỗ NỀN vẫn phủ được ra tới mép.
  *
@@ -38,11 +38,37 @@
  * các track `content`.
  */
 .page {
+  /*
+   * Bề rộng thật của lề — công thức tái tạo ĐÚNG hành vi của `.container`.
+   *
+   * `.container` làm hai việc: `max-width: --container-max + 2 × gutter` rồi căn giữa, và
+   * `padding-inline: gutter`. Ghép lại, khoảng cách từ mép màn hình tới nội dung là:
+   *   - màn hẹp hơn container: đúng `gutter`
+   *   - màn rộng hơn: `gutter` + phần dư chia đôi, tức `(100% − --container-max) / 2`
+   * `max()` chọn cái lớn hơn, nên một biểu thức phủ cả hai trường hợp.
+   *
+   * ĐÃ THỬ `minmax(var(--container-gutter), 1fr)` VÀ NÓ SAI. Track `1fr` không "nuốt phần
+   * dư" — nó chia đều phần dư với 12 cột nội dung cũng là `1fr`. Đo được: ở 1920px nội dung
+   * bắt đầu ở 144px thay vì 250px, và ở 1280px cũng ra 144px — tức lề rộng đúng bằng một
+   * cột, không liên quan gì tới container.
+   *
+   * TRỪ ĐI MỘT `--grid-gap`: `column-gap` chèn một khoảng giữa track lề và cột 1, khoảng đó
+   * cộng thêm vào lề thật. Không trừ thì nội dung bắt đầu ở `lề + gap` — đo được 274px ở
+   * 1920px thay vì 250px, lệch đúng 24px ở cả hai bên.
+   *
+   * Luôn dương với bảng token hiện tại (120>24, 32>20, 20>16). Đổi token mà làm gap lớn hơn
+   * lề thì phải xem lại chỗ này.
+   */
+  --page-gutter: calc(
+    max(var(--container-gutter), calc((100% - var(--container-max)) / 2)) -
+    var(--grid-gap)
+  );
+
   display: grid;
   grid-template-columns:
-    [full-start] minmax(var(--container-gutter), 1fr)
+    [full-start] var(--page-gutter)
     [content-start] repeat(var(--grid-columns), minmax(0, 1fr)) [content-end]
-    minmax(var(--container-gutter), 1fr) [full-end];
+    var(--page-gutter) [full-end];
   column-gap: var(--grid-gap);
   /* `dvh` chứ không phải `vh`: trên di động thanh địa chỉ co giãn làm `100vh` cao hơn vùng
    * nhìn thấy thật, đẩy nút chính xuống dưới mép màn hình. */
@@ -58,23 +84,43 @@
 /*
  * Desktop (từ 1280px — mốc "desktop" của `globals.css`): chia 6 / 6 cột.
  *
- * `full-start / 7` và `7 / full-end` dùng SỐ VẠCH của phần nội dung, nên đường chia nằm
- * đúng giữa cột 6 và cột 7 của lưới 12 cột. Hai vùng CHẠM NHAU chứ không hở: vạch 7 vừa là
- * điểm kết của vùng trái vừa là điểm bắt đầu của vùng phải, và khoảng gap nằm trọn bên
- * trong vùng trái.
+ * VẠCH CHIA CÓ TÊN, KHÔNG DÙNG SỐ. Bản trước ghi `full-start / 7` và nó SAI: số vạch đếm cả
+ * track lề, nên vạch 7 rơi vào đầu cột 6 — đo ra vùng trái chỉ chiếm 5 cột, tức chia 5|7
+ * đúng thứ mà chủ dự án đã yêu cầu sửa. Với `[mid]` thì không còn gì để đếm nhầm.
+ *
+ * Vì vậy ở desktop phải khai lại `grid-template-columns`: cùng một lưới, chỉ tách `repeat`
+ * làm hai nửa để cắm được tên vạch vào giữa. Số cột vẫn là 12 như `--grid-columns`.
  *
  * `order` đảo VỊ TRÍ NHÌN THẤY: `<main>` đứng trước trong DOM để cấp bậc tiêu đề và thứ tự
  * đọc đúng, nhưng hiện ở bên phải. An toàn vì `<aside>` không chứa phần tử nào focus được —
  * thứ tự Tab vẫn trùng thứ tự nhìn thấy.
  */
 @media (min-width: 1280px) {
+  .page {
+    grid-template-columns:
+      [full-start] var(--page-gutter)
+      [content-start] repeat(6, minmax(0, 1fr)) [mid] repeat(6, minmax(0, 1fr)) [content-end]
+      var(--page-gutter) [full-end];
+  }
+
   .brandPanel {
-    grid-column: full-start / 7;
+    grid-column: full-start / mid;
     order: -1;
+    /*
+     * Kéo nền phủ nốt khoảng gap để hai vùng CHẠM NHAU.
+     *
+     * Không có dòng này thì giữa nền tím nhạt và nền trắng có một vạch trắng rộng đúng 24px
+     * (đã đo: vùng trái kết ở 832, vùng phải bắt đầu ở 856). Nó lộ rõ nhất ở khối ảnh phía
+     * dưới, vốn là mảng xám đặc.
+     *
+     * Tác dụng phụ lên `subgrid` là thứ ta MUỐN: theo spec, lề âm làm track cuối của lưới
+     * con rộng thêm đúng chừng đó, nên khối ảnh (`1 / -1`) cũng vươn ra tới mép mới.
+     */
+    margin-inline-end: calc(var(--grid-gap) * -1);
   }
 
   .formPanel {
-    grid-column: 7 / full-end;
+    grid-column: mid / full-end;
   }
 }
 
@@ -119,6 +165,12 @@
   /* Hai cột: vùng này chỉ có gutter ở đầu trái, nên chỉ bỏ một đầu → `2 / -1`. */
   .brandContent {
     grid-column: 2 / -1;
+    /*
+     * Trả lại phần lề âm mà `.brandPanel` mượn để phủ nền qua khoảng gap. NỀN cần vươn ra
+     * tới mép, CHỮ thì không — không có dòng này thì hàng lợi ích rộng 722px thay vì 698px
+     * và mép phải của nó trượt qua khỏi vạch cột 6.
+     */
+    margin-inline-end: var(--grid-gap);
     padding-block: var(--space-12);
   }
 }
@@ -210,19 +262,36 @@
   grid-template-rows: auto 1fr;
 }
 
-/* Hàng trên cùng trải trọn vùng để link "Về trang chủ" nằm sát mép phải của container. */
+/*
+ * Hàng trên cùng chứa link "Về trang chủ", căn phải.
+ *
+ * Nó dùng CHUNG bề rộng với `.formArea` (cùng `max-width`, cùng cách căn) để mép phải của
+ * link thẳng hàng với mép phải của ô nhập. Trước đó nó trải trọn cột còn biểu mẫu bị `60ch`
+ * chặn lại, nên đo ra lệch 90px ở 1024px — link lơ lửng bên ngoài biểu mẫu.
+ */
 .formTop {
   grid-column: 2 / -2;
   display: flex;
   justify-content: flex-end;
+  width: 100%;
+  max-width: 60ch;
+  margin-inline: auto;
   min-height: var(--space-8);
   padding-block: var(--space-6);
 }
 
 @media (min-width: 1280px) {
   .formTop {
-    /* Hai cột: vùng này chỉ có gutter ở đầu PHẢI → bỏ một đầu bên phải. */
+    /*
+     * Bám MÉP CONTAINER, không bám mép biểu mẫu.
+     *
+     * Theo thiết kế: "Về trang chủ" thẳng hàng với mép phải của container — cùng khoảng lề
+     * với chữ ở cột trái — chứ không thụt vào theo biểu mẫu. `-2` bỏ track gutter, nên mép
+     * phải rơi đúng `content-end`.
+     */
     grid-column: 1 / -2;
+    max-width: none;
+    margin-inline: 0;
     padding-block: var(--space-12) 0;
   }
 }
@@ -502,21 +571,26 @@
  * ══════════════════════════════════════════════════════════════════════════════ */
 @media (min-width: 1280px) {
   /*
-   * Biểu mẫu bám cột 7 → 12, bỏ track gutter bên phải.
+   * Biểu mẫu chiếm 4 TRONG 6 CỘT của nửa phải, chừa mỗi bên một cột làm đệm.
    *
-   * Vì sao không dùng `padding-inline: var(--container-gutter)`: 120px chỉ trùng một cột
-   * đúng tại 1440px (bề ngang mà thiết kế được vẽ). Lề cố định thì ở màn khác nó rơi ra
-   * ngoài lưới — đã đo được tiêu đề nằm ở "0.75 cột" thay vì đầu cột.
+   * BẢN TRƯỚC CHO NÓ CHIẾM TRỌN 6 CỘT VÀ ĐÓ LÀ LỖI THẤY BẰNG MẮT: mép trái biểu mẫu dán
+   * đúng vào vạch chia hai vùng, chữ "Đăng nhập" mọc ngay sát nền tím của cột trái, không
+   * có một khoảng thở nào. Toạ độ cột vẫn "đúng lưới" nên đo bằng số không phát hiện ra —
+   * phải nhìn ảnh render mới thấy.
    *
-   * Căn TRÁI (`margin-inline: 0`) chứ không giữa: mép trái luôn nằm đúng vạch 7, kể cả khi
-   * trần `max-width` chặn lại.
+   * Vì sao đúng 4 cột: thiết kế Figma cho biểu mẫu rộng khoảng 65% nửa phải và căn giữa
+   * trong đó (đo trên ảnh: 298/456). Ở lưới của ta 4 cột / 6 cột = 457/698, cũng 65%. Con số
+   * khớp, và nó rơi đúng vào mốc cột thay vì là một `padding` tự chế.
    *
-   * Trần `80ch` để ở màn rất rộng biểu mẫu không kéo dài ra vô tận. Đủ rộng để KHÔNG chặn ở
-   * các bề ngang thường gặp: tại 1920px sáu cột nội dung rộng khoảng 686px, vẫn dưới trần.
+   * `2 / -3`: bỏ cột đầu (đệm trái) và bỏ CẢ track gutter LẪN cột cuối (đệm phải).
+   *
+   * Không cần `max-width` nữa: bề rộng đến từ số cột, mà số cột đã bị `--container-max` chặn
+   * trên ở màn rất rộng. Đây là điều luật lưới muốn — bề ngang do cột quyết định, không do
+   * một con số px ghim cứng.
    */
   .formArea {
-    grid-column: 1 / -2;
-    max-width: 80ch;
+    grid-column: 2 / -3;
+    max-width: none;
     margin-inline: 0;
     padding-block: var(--space-10) var(--space-12);
   }
@@ -546,4 +620,17 @@
 .linkButton:disabled {
   color: var(--color-text-tertiary);
   cursor: not-allowed;
+}
+
+/*
+ * Link mang hình dáng nút chính — dùng ở màn hình "Đã đổi mật khẩu".
+ *
+ * Là `<a href>` chứ không phải `<button>` vì nó ĐIỀU HƯỚNG sang màn hình khác. Ngược lại với
+ * `.linkButton`: ở đó là hành động nên phải là `<button>`. Đặt sai loại thẻ thì người dùng
+ * bàn phím và trình đọc màn hình nhận nhầm về việc sắp xảy ra, và mở-trong-tab-mới không chạy.
+ */
+.doneLink {
+  display: block;
+  text-align: center;
+  text-decoration: none;
 }
