@@ -175,8 +175,21 @@
   }
 }
 
+/*
+ * Logo trong cột giới thiệu — CHỈ hiện ở desktop.
+ *
+ * Khi xếp chồng, cột này nằm DƯỚI biểu mẫu (vì `<main>` đứng trước `<aside>` trong DOM), nên
+ * logo ở đây sẽ rơi xuống tận đáy trang. `.topLogo` thay chỗ cho nó.
+ */
 .brandLogo {
+  display: none;
   margin-bottom: var(--space-20);
+}
+
+@media (min-width: 1280px) {
+  .brandLogo {
+    display: block;
+  }
 }
 
 /* Giới hạn theo ĐƠN VỊ CHỮ — ngoại lệ duy nhất của luật "không max-width": đây là ràng
@@ -272,7 +285,11 @@
 .formTop {
   grid-column: 2 / -2;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  /* Xếp chồng: logo trái, "Về trang chủ" phải. Ở desktop chỉ còn một phần tử nên khối đè
+   * cuối media query đổi lại thành `flex-end`. */
+  justify-content: space-between;
+  gap: var(--space-4);
   width: 100%;
   max-width: 60ch;
   margin-inline: auto;
@@ -280,7 +297,26 @@
   padding-block: var(--space-6);
 }
 
+/*
+ * Logo ở hàng trên cùng — CHỈ khi xếp chồng.
+ *
+ * Từ desktop trở lên nó biến mất và logo thật nằm trong cột giới thiệu (`.brandLogo`), đúng
+ * vị trí thiết kế. Hai phần tử, luôn chỉ một cái hiện.
+ *
+ * ⚠ CẶP `display` CỦA NÓ PHẢI NẰM CÙNG CHỖ NÀY. Bản đầu tôi đặt `display: none` cho desktop
+ * lên trên, cạnh `.brandLogo`, còn `display: block` ở đây — và vì cùng độ đặc hiệu, cái viết
+ * SAU thắng, nên ở 1440px logo hiện HAI LẦN (đo được: `.topLogo` x=1119, `.brandLogo` x=120).
+ * Media query không tự có độ ưu tiên cao hơn; chỉ có thứ tự.
+ */
+.topLogo {
+  display: block;
+}
+
 @media (min-width: 1280px) {
+  .topLogo {
+    display: none;
+  }
+
   .formTop {
     /*
      * Bám MÉP CONTAINER, không bám mép biểu mẫu.
@@ -293,6 +329,8 @@
     max-width: none;
     margin-inline: 0;
     padding-block: var(--space-12) 0;
+    /* Chỉ còn "Về trang chủ" trong hàng này, nên `space-between` sẽ đẩy nó sang TRÁI. */
+    justify-content: flex-end;
   }
 }
 

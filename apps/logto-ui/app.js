@@ -564,6 +564,27 @@ function backLink() {
   return el('a', { class: 'typeBodySmall backLink', href: url, text: 'Về trang chủ' });
 }
 
+/**
+ * Hàng trên cùng của cột biểu mẫu: logo bên trái, "Về trang chủ" bên phải.
+ *
+ * LOGO Ở ĐÂY CHỈ HIỆN KHI XẾP CHỒNG (dưới 1280px). Từ desktop trở lên nó bị `display: none`
+ * và logo thật nằm trong cột giới thiệu, đúng vị trí thiết kế.
+ *
+ * Vì sao phải có bản thứ hai thay vì di chuyển một phần tử: `<main>` đứng TRƯỚC `<aside>`
+ * trong DOM để cấp bậc tiêu đề và thứ tự đọc đúng chiều. Khi xếp chồng, thứ tự nhìn thấy
+ * bằng thứ tự DOM, nên logo nằm trong cột giới thiệu sẽ rơi xuống TẬN ĐÁY trang — đúng lỗi
+ * chủ dự án chỉ ra trên ảnh chụp màn hình.
+ *
+ * `display: none` gỡ hẳn phần tử khỏi cây trợ năng, nên trình đọc màn hình chỉ gặp MỘT logo
+ * chứ không phải hai.
+ */
+function formTopRow() {
+  return el('div', { class: 'formTop' }, [
+    el('p', { class: 'typeCardTitle topLogo', text: 'Talosmine' }),
+    backLink(),
+  ]);
+}
+
 /** Ô mật khẩu có nút hiện/ẩn. Nút làm thật — một nút không làm gì là nói dối người dùng. */
 function passwordField(id, label, hint) {
   const input = el('input', {
@@ -820,10 +841,14 @@ function authScreen(config) {
         true,
         'email',
       )
-    : textField(
+    : // KHÔNG có placeholder. Ô này nhận CẢ tên đăng nhập LẪN địa chỉ thư, nên mọi ví dụ đặt
+      // vào đây đều gợi ý sai một nửa: thấy `ten_dang_nhap` thì người có email tưởng phải
+      // tạo username, thấy `ban@vidu.com` thì người dùng username tưởng mình không vào được.
+      // Nhãn đã nói đủ.
+      textField(
         'username',
         'Tên đăng nhập hoặc địa chỉ thư',
-        'ten_dang_nhap',
+        undefined,
         undefined,
         'username',
         true,
@@ -1014,7 +1039,7 @@ function authScreen(config) {
   }
 
   return el('div', { class: 'page' }, [
-    el('main', { class: 'formPanel' }, [el('div', { class: 'formTop' }, [backLink()]), formArea]),
+    el('main', { class: 'formPanel' }, [formTopRow(), formArea]),
     brandPanel(),
   ]);
 }
@@ -1240,7 +1265,7 @@ function forgotPasswordScreen() {
   showEmailStep('');
 
   return el('div', { class: 'page' }, [
-    el('main', { class: 'formPanel' }, [el('div', { class: 'formTop' }, [backLink()]), formArea]),
+    el('main', { class: 'formPanel' }, [formTopRow(), formArea]),
     brandPanel(),
   ]);
 }
@@ -1258,7 +1283,7 @@ function unknownSessionScreen() {
 
   return el('div', { class: 'page' }, [
     el('main', { class: 'formPanel' }, [
-      el('div', { class: 'formTop' }, [backLink()]),
+      formTopRow(),
       el('div', { class: 'formArea' }, [
         el('h1', { class: 'typeH2', text: 'Phiên đăng nhập đã hết' }),
         el('p', {
@@ -1294,7 +1319,7 @@ function unknownSessionScreen() {
 function fallbackScreen(pathname) {
   return el('div', { class: 'page' }, [
     el('main', { class: 'formPanel' }, [
-      el('div', { class: 'formTop' }, [backLink()]),
+      formTopRow(),
       el('div', { class: 'formArea' }, [
         el('h1', { class: 'typeH2', text: 'Màn hình chưa được dựng' }),
         el('p', {
