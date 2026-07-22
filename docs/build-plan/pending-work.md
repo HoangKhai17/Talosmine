@@ -117,6 +117,71 @@ cố ý không có cột cho chúng.
 
 Xem D1. Ghi ở đây vì đây là quyết định của chủ dự án, không phải việc kỹ thuật.
 
+### A9. Đăng nhập bằng Google — chủ dự án đang cấu hình connector (2026-07-22)
+
+Hiện trạng đo trên instance đang chạy:
+
+```
+factory có sẵn:                google-universal (Social)
+connector đã cài:              chỉ Email — chưa có social nào
+socialSignIn: {}   socialSignInConnectorTargets: []
+```
+
+Nút "Tiếp tục với Google" trong `apps/logto-ui` đang `disabled` **cứng trong code**. Nhờ vậy
+bật connector ở Logto là an toàn: chưa ai bấm được, nên không ai rơi vào màn hình chưa dựng.
+
+**BA QUYẾT ĐỊNH CẦN CHỦ DỰ ÁN CHỐT** trước khi viết code — chúng đổi thứ phải dựng, không
+phải chi tiết cấu hình:
+
+1. **Liên kết tài khoản.** `an@gmail.com` đã có tài khoản email + mật khẩu, rồi bấm đăng nhập
+   Google với chính địa chỉ đó:
+
+   | | Hành vi | Cái giá |
+   |---|---|---|
+   | A | không liên kết | người dùng có hai tài khoản, bộ sưu tập nằm ở tài khoản kia và họ tưởng mất dữ liệu |
+   | B | tự liên kết theo email đã xác minh (`linkSocialIdentity: true`) | an toàn CHỈ KHI IdP đảm bảo `email_verified`. Google có. Thêm IdP khác mà quên luật này là mở đường chiếm tài khoản |
+   | C | hỏi rồi đòi mật khẩu | an toàn nhất, thêm một màn hình |
+
+   Đề xuất: **B, khoá cứng chỉ cho Google**, kèm luật cấm auto-link với IdP không đảm bảo
+   `email_verified`.
+
+2. **Ai sở hữu Google Cloud project** (OAuth client nằm ở tài khoản nào).
+3. **Chấp nhận việc Google biết ai đăng nhập Talosmine lúc nào hay không.** Mật khẩu vẫn không
+   chạm hệ thống ta nên không mâu thuẫn trực tiếp DEC-T22, nhưng metadata đăng nhập thì có.
+
+**Chặn thật, không phải việc code:** consent screen của Google **bắt buộc** có link Privacy
+Policy và Terms of Service khi rời chế độ "Testing". Hai văn bản đó **chưa được soạn** — cùng
+thứ đang treo ở C5. Đây là đường găng.
+
+**Việc kỹ thuật, làm sau khi có quyết định:**
+
+- **Màn hình callback là bắt buộc và phải dựng TRƯỚC khi bỏ `disabled`.** Luồng social RỜI
+  TRANG rồi quay lại một URL khác — khác hẳn đăng ký và quên mật khẩu vốn gói trong một trang.
+  `redirectUri` hiện rơi vào `fallbackScreen`, nên người dùng sẽ thấy "Màn hình chưa được
+  dựng" ngay sau khi vừa cấp quyền cho Google.
+- `verificationId` phải lưu `sessionStorage` — biến JS mất khi rời trang.
+- `state` phải tự sinh và tự đối chiếu lúc quay về. Logto nhận `state` ta đưa và trả lại
+  nguyên vẹn, **không kiểm hộ**; bỏ bước đối chiếu là mở CSRF ngay tại đường đăng nhập.
+- **Chưa đo, phải kiểm trước khi bật:** tài khoản chỉ có social rồi bấm "Quên mật khẩu" thì
+  Logto xử lý ra sao. Không đoán.
+
+Luồng theo swagger của instance đang chạy:
+
+```
+POST .../verification/social/{id}/authorization-uri  {state, redirectUri}
+                                                  -> {verificationId, authorizationUri}
+   -> roi Talosmine sang Google;  <- Google tra ve redirectUri kem code + state
+POST .../verification/social/{id}/verify  {connectorData, verificationId} -> {verificationId MOI}
+POST .../identification  {verificationId, linkSocialIdentity?}
+POST .../submit                                   -> {redirectTo}
+```
+
+**Lựa chọn thay thế rẻ hơn nhiều, chưa bị bác bỏ:** đăng nhập bằng **mã gửi qua email**. SMTP
+đã chạy, không cần Google Cloud, không bị chặn bởi Privacy Policy, không bên thứ ba nào biết
+gì, và tái dùng được `codeStep` đã có. Bật bằng `verificationCode: true` trong
+`signIn.methods`. Nếu lý do chọn Google là "người dùng mong đợi có nó" thì đó là lý do hợp lệ
+— nhưng nên gọi đúng tên thay vì gộp vào lý do tiện lợi.
+
 ---
 
 ## B. Việc kỹ thuật P2 còn thiếu
