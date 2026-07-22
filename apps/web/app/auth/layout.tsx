@@ -8,9 +8,7 @@ import type { ReactNode } from 'react';
  * Xem `server/oidc.ts` để hiểu vì sao ta không dùng session của SDK IdP.
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
-  return (
-    <main id="main" className="container section">
-      {children}
-    </main>
-  );
+  // KHÔNG bọc `container section`: trang đăng nhập là bố cục TRÀN VIỀN hai cột, nền của cột
+  // trái phải chạy sát mép màn hình. Trang tự lo bề ngang và khoảng đệm của nó.
+  return <main id="main">{children}</main>;
 }

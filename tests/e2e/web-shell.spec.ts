@@ -7,6 +7,15 @@ import { expect, test } from '@playwright/test';
  * Chúng kiểm đúng những gì exit gate P1 mục 18 điều 6 yêu cầu.
  */
 
+/**
+ * Mọi trang công khai. Hai phép kiểm chạy trên TỪNG trang: vi phạm CSP và tràn ngang đều là
+ * lỗi cục bộ của một trang, nên trang chủ sạch không chứng minh gì cho trang mới.
+ *
+ * THÊM TRANG MỚI THÌ THÊM VÀO ĐÂY. Đây là cách rẻ nhất để một trang vừa dựng không lặng lẽ
+ * bỏ qua hai lớp bảo vệ này.
+ */
+const PUBLIC_PAGES = ['/', '/tools', '/blog', '/blog/bai-viet-mau', '/auth'] as const;
+
 test.describe('(user) shell', () => {
   test('render được và có semantic landmark', async ({ page }) => {
     const response = await page.goto('/');
@@ -94,25 +103,29 @@ test.describe('CSP (DEC-T12)', () => {
     expect(csp).not.toContain('*');
   });
 
-  test('KHÔNG có vi phạm CSP nào khi render trang', async ({ page }) => {
-    // Vì sao cần: các test CSP khác chỉ đọc HEADER — chúng chứng minh chính sách được gửi
-    // đi, chứ không chứng minh trang tuân thủ nó. Một `style={{ }}` inline vẫn lọt qua
-    // typecheck, lint và mọi test hiện có, rồi im lặng bị chặn ở production.
-    //
-    // Đó là chuyện đã xảy ra thật (2026-07-21): icon dùng inline transform nên mũi tên FAQ
-    // không xoay ở production build, và không test nào bắt được.
-    const violations: string[] = [];
-    page.on('console', (message) => {
-      if (/Content Security Policy/i.test(message.text())) {
-        violations.push(message.text());
-      }
+  // Chạy trên MỌI trang công khai, không chỉ trang chủ: vi phạm CSP là lỗi của TỪNG trang,
+  // nên trang chủ sạch không nói gì về trang mới thêm vào.
+  for (const path of PUBLIC_PAGES) {
+    test(`KHÔNG có vi phạm CSP nào khi render ${path}`, async ({ page }) => {
+      // Vì sao cần: các test CSP khác chỉ đọc HEADER — chúng chứng minh chính sách được gửi
+      // đi, chứ không chứng minh trang tuân thủ nó. Một `style={{ }}` inline vẫn lọt qua
+      // typecheck, lint và mọi test hiện có, rồi im lặng bị chặn ở production.
+      //
+      // Đó là chuyện đã xảy ra thật (2026-07-21): icon dùng inline transform nên mũi tên FAQ
+      // không xoay ở production build, và không test nào bắt được.
+      const violations: string[] = [];
+      page.on('console', (message) => {
+        if (/Content Security Policy/i.test(message.text())) {
+          violations.push(message.text());
+        }
+      });
+
+      await page.goto(path);
+      await expect(page.locator('main')).toHaveCount(1);
+
+      expect(violations, ['Vi phạm CSP:', ...violations].join('\n')).toEqual([]);
     });
-
-    await page.goto('/');
-    await expect(page.locator('main')).toHaveCount(1);
-
-    expect(violations, ['Vi phạm CSP:', ...violations].join('\n')).toEqual([]);
-  });
+  }
 
   test('có header an toàn cơ bản', async ({ request }) => {
     const response = await request.get('/');
@@ -121,16 +134,18 @@ test.describe('CSP (DEC-T12)', () => {
 });
 
 test.describe('responsive và bàn phím', () => {
-  test('không tràn ngang ở viewport hiện tại', async ({ page }) => {
-    await page.goto('/');
+  for (const path of PUBLIC_PAGES) {
+    test(`không tràn ngang ở ${path}`, async ({ page }) => {
+      await page.goto(path);
 
-    // Tràn ngang là lỗi responsive kinh điển và nó im lặng: trang vẫn "chạy",
-    // chỉ là người dùng mobile phải cuộn ngang. Test chạy ở cả 3 project viewport.
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-    );
-    expect(overflow).toBe(false);
-  });
+      // Tràn ngang là lỗi responsive kinh điển và nó im lặng: trang vẫn "chạy",
+      // chỉ là người dùng mobile phải cuộn ngang. Test chạy ở cả 3 project viewport.
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      );
+      expect(overflow).toBe(false);
+    });
+  }
 
   test('focus nhìn thấy được khi tab', async ({ page }) => {
     await page.goto('/');
