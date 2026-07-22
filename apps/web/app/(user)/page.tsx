@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { DraftBanner } from './draft-banner';
+import { ChevronIcon, ImageIcon, SearchIcon } from './icons';
+import { Newsletter } from './newsletter';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
@@ -66,11 +69,9 @@ const PLACEHOLDER_FAQ = [
 export default function UserHomePage() {
   return (
     <>
-      <div className={styles.draftBanner}>
-        <p className="container typeBodySmall">
-          Bản dựng bố cục — nội dung trong các lưới là dữ liệu mẫu, chưa nối danh mục thật.
-        </p>
-      </div>
+      <DraftBanner>
+        Bản dựng bố cục — nội dung trong các lưới là dữ liệu mẫu, chưa nối danh mục thật.
+      </DraftBanner>
 
       <Hero />
       <PartnerMarquee />
@@ -107,7 +108,7 @@ function Hero() {
         */}
         <search className={styles.heroSearch}>
           <form className={styles.searchForm}>
-            <SearchIcon />
+            <SearchIcon className={styles.searchIcon} />
             <input
               className={`typeBody ${styles.searchInput}`}
               type="search"
@@ -355,122 +356,5 @@ function FaqSection() {
         </div>
       </div>
     </section>
-  );
-}
-
-function Newsletter() {
-  return (
-    <section className="section">
-      <div className="container grid">
-        <div className={styles.newsletter}>
-          <EnvelopeIcon />
-
-          <h2 className={`typeH2 ${styles.newsletterTitle}`}>
-            Đăng ký bản tin và cập nhật mỗi tuần
-          </h2>
-
-          <p className={`typeBodySmall ${styles.newsletterText}`}>
-            Nhận tổng hợp công cụ mới, bài viết đáng đọc và thay đổi đáng chú ý của nền tảng — mỗi
-            tuần một lần, không spam.
-          </p>
-
-          {/*
-            Chưa có đích đến: hệ thống bản tin thuộc giai đoạn sau. Không đặt `action` thì
-            trình duyệt gửi về chính trang này thay vì báo lỗi.
-          */}
-          <form className={styles.newsletterForm}>
-            <label className="visuallyHidden" htmlFor="newsletter-email">
-              Địa chỉ thư điện tử
-            </label>
-            <input
-              id="newsletter-email"
-              className={`typeBody ${styles.newsletterInput}`}
-              type="email"
-              name="email"
-              placeholder="Địa chỉ thư điện tử của bạn…"
-              autoComplete="email"
-            />
-            <button type="submit" className={`typeBodySmall ${styles.newsletterSubmit}`}>
-              Đăng ký
-            </button>
-          </form>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ── Icon ───────────────────────────────────────────────────────────────────
- * SVG viết thẳng tại chỗ thay vì cài thư viện: chỉ cần ba hình, và mọi thư viện icon đều
- * nằm ngoài bảng D của decision register.
- *
- * `currentColor` để icon ăn theo màu chữ của phần tử cha — đổi token màu là icon đổi theo.
- */
-
-function SearchIcon() {
-  return (
-    <svg
-      className={styles.searchIcon}
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ImageIcon() {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden="true"
-    >
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <circle cx="8.5" cy="9.5" r="1.5" />
-      <path d="m4 17 5-5 4 4 3-2 4 4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function EnvelopeIcon() {
-  return (
-    <svg
-      className={styles.newsletterIcon}
-      width="64"
-      height="48"
-      viewBox="0 0 64 48"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M4 0h56a4 4 0 0 1 4 4v40a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4Zm28 27.5L5.6 6.2A2 2 0 0 0 4 6v1.3l26.7 21.6a2 2 0 0 0 2.6 0L60 7.3V6a2 2 0 0 0-1.6.2L32 27.5Z" />
-    </svg>
-  );
-}
-
-function ChevronIcon({ className }: { className?: string | undefined }) {
-  return (
-    <svg
-      className={className}
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }

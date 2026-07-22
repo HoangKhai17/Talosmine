@@ -83,6 +83,11 @@
    * lưới với cột phải nên tự cao bằng — đó là hành vi mặc định của grid. */
   --media-blog-card-height: 180px;
 
+  /* Khối ảnh của thẻ bài viết ở trang blog. Cùng lý do với --media-category-height: các
+   * thẻ có bề rộng XEN KẼ (3 hoặc 6 cột), nên `aspect-ratio` sẽ làm thẻ rộng cao gấp đôi
+   * thẻ hẹp và hàng bị so le. Chiều cao cố định giữ mọi thẻ trong một hàng bằng nhau. */
+  --media-article-thumb-height: 200px;
+
   /* ── Typography (mobile mặc định) ───────────────────────────────────────
    * ⚠ TẠM — CHỜ THIẾT KẾ. Quy chuẩn của chủ dự án CHỈ có bảng Desktop; các giá trị
    * mobile dưới đây do tôi ước lượng, không đến từ Figma. Chủ dự án sẽ cung cấp bảng
@@ -133,6 +138,7 @@
     --section-padding-y: 80px;
     --media-category-height: 280px;
     --media-blog-card-height: 200px;
+    --media-article-thumb-height: 240px;
 
     --type-hero-size: 64px;
     --type-hero-line: 68px;
@@ -159,6 +165,7 @@
     --section-padding-y: 96px;
     --media-category-height: 340px;
     --media-blog-card-height: 230px;
+    --media-article-thumb-height: 280px;
   }
 }
 

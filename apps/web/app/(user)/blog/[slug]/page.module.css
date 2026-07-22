@@ -1,0 +1,175 @@
+/*
+ * Trang chi tiết bài viết — bố cục theo wireframe Figma của chủ dự án.
+ *
+ * MỌI KHỐI ĐỀU NẰM TRÊN LƯỚI. Lưới dùng chung khai ở globals.css; file này chỉ nói mỗi khối
+ * chiếm bao nhiêu cột.
+ */
+
+.headerSection {
+  padding-block-start: var(--section-padding-y);
+}
+
+.bodySection {
+  padding-block-start: var(--space-12);
+}
+
+/* ── Đầu bài ──────────────────────────────────────────────────────────────── */
+.topicRow {
+  grid-column: 1 / -1;
+  margin-top: var(--space-6);
+}
+
+.topicTag {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+/*
+ * Tiêu đề, tóm tắt, meta và thân bài dùng CHUNG một bề rộng cột (9 ở desktop) để mép trái
+ * và mép phải của cả bài thẳng một đường. Ảnh bìa cố ý rộng hơn — xem `.cover`.
+ */
+.title,
+.lead,
+.meta,
+.article {
+  grid-column: 1 / span 4;
+}
+
+@media (min-width: 768px) {
+  .title,
+  .lead,
+  .meta,
+  .article {
+    grid-column: 1 / span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .title,
+  .lead,
+  .meta,
+  .article {
+    grid-column: 1 / span 9;
+  }
+}
+
+.title {
+  margin-top: var(--space-4);
+}
+
+.lead {
+  margin-top: var(--space-4);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  color: var(--color-text-tertiary);
+}
+
+/*
+ * Ảnh bìa chiếm TRỌN hàng trong khi phần chữ chỉ 9 cột. Chênh lệch đó là có chủ đích: ảnh
+ * bìa là điểm nhấn mở đầu, còn chữ phải giữ độ dài dòng đọc được.
+ */
+.cover {
+  grid-column: 1 / -1;
+  margin-top: var(--space-10);
+  aspect-ratio: 16 / 7;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+}
+
+/* ── Thân bài ─────────────────────────────────────────────────────────────────
+ * Một mạch đọc dọc, không chia cột bên trong. Khoảng cách giữa các khối do `gap` lo, nên
+ * không khối nào phải tự khai margin và không có margin nào chồng nhau. */
+.article {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.heading {
+  margin-top: var(--space-6);
+}
+
+/*
+ * ĐỘ DÀI DÒNG ĐỌC — đây là NGOẠI LỆ được ghi rõ trong luật lưới ở globals.css: giới hạn
+ * theo đơn vị chữ (`ch`) cho đoạn văn dài.
+ *
+ * Vì sao cần dù đã có cột: 9 cột ở màn 1200px là khoảng 890px, tức xấp xỉ 110 ký tự một
+ * dòng. Mắt bắt đầu lạc dòng từ quãng 80 ký tự trở lên. Wireframe không lộ ra điều này vì
+ * cỡ chữ trong bản mock nhỏ hơn cỡ chữ thật rất nhiều.
+ *
+ * Giới hạn đặt trên ĐOẠN VĂN và DANH SÁCH, không đặt trên ảnh hay tiêu đề — chúng không có
+ * vấn đề độ dài dòng và nên dùng hết bề rộng cột.
+ */
+.paragraph,
+.list {
+  max-width: 72ch;
+  color: var(--color-text-secondary);
+}
+
+/* globals.css bỏ dấu đầu dòng cho MỌI `<ul>` (vì phần lớn danh sách trong giao diện là
+ * danh sách bố cục). Thân bài là văn xuôi thật, nên trả dấu đầu dòng lại ở đây. */
+.list {
+  list-style: disc;
+  padding-left: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.list > li {
+  /* `display: list-item` là bắt buộc: `display: flex` trên `<ul>` biến các `<li>` thành
+   * flex item và dấu đầu dòng biến mất. */
+  display: list-item;
+}
+
+/* Ảnh trong bài rộng bằng đúng cột chữ — khác ảnh bìa. */
+.inlineImage {
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+  margin-block: var(--space-4);
+}
+
+/* Trích dẫn: vạch đậm bên trái + nền phụ, đúng như thiết kế. */
+.quote {
+  margin: var(--space-4) 0;
+  padding: var(--space-6) var(--space-8);
+  border-left: var(--space-1) solid var(--color-text-primary);
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  background-color: var(--color-bg-secondary);
+}
+
+.quote p {
+  max-width: 66ch;
+  font-weight: var(--weight-caption);
+}
+
+/* ── Bài viết liên quan ───────────────────────────────────────────────────────
+ * Tiêu đề CĂN GIỮA theo thiết kế — khác các section khác của site (căn trái, có link "Xem
+ * thêm" bên phải). */
+.relatedHeading {
+  grid-column: 1 / -1;
+  margin-bottom: var(--space-10);
+  text-align: center;
+}
+
+/* `span 4` giữ nguyên qua các breakpoint nhưng Ý NGHĨA đổi vì số cột đổi:
+ * 4/4 = cả hàng (mobile) · 4/8 = nửa (tablet) · 4/12 = một phần ba (desktop). */
+.relatedItem {
+  grid-column: span 4;
+}

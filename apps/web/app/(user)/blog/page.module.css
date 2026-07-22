@@ -1,0 +1,228 @@
+/*
+ * Trang blog — bố cục theo wireframe Figma của chủ dự án.
+ *
+ * MỌI KHỐI ĐỀU NẰM TRÊN LƯỚI. Lưới dùng chung khai ở globals.css; file này chỉ nói mỗi
+ * khối chiếm bao nhiêu cột. Không khai lại `display: grid` với bộ cột mới, không dùng
+ * `max-width` bằng px — xem ba luật ở globals.css.
+ */
+
+.headerSection {
+  padding-block-start: var(--section-padding-y);
+}
+
+/* ── Tiêu đề trang ────────────────────────────────────────────────────────── */
+.pageTitle {
+  grid-column: 1 / span 4;
+  margin-top: var(--space-6);
+}
+
+.pageLead {
+  grid-column: 1 / span 4;
+}
+
+@media (min-width: 768px) {
+  .pageTitle {
+    grid-column: 1 / span 8;
+  }
+  .pageLead {
+    grid-column: 1 / span 6;
+  }
+}
+
+@media (min-width: 1280px) {
+  .pageTitle {
+    grid-column: 1 / span 8;
+  }
+  .pageLead {
+    grid-column: 1 / span 5;
+  }
+}
+
+/* ── Thanh lọc chủ đề ─────────────────────────────────────────────────────────
+ * Chiếm trọn hàng. Bên trong là flex chứ không phải cột lưới: số tab thay đổi theo dữ
+ * liệu và mỗi tab rộng theo chữ của nó, nên gán chúng vào cột cố định là sai công cụ. */
+.filterBar {
+  grid-column: 1 / -1;
+  margin-top: var(--space-10);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-bg-secondary);
+}
+
+.tabList {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabList::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  flex: none;
+  border: none;
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--color-text-primary);
+}
+
+/*
+ * Tab đang chọn: gạch chân + chữ đậm màu.
+ *
+ * Chọn theo `[aria-pressed="true"]` chứ không phải một class riêng, để trạng thái NHÌN
+ * THẤY và trạng thái TRÌNH ĐỌC MÀN HÌNH NGHE THẤY không thể lệch nhau — muốn đổi giao diện
+ * thì buộc phải đổi cả thuộc tính ngữ nghĩa.
+ */
+.tab[aria-pressed="true"] {
+  color: var(--color-text-primary);
+  font-weight: var(--weight-caption);
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.filterSearch {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--space-10);
+  height: var(--space-10);
+  border: none;
+  border-radius: var(--radius-tag);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.filterSearch:hover {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* ── Tiêu đề section ──────────────────────────────────────────────────────── */
+.sectionHeader {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.readMore {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.readMore:hover {
+  color: var(--color-text-primary);
+}
+
+/* ── Nhịp rộng hẹp của thẻ bài viết ───────────────────────────────────────────
+ *
+ * Ở mobile/tablet mọi thẻ đều nhau — cột quá hẹp để xen kẽ có nghĩa.
+ *
+ * Từ desktop mới vào nhịp, và hai section có nhịp ĐẢO NGƯỢC nhau đúng như thiết kế:
+ *
+ *   Tin mới nhất     3 + 6 + 3 = 12   rồi   6 + 6     = 12   (chu kỳ 5 thẻ)
+ *   Bài viết nổi bật 6 + 3 + 3 = 12   rồi   3 + 3 + 6 = 12   (chu kỳ 6 thẻ)
+ *
+ * Dùng `:nth-child` nên nhịp nằm TRỌN trong CSS: thêm/bớt bài không phải sửa TSX, và không
+ * có con số bố cục nào lọt vào tầng dữ liệu. Cùng cách làm với ô danh mục ở trang chủ.
+ */
+.articleItem {
+  grid-column: span 4;
+}
+
+@media (min-width: 1280px) {
+  .latestList .articleItem:nth-child(5n + 1),
+  .latestList .articleItem:nth-child(5n + 3) {
+    grid-column: span 3;
+  }
+  .latestList .articleItem:nth-child(5n + 2),
+  .latestList .articleItem:nth-child(5n + 4),
+  .latestList .articleItem:nth-child(5n + 5) {
+    grid-column: span 6;
+  }
+
+  .featuredList .articleItem:nth-child(6n + 1),
+  .featuredList .articleItem:nth-child(6n + 6) {
+    grid-column: span 6;
+  }
+  .featuredList .articleItem:nth-child(6n + 2),
+  .featuredList .articleItem:nth-child(6n + 3),
+  .featuredList .articleItem:nth-child(6n + 4),
+  .featuredList .articleItem:nth-child(6n + 5) {
+    grid-column: span 3;
+  }
+}
+
+/* Khoảng cách giữa hai HÀNG thẻ rộng hơn giữa hai cột — nếu bằng nhau thì mắt đọc thành
+ * một khối liền chứ không thành các hàng. */
+.latestList,
+.featuredList {
+  row-gap: var(--space-10);
+}
+
+/* ── Chủ đề thịnh hành ────────────────────────────────────────────────────────
+ *
+ * Năm ô CHIA ĐỀU trọn bề ngang. Đây là ngoại lệ có lý do: 12 cột không chia hết cho 5, nên
+ * không có cách nào đặt năm ô bằng nhau lên hệ cột mà vẫn phủ kín hàng.
+ *
+ * Dùng flex `1 1 0` thay vì khai một lưới 5 cột: không sinh ra định nghĩa cột thứ hai
+ * trong dự án (luật 2 ở globals.css), mà mép trái ô đầu và mép phải ô cuối vẫn trùng khít
+ * cột 1 và cột 12 của lưới trang.
+ */
+.topicRow {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--grid-gap);
+}
+
+.topicItem {
+  /* `flex-basis: 0` chứ không phải `auto`: với `auto` các ô rộng theo độ dài chữ và sẽ
+   * không bằng nhau khi tên chủ đề dài ngắn khác nhau. */
+  flex: 1 1 0;
+  /* Ô vuông theo thiết kế. `min-width` để ở màn hẹp chúng xuống hàng thay vì bị bóp dẹt. */
+  min-width: 8rem;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.topicItem:hover {
+  background-color: var(--color-border-default);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .thumb,
+  .topicItem,
+  .tab,
+  .readMore,
+  .filterSearch {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease;
+  }
+}

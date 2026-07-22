@@ -1,0 +1,442 @@
+/*
+ * Trang duyệt công cụ — bố cục theo wireframe Figma của chủ dự án.
+ *
+ * MỌI KHỐI ĐỀU NẰM TRÊN LƯỚI. Lưới dùng chung khai ở globals.css (class `grid`); file này
+ * chỉ nói mỗi khối chiếm bao nhiêu cột. Không khai lại `display: grid` với một bộ cột mới,
+ * không dùng `max-width` bằng px — xem ba luật ở globals.css.
+ *
+ * Bản đồ cột (mobile 4 / tablet 8 / desktop 12):
+ *
+ *   Breadcrumb        trọn hàng
+ *   Tiêu đề           4 /  8 /  8
+ *   Mô tả             4 /  6 /  4
+ *   Dải danh mục      trọn hàng
+ *   Bộ lọc (aside)    4 /  8 /  3
+ *   Lưới kết quả      4 /  8 /  9
+ *   Nút "Xem thêm"    trọn hàng / trọn hàng / cột 4 → 12
+ *
+ * Desktop: 3 + 9 = 12 cột chẵn.
+ */
+
+/* Hai section liền nhau nên không dùng `.section` (nó đệm cả trên lẫn dưới, cộng lại sẽ
+ * hở một khoảng lớn ở giữa). Mỗi bên chỉ đệm phía ngoài của mình. */
+.headerSection {
+  padding-block-start: var(--section-padding-y);
+}
+
+.bodySection {
+  padding-block-start: var(--space-16);
+  padding-block-end: var(--section-padding-y);
+}
+
+/* ── Tiêu đề trang ────────────────────────────────────────────────────────────
+ * Tiêu đề và mô tả là HAI ô lưới riêng với số cột khác nhau — mô tả hẹp hơn hẳn theo
+ * thiết kế. Gom chung một khối rồi giới hạn bằng px sẽ mất đúng điều đó. */
+.pageTitle {
+  grid-column: 1 / span 4;
+  margin-top: var(--space-6);
+}
+
+.pageLead {
+  grid-column: 1 / span 4;
+}
+
+@media (min-width: 768px) {
+  .pageTitle {
+    grid-column: 1 / span 8;
+  }
+  .pageLead {
+    grid-column: 1 / span 6;
+  }
+}
+
+@media (min-width: 1280px) {
+  .pageTitle {
+    grid-column: 1 / span 8;
+  }
+  .pageLead {
+    grid-column: 1 / span 4;
+  }
+}
+
+/* ── Dải danh mục cuộn ngang ─────────────────────────────────────────────────
+ * Chiếm trọn hàng. Bên trong là flex, không phải cột lưới: các pill rộng theo NỘI DUNG và
+ * số lượng thay đổi theo dữ liệu, nên gán chúng vào cột cố định là sai công cụ. */
+.categoryStrip {
+  grid-column: 1 / -1;
+  margin-top: var(--space-10);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-bg-secondary);
+}
+
+.stripArrow {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--space-10);
+  height: var(--space-10);
+  border: none;
+  border-radius: var(--radius-tag);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.stripArrow:hover {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* Một hình mũi tên duy nhất (chỉ xuống) xoay đi — thay vì hai file SVG gần giống nhau.
+ * Xoay bằng CSS chứ không phải inline style: CSP `style-src` chặn inline style. */
+.stripArrowPrev {
+  transform: rotate(90deg);
+}
+
+.stripArrowNext {
+  transform: rotate(-90deg);
+}
+
+.stripList {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.stripList::-webkit-scrollbar {
+  display: none;
+}
+
+.stripTab {
+  flex: none;
+  border: none;
+  border-radius: var(--radius-tag);
+  padding: var(--space-3) var(--space-10);
+  background-color: var(--color-border-default);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stripTab:hover {
+  background-color: var(--color-border-hover);
+  color: var(--color-text-primary);
+}
+
+/* ── Cột bộ lọc ───────────────────────────────────────────────────────────── */
+.sidebar {
+  grid-column: span 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+@media (min-width: 768px) {
+  .sidebar {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .sidebar {
+    grid-column: span 3;
+
+    /*
+     * Bám theo khi cuộn — danh sách kết quả dài hơn cột lọc rất nhiều, không có cái này
+     * thì cuộn xuống là mất bộ lọc.
+     *
+     * `align-self: start` là BẮT BUỘC: mặc định ô lưới bị kéo cao bằng cả hàng, mà một
+     * phần tử cao bằng vùng cuộn thì `sticky` không có chỗ để bám.
+     *
+     * `top` chừa chỗ cho header dính ở trên (cao khoảng --space-16).
+     */
+    position: sticky;
+    top: var(--space-20);
+    align-self: start;
+  }
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.filterSearch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  background-color: var(--color-bg-primary);
+}
+
+.filterSearch:focus-within {
+  border-color: var(--color-border-hover);
+}
+
+/* Icon dùng chung vẽ ở 20px; ở đây thu về 16px cho vừa ô nhập nhỏ. */
+.filterSearchIcon {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  color: var(--color-text-tertiary);
+}
+
+.filterSearchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.filterSearchInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.filterSelect {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  background-color: var(--color-bg-primary);
+  cursor: pointer;
+}
+
+/* Ba nhóm lọc nằm chung một khung viền theo thiết kế. */
+.filterCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
+}
+
+/*
+ * `<fieldset>` giữ nguyên vai trò ngữ nghĩa nhưng bỏ hết trang trí mặc định của trình
+ * duyệt. CỐ Ý KHÔNG đặt `display: flex` ở đây: `<legend>` bị trình duyệt lấy ra khỏi dòng
+ * chảy bình thường, nên trong một fieldset flex nó xếp sai ở một số trình duyệt. Dùng
+ * margin để tạo nhịp dọc là cách chắc chắn hơn.
+ */
+.filterGroup {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.filterGroup legend {
+  padding: 0;
+  margin-bottom: var(--space-3);
+  font-weight: var(--weight-caption);
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.checkRow + .checkRow {
+  margin-top: var(--space-3);
+}
+
+.checkRow input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--color-button-primary);
+}
+
+/* ── Lưới kết quả ─────────────────────────────────────────────────────────────
+ *
+ * `subgrid` — ô lưới này TỰ CHIA LẠI theo đúng các cột nó chiếm của lưới cha.
+ *
+ * Vì sao không khai `grid-template-columns: repeat(3, …)`: đó là định nghĩa cột THỨ HAI
+ * trong dự án, và hai định nghĩa cột thì sớm muộn lệch nhau (luật 2 ở globals.css).
+ *
+ * Nói cho công bằng: ở desktop hai cách cho ra CÙNG một hình học, vì 9 cột chia hết cho 3.
+ * Khác biệt nằm ở chỗ khác, và đó mới là lý do chọn `subgrid`:
+ *   - Số thẻ mỗi hàng đổi theo breakpoint chỉ bằng cách đổi `span` của `.resultItem`, đúng
+ *     cùng một ngôn ngữ với mọi khối khác trong dự án — thay vì thêm `repeat(2)`,
+ *     `repeat(3)` rải rác trong media query.
+ *   - Nếu sau này thẻ có bề rộng KHÔNG đều (như ô danh mục ở trang chủ), `subgrid` vẫn
+ *     đúng còn `repeat()` thì phải viết lại từ đầu.
+ *
+ * Vì thế `.resultItem` khai theo cột LƯỚI TRANG: 3 cột mỗi thẻ trên tổng 9 cột mà
+ * `.results` chiếm → ba thẻ mỗi hàng.
+ *
+ * `gap` không cần khai lại: subgrid kế thừa khoảng cách của lưới cha. Chỉ nới `row-gap` vì
+ * khoảng cách giữa hai HÀNG thẻ cần rộng hơn khoảng cách giữa hai cột.
+ */
+.results {
+  grid-column: span 4;
+  display: grid;
+  grid-template-columns: subgrid;
+  row-gap: var(--space-10);
+}
+
+.resultItem {
+  grid-column: span 4;
+}
+
+@media (min-width: 768px) {
+  .results {
+    grid-column: span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .results {
+    grid-column: span 9;
+  }
+  .resultItem {
+    grid-column: span 3;
+  }
+}
+
+/*
+ * Trình duyệt không hiểu `subgrid` sẽ bỏ cả khai báo đó, và `.results` thành lưới không có
+ * cột nào được định nghĩa. Đưa nó về MỘT cột để các thẻ xếp chồng — bố cục giản lược nhưng
+ * đọc được, thay vì vỡ.
+ */
+@supports not (grid-template-columns: subgrid) {
+  .results {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .resultItem {
+    grid-column: 1;
+  }
+}
+
+.loadMoreRow {
+  grid-column: 1 / -1;
+  margin-top: var(--space-10);
+  display: flex;
+  justify-content: center;
+}
+
+/* Căn giữa theo LƯỚI KẾT QUẢ (cột 4→12), không phải giữa trang — đúng như wireframe. */
+@media (min-width: 1280px) {
+  .loadMoreRow {
+    grid-column: 4 / -1;
+  }
+}
+
+.loadMore {
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-8);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.loadMore:hover {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-bg-primary);
+}
+
+/* ── Thẻ công cụ ──────────────────────────────────────────────────────────────
+ * Khác thẻ ở trang chủ: cả thẻ có nền phụ, ảnh nằm LỌT BÊN TRONG (có đệm quanh) chứ không
+ * tràn sát mép. `height: 100%` để mọi thẻ trong một hàng cao bằng nhau dù mô tả dài ngắn
+ * khác nhau. */
+.card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-3);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+}
+
+.card:hover {
+  background-color: var(--color-border-default);
+}
+
+/* `aspect-ratio` giữ mọi khối ảnh cùng chiều cao mà không cần ảnh thật — cần thiết ở bản
+ * thô này vì chưa có ảnh nào. */
+.thumb {
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-button);
+  background-color: var(--color-border-default);
+  color: var(--color-text-tertiary);
+}
+
+.card:hover .thumb {
+  background-color: var(--color-border-hover);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  padding: var(--space-4) var(--space-2) var(--space-2);
+}
+
+/* Nhãn giá nằm cùng dòng với tên, ép sát mép phải. `align-items: baseline` để chữ trong
+ * nhãn thẳng hàng chân chữ với tên chứ không lửng lơ giữa. */
+.cardTitleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.priceBadge {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-tag);
+  background-color: var(--color-border-default);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.card:hover .priceBadge,
+.card:hover .tag {
+  background-color: var(--color-bg-secondary);
+}
+
+/* `margin-top: auto` đẩy hàng nhãn xuống đáy thẻ — nhờ vậy nhãn của mọi thẻ trong một hàng
+ * nằm cùng một độ cao dù mô tả dài ngắn khác nhau. */
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+
+.tag {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-tag);
+  background-color: var(--color-border-default);
+  color: var(--color-text-secondary);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card,
+  .thumb,
+  .stripTab,
+  .loadMore,
+  .breadcrumbLink {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+}

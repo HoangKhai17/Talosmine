@@ -34,13 +34,13 @@ export default async function UserLayout({ children }: { children: ReactNode }) 
                 </Link>
               </li>
               <li>
-                <Link className={`typeBodySmall ${styles.navLink}`} href="/categories">
-                  Danh mục
+                <Link className={`typeBodySmall ${styles.navLink}`} href="/blog">
+                  Blog
                 </Link>
               </li>
               <li>
-                <Link className={`typeBodySmall ${styles.navLink}`} href="/blog">
-                  Blog
+                <Link className={`typeBodySmall ${styles.navLink}`} href="/contact">
+                  Liên hệ
                 </Link>
               </li>
             </ul>
@@ -147,7 +147,9 @@ function SiteFooter() {
               </Link>
             </li>
             <li>
-              <span className={`typeBodySmall ${styles.footerPending}`}>Liên hệ</span>
+              <Link className={`typeBodySmall ${styles.footerLink}`} href="/contact">
+                Liên hệ
+              </Link>
             </li>
             <li>
               <span className={`typeBodySmall ${styles.footerPending}`}>Chính sách riêng tư</span>

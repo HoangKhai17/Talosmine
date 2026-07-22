@@ -1,0 +1,8 @@
+/* Dải thông báo bản dựng. Xoá cùng lúc với `draft-banner.tsx` khi nối danh mục thật. */
+.banner {
+  background-color: var(--color-bg-secondary);
+  border-bottom: var(--border-default);
+  padding-block: var(--space-3);
+  color: var(--color-text-secondary);
+  text-align: center;
+}

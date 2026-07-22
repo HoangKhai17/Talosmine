@@ -1,0 +1,98 @@
+/*
+ * Thẻ bài viết dùng chung.
+ *
+ * Không viền, không nền: chỉ khối ảnh rồi chữ bên dưới, đúng như thiết kế. Viền sẽ chia các
+ * thẻ rộng hẹp khác nhau thành từng hộp rời rạc và làm mất nhịp xen kẽ ở trang blog.
+ *
+ * `position: relative` để lớp phủ link của tiêu đề bám đúng vào thẻ này.
+ */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+}
+
+/*
+ * Khối ảnh. Chiều cao đến từ `--media-article-thumb-height` (globals.css) chứ không phải
+ * `aspect-ratio`: ở trang blog thẻ có bề rộng xen kẽ 3 hoặc 6 cột, nên tỉ lệ cố định sẽ làm
+ * thẻ rộng cao gấp đôi thẻ hẹp và hàng bị so le.
+ */
+.thumb {
+  position: relative;
+  height: var(--media-article-thumb-height);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+}
+
+.card:hover .thumb {
+  background-color: var(--color-border-default);
+}
+
+.thumbTag {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+}
+
+/* Ngày đăng bên trái, thời lượng đọc bên phải. */
+.meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  color: var(--color-text-tertiary);
+}
+
+.titleLink {
+  text-decoration: none;
+}
+
+.titleLink:hover {
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+/*
+ * Lớp phủ mở rộng vùng bấm ra cả thẻ.
+ *
+ * `inset: 0` phủ kín `.card` (phần tử `position: relative` gần nhất). Không có nền nên
+ * không nhìn thấy, nhưng vẫn nhận được cú bấm — người dùng bấm vào ảnh cũng vào được bài.
+ */
+.titleLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* Vòng focus phải bao quanh CHỮ, không phải cả thẻ: lớp phủ ở trên không có kích thước
+ * riêng nên mặc định trình duyệt sẽ vẽ vòng focus ôm cả thẻ, che mất thứ đang được chọn. */
+.titleLink:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.titleLink:focus-visible::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .thumb {
+    transition: background-color 150ms ease;
+  }
+}

@@ -1,0 +1,64 @@
+/* Breadcrumb dùng chung. Tự chiếm trọn hàng lưới, chỗ dùng không phải khai gì thêm. */
+.breadcrumb {
+  grid-column: 1 / -1;
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/*
+ * Từng `<li>` PHẢI là flex container, không được để nó là block bình thường.
+ *
+ * Vì sao: `.link` là `inline-flex`, nên trong một `<li>` block nó nằm trên một dòng chữ và
+ * được canh theo BASELINE. Mà baseline của một hộp inline-flex là baseline của flex item
+ * đầu tiên — ở đây là `<svg>`, thứ không có baseline. Trình duyệt lấy MÉP DƯỚI của svg làm
+ * baseline, tức đáy icon bị hạ xuống ngang chân chữ và cả hộp bị đẩy lên cao hơn dòng.
+ * Kết quả: `<li>` này cao 25.5px trong khi các `<li>` khác cao 24px, rồi `align-items:
+ * center` canh giữa CÁC HỘP trong hàng 25.5px — nên "Trang chủ" dính lên trên còn tên
+ * trang nằm giữa.
+ *
+ * Cho `<li>` thành flex thì không còn dòng chữ nào để canh baseline: chiều cao `<li>` bằng
+ * đúng chiều cao nội dung, mọi mục cao bằng nhau và chữ thẳng hàng.
+ *
+ * Có test đo việc này (`tests/e2e/grid.spec.ts`). Test đo CHỮ chứ không đo `<li>` — đo
+ * `<li>` thì `align-items: center` làm nó luôn xanh, kể cả khi lỗi còn nguyên.
+ */
+.list > li {
+  display: flex;
+  align-items: center;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.link:hover {
+  color: var(--color-text-primary);
+}
+
+.icon {
+  color: var(--color-text-primary);
+}
+
+.separator {
+  color: var(--color-text-tertiary);
+}
+
+/* Chặng chưa có trang riêng — không phải link, nên hiển thị nhạt để không ai chờ bấm được. */
+.pending {
+  color: var(--color-text-tertiary);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .link {
+    transition: color 150ms ease;
+  }
+}
