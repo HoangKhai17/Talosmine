@@ -412,22 +412,27 @@ async function startGoogleSignIn(connector) {
  * liên kết, và CHỈ cho Google, vì Google đảm bảo `email_verified`. Bật auto-link cho một IdP
  * không đảm bảo điều đó là mở đường chiếm tài khoản — nên luồng này chỉ dùng cho Google.
  *
- * ĐĂNG NHẬP HAY ĐĂNG KÝ — QUYẾT ĐỊNH KHI QUAY VỀ, KHÔNG BIẾT TRƯỚC.
+ * ĐĂNG NHẬP HAY ĐĂNG KÝ — QUYẾT ĐỊNH KHI QUAY VỀ, BA TẦNG.
  *
- * `POST /api/experience/identification` phân nhánh theo `interactionEvent` (đọc từ mã core,
- * không đoán):
- *   - SignIn   → `identifyUser()`: tìm tài khoản đang có; KHÔNG có thì trả 404 `user_not_exist`.
- *   - Register → `createUser()`:   tạo tài khoản mới từ hồ sơ Google.
+ * Một người bấm "Tiếp tục với Google" có thể rơi vào một trong ba tình huống, và ta KHÔNG
+ * biết trước là cái nào. `linkSocialIdentity` cùng `interactionEvent` phải khớp đúng từng
+ * tình huống — sai là hỏng ở bước submit chứ không phải identification, nên khó thấy:
  *
- * Nên với người bấm "Tiếp tục với Google", ta chưa biết họ đã có tài khoản hay chưa. Thử
- * SignIn trước:
- *   - Đã có tài khoản (hoặc email trùng để `linkSocialIdentity` gộp) → xong.
- *   - 404 `user_not_exist` (tài khoản Google hoàn toàn mới) → chuyển interaction sang Register
- *     rồi định danh lại. Verification record của Google SỐNG SÓT qua lần đổi interactionEvent
- *     (chỉ `profile` bị dọn), nên dùng lại đúng `verificationId` đó.
+ *   (1) Đã đăng nhập Google trước đó → social ĐÃ liên kết. Định danh THẲNG, KHÔNG kèm
+ *       `linkSocialIdentity`. Kèm cờ đó cho tài khoản đã liên kết → submit trả
+ *       `user.identity_already_in_use` (đã đo trong audit log Logto — chính là lỗi lần này).
  *
- * Đây đúng là lỗi đã đo được lần đầu: verify trả 200 nhưng identification trả 404 vì luồng
- * chỉ chạy SignIn cho một tài khoản chưa tồn tại.
+ *   (2) Lần đầu dùng Google, nhưng email Google (đã xác minh) TRÙNG một tài khoản email+mật
+ *       khẩu đã có → GỘP vào đó bằng `linkSocialIdentity: true`. Đây là quyết định auto-link
+ *       của chủ dự án, chỉ áp cho Google.
+ *
+ *   (3) Email Google chưa gắn với tài khoản nào → ĐĂNG KÝ mới. `POST identification` phân
+ *       nhánh theo `interactionEvent` (đọc từ mã core): SignIn chỉ TÌM, Register mới TẠO. Nên
+ *       phải `PUT experience {Register}` rồi định danh lại. Verification record của Google
+ *       sống sót qua lần đổi interactionEvent (chỉ `profile` bị dọn), nên dùng lại đúng vid.
+ *
+ * Thử lần lượt 1 → 2 → 3, mỗi lần thất bại vì "social chưa liên kết" thì xuống tầng sau. Một
+ * identification thất bại là assert ném TRƯỚC khi đổi trạng thái, nên interaction vẫn dùng lại được.
  */
 async function completeGoogleSignIn({ connectorId, code, redirectUri, verificationId }) {
   const verified = await callExperience(
@@ -435,27 +440,30 @@ async function completeGoogleSignIn({ connectorId, code, redirectUri, verificati
     `/api/experience/verification/social/${connectorId}/verify`,
     { connectorData: { code, redirectUri }, verificationId },
   );
-  const socialVerificationId = verified.verificationId;
+  const vid = verified.verificationId;
+
+  // "Social này chưa gắn với tài khoản nào" — tín hiệu để thử tầng tiếp theo. Cả hai mã đều
+  // có nghĩa đó tuỳ ngữ cảnh: `identity_not_exist` (định danh thẳng), `user_not_exist` (gộp email).
+  const notLinkedYet = (e) =>
+    e instanceof ExperienceError &&
+    (e.code === 'user.identity_not_exist' || e.code === 'user.user_not_exist');
 
   try {
-    // Đăng nhập: tài khoản đã tồn tại, hoặc email Google trùng tài khoản cũ để gộp vào.
-    await callExperience('POST', '/api/experience/identification', {
-      verificationId: socialVerificationId,
-      linkSocialIdentity: true,
-    });
-  } catch (error) {
-    // Tài khoản Google MỚI HOÀN TOÀN: chuyển sang đăng ký rồi tạo tài khoản từ hồ sơ Google.
-    if (
-      error instanceof ExperienceError &&
-      error.status === 404 &&
-      error.code === 'user.user_not_exist'
-    ) {
-      await callExperience('PUT', '/api/experience', { interactionEvent: 'Register' });
+    // (1) Đã liên kết → đăng nhập thẳng.
+    await callExperience('POST', '/api/experience/identification', { verificationId: vid });
+  } catch (error1) {
+    if (!notLinkedYet(error1)) throw error1;
+    try {
+      // (2) Chưa liên kết, email trùng tài khoản cũ → gộp.
       await callExperience('POST', '/api/experience/identification', {
-        verificationId: socialVerificationId,
+        verificationId: vid,
+        linkSocialIdentity: true,
       });
-    } else {
-      throw error;
+    } catch (error2) {
+      if (!notLinkedYet(error2)) throw error2;
+      // (3) Không tài khoản nào khớp → đăng ký mới.
+      await callExperience('PUT', '/api/experience', { interactionEvent: 'Register' });
+      await callExperience('POST', '/api/experience/identification', { verificationId: vid });
     }
   }
 
@@ -1577,6 +1585,8 @@ function socialCallbackScreen() {
         } else if (error.code === 'user.identity_already_in_use') {
           message = 'Tài khoản Google này đã liên kết với một người dùng khác.';
         }
+        // Kèm mã lỗi vào console để gỡ nhanh; audit log của Logto (`/api/logs`) giữ chi tiết đầy đủ.
+        console.error('  code:', error.code, '| status:', error.status);
       }
       fail(message);
     }

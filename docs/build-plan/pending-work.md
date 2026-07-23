@@ -169,18 +169,31 @@ Ba điều đã đo/xử lý đúng:
 `linkSocialIdentity:true` khoá cứng cho luồng Google. Thêm IdP khác thì PHẢI xét lại: IdP nào
 không đảm bảo `email_verified` mà auto-link là mở đường chiếm tài khoản.
 
-**ĐÃ SỬA MỘT LỖI KHI TEST TAY (2026-07-22):** lần test đầu, log Logto cho thấy
-`verify → 200` nhưng `identification → 404 user_not_exist`. Nguyên nhân (đọc từ mã core):
-`POST /api/experience/identification` phân nhánh theo `interactionEvent` — `SignIn` gọi
-`identifyUser()` (chỉ tìm tài khoản đang có, không có thì 404), `Register` gọi `createUser()`
-(tạo mới). Người bấm "Tiếp tục với Google" lần đầu là tài khoản MỚI, mà luồng chỉ chạy SignIn.
+**HAI LỖI ĐÃ SỬA KHI TEST TAY (2026-07-22), đọc từ audit log Logto `/api/logs`, không đoán:**
 
-Đã sửa `completeGoogleSignIn`: thử SignIn trước (để đăng nhập/gộp nếu email đã có), gặp
-404 `user_not_exist` thì `PUT experience {interactionEvent:'Register'}` rồi định danh lại —
-verification record của Google sống sót qua lần đổi interactionEvent. Chính sách social hiện
-tại `{automaticAccountLinking:false, skipRequiredIdentifiers:false}`; register vẫn chạy vì
-Google cấp email đã xác minh (thoả định danh bắt buộc), và password không nằm trong hồ sơ
-bắt buộc của luồng social.
+`POST /api/experience/identification` phân nhánh theo `interactionEvent` (đọc từ mã core):
+`SignIn` → `identifyUser()` (chỉ TÌM), `Register` → `createUser()` (TẠO). Và cờ
+`linkSocialIdentity` phải khớp trạng thái liên kết của social — sai là hỏng ở **submit** chứ
+không phải identification, nên khó thấy.
+
+| Lỗi (audit log) | Nguyên nhân |
+|---|---|
+| `identification 404 user_not_exist` / `identity_not_exist` | tài khoản Google MỚI, mà luồng chỉ chạy SignIn (không tạo) |
+| `submit 422 user.identity_already_in_use` | tài khoản Google ĐÃ liên kết, nhưng vẫn gửi `linkSocialIdentity:true` → cố liên kết lần nữa |
+
+Sai lầm gốc: gửi `linkSocialIdentity:true` cho MỌI trường hợp. Đã sửa `completeGoogleSignIn`
+thành BA TẦNG: (1) định danh thẳng cho user đã liên kết; (2) `linkSocialIdentity:true` gộp
+theo email trùng; (3) `PUT Register` + định danh lại cho user mới. Verification record của
+Google sống sót qua các lần thử (assert ném trước khi đổi trạng thái). Chính sách social
+`{automaticAccountLinking:false, skipRequiredIdentifiers:false}`; register vẫn chạy vì Google
+cấp email đã xác minh, password không nằm trong hồ sơ bắt buộc của luồng social.
+
+**Triệu chứng phụ `?error=Không tạo được phiên đăng nhập`** (web app, [callback/route.ts](../../apps/web/app/auth/callback/route.ts))
+là do next dev CŨ còn trỏ cổng DB chết (56543) trước khi đổi sang 15432/16543 — restart next
+dev là hết. Control Plane ở 3100 nối DB bình thường (kiểm: token rác → 401, có correlationId).
+
+**Tầng (2) và (3) CHƯA test thật** (tài khoản Google của chủ dự án đã liên kết nên chỉ chạy
+tầng 1). Cần một Gmail chưa từng dùng để kiểm nhánh gộp-email và đăng-ký-mới.
 
 **CÒN TREO — chủ dự án test tay rồi báo lại (sau bản sửa v17):**
 
