@@ -61,7 +61,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const response = NextResponse.redirect(
-    new URL(safeReturnTo(transaction.returnTo), cfg.appBaseUrl).toString(),
+    new URL(safeReturnTo(transaction.returnTo, cfg.appBaseUrl), cfg.appBaseUrl).toString(),
     { headers: { 'Cache-Control': 'no-store' } },
   );
 

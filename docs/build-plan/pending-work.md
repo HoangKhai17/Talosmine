@@ -235,12 +235,29 @@ Không chờ ai — agent làm được ngay.
 issuer/audience/chữ ký/hạn dùng, callback replay, và open redirect (host/path/port gần
 giống, wildcard, encoded payload, protocol-relative).
 
-**Hiện chưa có test nào cho luồng auth.** Nó mới chỉ được chứng minh bằng việc chủ dự án
-bấm đăng nhập thành công một lần. Đây là khoảng trống lớn nhất còn lại của P2.
+**Phần lớn chưa có test tự động cho luồng auth.** Đây là khoảng trống lớn nhất còn lại của P2.
 
 Cài đặt cần kiểm: [`oidc-verifier.ts`](../../apps/control-plane/src/modules/identity/oidc-verifier.ts),
 [`callback/route.ts`](../../apps/web/app/auth/callback/route.ts), `safeReturnTo` trong
 [`oidc.ts`](../../apps/web/server/oidc.ts).
+
+**RÀ SOÁT BẢO MẬT 2026-07-23 — thăm dò thủ công trên hệ thống đang chạy.** 19 phòng thủ giữ
+vững (giả mạo token: alg:none / khoá lạ / alg-confusion HS256 / sai issuer đều 401; chặn
+`/admin` ở server không lộ khu quản trị; CSP nonce + frame-ancestors/object-src/base-uri/
+form-action; cookie `__Host-` + HttpOnly + Secure + SameSite). **Tìm được MỘT lỗ hổng thật:**
+
+- **OPEN REDIRECT ở `safeReturnTo` — ĐÃ SỬA.** Bản cũ chỉ so chuỗi (`startsWith('//')`).
+  `new URL` (mà callback dùng để redirect) XOÁ `\t \n \r` và đổi `\`→`/` TRƯỚC khi phân giải,
+  nên `returnTo=/%09/evil.com` và `/\evil.com` lọt qua rồi thành origin ngoài — người dùng
+  đăng nhập thật xong bị bắn sang `evil.com`. Xác nhận đi hết luồng (cookie transaction lưu
+  `/\t/evil.com` → callback redirect `http://evil.com/`). Sửa: `safeReturnTo` giờ dựng URL
+  bằng chính parser đó rồi so `origin`, khác origin → `/`. Có unit test hồi quy
+  [`safe-return-to.test.ts`](../../tests/unit/safe-return-to.test.ts) (7 case) + đã kiểm bản
+  sửa đóng lỗ trên server thật. Chữ ký đổi thành `safeReturnTo(value, baseUrl)`.
+
+Việc B1 vẫn còn: rà soát trên là THĂM DÒ thủ công, chưa phải bộ test tự động đủ theo §14
+(state/nonce/PKCE/replay chưa có test). Nhưng open-redirect — mục §14 nêu đích danh — nay đã
+có test.
 
 ### B2. E2E cho các trang cần đăng nhập
 

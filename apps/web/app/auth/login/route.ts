@@ -28,7 +28,7 @@ export async function GET(request: Request): Promise<Response> {
   const nonce = client.randomNonce();
 
   const params = new URL(request.url).searchParams;
-  const returnTo = safeReturnTo(params.get('returnTo'));
+  const returnTo = safeReturnTo(params.get('returnTo'), cfg.appBaseUrl);
 
   /**
    * Mở thẳng màn hình ĐĂNG KÝ thay vì đăng nhập.

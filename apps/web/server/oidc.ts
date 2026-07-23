@@ -80,13 +80,35 @@ export interface Transaction {
 }
 
 /**
- * `returnTo` đến từ query string, tức là từ người dùng. Chỉ chấp nhận đường dẫn nội bộ
- * bắt đầu bằng một dấu `/` — nếu không, kẻ tấn công gửi link `?returnTo=https://evil`
- * và biến trang đăng nhập của ta thành open redirect.
+ * `returnTo` đến từ query string, tức là từ người dùng. Chỉ chấp nhận đường dẫn NỘI BỘ —
+ * nếu không, kẻ tấn công gửi link `?returnTo=…` và biến trang đăng nhập của ta thành open
+ * redirect: người dùng đăng nhập thật vào Talosmine rồi bị bắn sang trang giả mạo.
  *
- * `//evil.com` cũng bị loại: trình duyệt hiểu nó là protocol-relative URL ra ngoài.
+ * ⚠ CHỈ SO CHUỖI LÀ KHÔNG ĐỦ — đã có lỗ hổng thật ở bản trước (rà soát 2026-07-23).
+ * Bản cũ chặn `//evil.com` bằng `startsWith('//')`, nhưng bộ phân giải URL của trình duyệt
+ * (và của `new URL` mà callback dùng để redirect) XOÁ tab/newline (`\t \n \r`) và ĐỔI `\`
+ * thành `/` TRƯỚC khi phân giải. Nên các payload này lọt qua kiểm chuỗi rồi lại thành origin
+ * NGOÀI:
+ *
+ *     returnTo=/%09/evil.com   → lưu "/\t/evil.com" → new URL xoá tab → "//evil.com" → evil.com
+ *     returnTo=/\evil.com      → "\" thành "/"      → "//evil.com" → evil.com
+ *
+ * Vì vậy phải hỏi ĐÚNG cái parser sẽ dùng để redirect: dựng URL tương đối với `baseUrl` rồi
+ * so `origin`. Khác origin → vứt về `/`. Cách này chống được cả những ký tự lạ ta chưa nghĩ
+ * tới, vì nó không đoán mà giao cho chính parser đó quyết định.
+ *
+ * Trả về đường dẫn ĐÃ CHUẨN HOÁ (không kèm origin) để nơi gọi ghép lại an toàn.
  */
-export function safeReturnTo(value: string | null): string {
+export function safeReturnTo(value: string | null, baseUrl: string): string {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return '/';
-  return value;
+
+  let resolved: URL;
+  try {
+    resolved = new URL(value, baseUrl);
+  } catch {
+    return '/';
+  }
+
+  if (resolved.origin !== new URL(baseUrl).origin) return '/';
+  return resolved.pathname + resolved.search + resolved.hash;
 }
