@@ -232,7 +232,7 @@ migration CREATE TABLE -> CREATE TABLE / DROP TABLE
 drizzle-kit trên host không tới được DB. `infra/compose/docker-compose.dev.yml` chỉ THÊM
 `ports`, bind **127.0.0.1** (không phải 0.0.0.0), và **không bao giờ dùng ở production**.
 
-Cổng chọn `55432`/`56543` chứ không phải `5432`/`6543` vì:
+Cổng chọn `15432`/`16543` chứ không phải `5432`/`6543` vì:
 
 ```
 Get-NetTCPConnection -LocalPort 5432 -> PID 6836 (postgres) ĐANG CHẠY
@@ -241,6 +241,11 @@ Get-NetTCPConnection -LocalPort 5432 -> PID 6836 (postgres) ĐANG CHẠY
 Máy dev đã có PostgreSQL của **dự án khác**. Chiếm 5432 sẽ hoặc fail lúc `up`, hoặc tệ hơn
 là làm công cụ trỏ nhầm database. Sau khi đổi cổng, đã xác minh PID 6836 vẫn giữ 5432 —
 dự án kia không bị đụng.
+
+> **Cập nhật 2026-07-23:** cổng dev ban đầu là `55432`/`56543`, đã đổi xuống `15432`/`16543`.
+> Windows/Hyper-V đặt gạch các dải trong dynamic port range (49152–65535) mỗi lần khởi động
+> máy, và nó bốc trúng 55364–55463 làm cổng 55432 không bind được nữa (dù không ai giữ cổng).
+> Cổng dưới 49152 không bao giờ bị đặt gạch. Xem chú thích trong `docker-compose.dev.yml`.
 
 ## OpenAPI (DEC-T07) ✅
 

@@ -149,12 +149,17 @@ Mọi version dưới đây được đọc từ registry thật ngày 2026-07-1
   drizzle-kit / Drizzle Studio / psql chạy trên host thì không tới được database.
 - **Quyết định:** thêm `infra/compose/docker-compose.dev.yml` — overlay **chỉ dùng ở máy cá nhân**,
   chỉ THÊM `ports`, không đổi image/network/volume/env.
-- **Bind loopback:** `127.0.0.1:55432 -> db:5432` và `127.0.0.1:56543 -> supavisor:6543`.
+- **Bind loopback:** `127.0.0.1:15432 -> db:5432` và `127.0.0.1:16543 -> supavisor:6543`.
   Không bind `0.0.0.0` nên không lộ ra LAN.
-- **Vì sao 55432/56543 chứ không phải 5432/6543:** máy dev **đã có một PostgreSQL của dự án
-  khác** giữ cổng 5432 (kiểm chứng: `Get-NetTCPConnection -LocalPort 5432` → PID 6836).
-  Chiếm cổng đó sẽ hoặc làm `up` fail, hoặc tệ hơn là khiến công cụ lặng lẽ trỏ nhầm
-  database của dự án kia. Dịch sang dải 55xxx để hai dự án sống chung trên một máy.
+- **Vì sao 15432/16543 chứ không phải 5432/6543 — HAI ràng buộc:**
+  1. Máy dev **đã có một PostgreSQL của dự án khác** giữ cổng 5432 (kiểm chứng:
+     `Get-NetTCPConnection -LocalPort 5432` → PID 6836). Chiếm cổng đó sẽ hoặc làm `up` fail,
+     hoặc tệ hơn là khiến công cụ lặng lẽ trỏ nhầm database của dự án kia.
+  2. Cổng phải nằm **dưới 49152**, ngoài dynamic port range của Windows. WinNAT/Hyper-V đặt
+     gạch từng dải trong 49152–65535 mỗi lần khởi động máy; ngày **2026-07-23** nó bốc trúng
+     55364–55463 và nuốt luôn cổng **55432** cũ — container fail với "bind: forbidden by its
+     access permissions" dù không tiến trình nào giữ cổng. Đổi 55432/56543 → **15432/16543**
+     để lỗi này không tái diễn. (Đây là lý do đổi từ dải 55xxx ban đầu.)
 - **Ràng buộc:** overlay này **không bao giờ** dùng ở staging/production. Lệnh production chỉ
   nêu `docker-compose.yml`. P8 coi việc một service ngoài Caddy publish port ra Internet là
   stop condition.

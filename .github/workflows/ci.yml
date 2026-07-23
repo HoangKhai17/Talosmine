@@ -235,10 +235,10 @@ jobs:
           EOF
 
           # Chỉ URL migration được đưa sang step sau. drizzle-kit nối TRỰC TIẾP
-          # PostgreSQL (cổng 55432 của overlay dev), KHÔNG qua Supavisor, bằng role
+          # PostgreSQL (cổng 15432 của overlay dev), KHÔNG qua Supavisor, bằng role
           # migration riêng — DEC-T09. Runtime role cố ý không xuất hiện ở đây vì
           # nó không có quyền DDL.
-          echo "MIGRATION_DATABASE_URL=postgresql://talosmine_migration:$migration_pw@127.0.0.1:55432/postgres" >> "$GITHUB_ENV"
+          echo "MIGRATION_DATABASE_URL=postgresql://talosmine_migration:$migration_pw@127.0.0.1:15432/postgres" >> "$GITHUB_ENV"
 
       # `config` là gate rẻ nhất: cú pháp/interpolation sai thì fail ở đây thay vì
       # sau 90 giây chờ container.

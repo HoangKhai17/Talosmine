@@ -45,10 +45,11 @@ pnpm dev:api      # http://localhost:3001
 pnpm dev:worker
 ```
 
-> Overlay `docker-compose.dev.yml` bind **127.0.0.1:55432** (PostgreSQL) và
-> **127.0.0.1:56543** (Supavisor). Không phải 5432/6543 vì máy dev đã có PostgreSQL của
-> dự án khác giữ cổng đó. Overlay này **chỉ dùng ở máy cá nhân** — production không
-> publish port nào ngoài Caddy.
+> Overlay `docker-compose.dev.yml` bind **127.0.0.1:15432** (PostgreSQL) và
+> **127.0.0.1:16543** (Supavisor). Không phải 5432/6543 vì máy dev đã có PostgreSQL của
+> dự án khác giữ cổng đó; và cố ý **dưới 49152** để Windows/Hyper-V không đặt gạch mất cổng
+> sau mỗi lần khởi động máy (xem chú thích trong `docker-compose.dev.yml`). Overlay này
+> **chỉ dùng ở máy cá nhân** — production không publish port nào ngoài Caddy.
 
 ## Lệnh
 

@@ -11,7 +11,7 @@ beforeEach(() => {
   resetEnvCache();
 });
 
-const VALID_DATABASE_URL = 'postgres://talosmine_runtime.talosmine@127.0.0.1:56543/postgres';
+const VALID_DATABASE_URL = 'postgres://talosmine_runtime.talosmine@127.0.0.1:16543/postgres';
 
 function baseEnv(): NodeJS.ProcessEnv {
   return { DATABASE_URL: VALID_DATABASE_URL };

@@ -21,23 +21,34 @@
 #     (Trước 2026-07-22 dòng này ghi "overlay chỉ THÊM ports". Việc thêm `mailpit` phá bất
 #     biến đó, nên nó được viết lại thay vì để câu cũ nói sai sự thật.)
 
-# Cổng host cố ý KHÔNG dùng 5432/6543 mặc định.
-# Máy dev này đã có một PostgreSQL khác chạy trên 5432 (dự án khác của chủ dự án).
-# Chiếm cổng đó sẽ hoặc fail lúc `up`, hoặc tệ hơn: làm công cụ trỏ nhầm database.
-# Dịch sang dải 55xxx để hai dự án sống chung hoà bình trên cùng một máy.
+# Cổng host cố ý KHÔNG dùng 5432/6543 mặc định, VÀ cố ý nằm DƯỚI 49152.
+#
+# Hai ràng buộc, cả hai đều đã cắn thật:
+#
+#   1. Máy dev này đã có một PostgreSQL khác chạy trên 5432 (dự án khác của chủ dự án).
+#      Chiếm cổng đó sẽ hoặc fail lúc `up`, hoặc tệ hơn: làm công cụ trỏ nhầm database.
+#
+#   2. Cổng phải nằm DƯỚI 49152 — ngoài "dynamic port range" của Windows (49152–65535).
+#      WinNAT/Hyper-V đặt gạch từng dải trong khoảng đó mỗi lần khởi động máy, và ngày
+#      2026-07-23 nó bốc trúng dải 55364–55463 — nuốt luôn cổng 55432 cũ. Triệu chứng:
+#      container fail với "bind: An attempt was made to access a socket in a way forbidden
+#      by its access permissions", dù `Get-NetTCPConnection` cho thấy KHÔNG ai giữ cổng.
+#      Cổng dưới 49152 thì Hyper-V không bao giờ đặt gạch được, nên lỗi này không tái diễn.
+#
+# Vì (1): tránh 5432/6543. Vì (2): 1xxxx thay vì 5xxxx. Kết quả: 15432 / 16543.
 
 services:
   db:
     ports:
-      # 55432 -> đường TRỰC TIẾP tới PostgreSQL, không qua pooler.
+      # 15432 -> đường TRỰC TIẾP tới PostgreSQL, không qua pooler.
       # Dùng cho: `pnpm db:migrate` (role migration cần session ổn định để chạy DDL).
-      - '127.0.0.1:55432:5432'
+      - '127.0.0.1:15432:5432'
 
   supavisor:
     ports:
-      # 56543 -> transaction pooler. Đây là đường RUNTIME mà API/worker dùng.
+      # 16543 -> transaction pooler. Đây là đường RUNTIME mà API/worker dùng.
       # Dùng cho: chạy API ở host và mọi test cần đi đúng đường như production.
-      - '127.0.0.1:56543:6543'
+      - '127.0.0.1:16543:6543'
 
   logto:
     ports:
