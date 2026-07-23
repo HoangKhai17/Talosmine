@@ -117,70 +117,88 @@ cố ý không có cột cho chúng.
 
 Xem D1. Ghi ở đây vì đây là quyết định của chủ dự án, không phải việc kỹ thuật.
 
-### A9. Đăng nhập bằng Google — chủ dự án đang cấu hình connector (2026-07-22)
+### A9. Đăng nhập bằng Google — ✅ ĐÃ DỰNG, CHỜ CHỦ DỰ ÁN TEST TAY (2026-07-22)
 
-Hiện trạng đo trên instance đang chạy:
+**Chủ dự án chốt hướng A-linking = "tự liên kết, chỉ Google"** (bảng bên dưới), và đã cấu hình
+xong connector + publish OAuth app bên Google. Frontend đã dựng và kiểm chứng tới ranh giới
+Google; phần đăng nhập Google thật phải test tay vì Google chặn automation.
 
-```
-factory có sẵn:                google-universal (Social)
-connector đã cài:              chỉ Email — chưa có social nào
-socialSignIn: {}   socialSignInConnectorTargets: []
-```
-
-Nút "Tiếp tục với Google" trong `apps/logto-ui` đang `disabled` **cứng trong code**. Nhờ vậy
-bật connector ở Logto là an toàn: chưa ai bấm được, nên không ai rơi vào màn hình chưa dựng.
-
-**BA QUYẾT ĐỊNH CẦN CHỦ DỰ ÁN CHỐT** trước khi viết code — chúng đổi thứ phải dựng, không
-phải chi tiết cấu hình:
-
-1. **Liên kết tài khoản.** `an@gmail.com` đã có tài khoản email + mật khẩu, rồi bấm đăng nhập
-   Google với chính địa chỉ đó:
-
-   | | Hành vi | Cái giá |
-   |---|---|---|
-   | A | không liên kết | người dùng có hai tài khoản, bộ sưu tập nằm ở tài khoản kia và họ tưởng mất dữ liệu |
-   | B | tự liên kết theo email đã xác minh (`linkSocialIdentity: true`) | an toàn CHỈ KHI IdP đảm bảo `email_verified`. Google có. Thêm IdP khác mà quên luật này là mở đường chiếm tài khoản |
-   | C | hỏi rồi đòi mật khẩu | an toàn nhất, thêm một màn hình |
-
-   Đề xuất: **B, khoá cứng chỉ cho Google**, kèm luật cấm auto-link với IdP không đảm bảo
-   `email_verified`.
-
-2. **Ai sở hữu Google Cloud project** (OAuth client nằm ở tài khoản nào).
-3. **Chấp nhận việc Google biết ai đăng nhập Talosmine lúc nào hay không.** Mật khẩu vẫn không
-   chạm hệ thống ta nên không mâu thuẫn trực tiếp DEC-T22, nhưng metadata đăng nhập thì có.
-
-**Chặn thật, không phải việc code:** consent screen của Google **bắt buộc** có link Privacy
-Policy và Terms of Service khi rời chế độ "Testing". Hai văn bản đó **chưa được soạn** — cùng
-thứ đang treo ở C5. Đây là đường găng.
-
-**Việc kỹ thuật, làm sau khi có quyết định:**
-
-- **Màn hình callback là bắt buộc và phải dựng TRƯỚC khi bỏ `disabled`.** Luồng social RỜI
-  TRANG rồi quay lại một URL khác — khác hẳn đăng ký và quên mật khẩu vốn gói trong một trang.
-  `redirectUri` hiện rơi vào `fallbackScreen`, nên người dùng sẽ thấy "Màn hình chưa được
-  dựng" ngay sau khi vừa cấp quyền cho Google.
-- `verificationId` phải lưu `sessionStorage` — biến JS mất khi rời trang.
-- `state` phải tự sinh và tự đối chiếu lúc quay về. Logto nhận `state` ta đưa và trả lại
-  nguyên vẹn, **không kiểm hộ**; bỏ bước đối chiếu là mở CSRF ngay tại đường đăng nhập.
-- **Chưa đo, phải kiểm trước khi bật:** tài khoản chỉ có social rồi bấm "Quên mật khẩu" thì
-  Logto xử lý ra sao. Không đoán.
-
-Luồng theo swagger của instance đang chạy:
+**Cách nối:**
 
 ```
-POST .../verification/social/{id}/authorization-uri  {state, redirectUri}
-                                                  -> {verificationId, authorizationUri}
-   -> roi Talosmine sang Google;  <- Google tra ve redirectUri kem code + state
-POST .../verification/social/{id}/verify  {connectorData, verificationId} -> {verificationId MOI}
-POST .../identification  {verificationId, linkSocialIdentity?}
-POST .../submit                                   -> {redirectTo}
+connector Google (Logto)  id = 7ygneqvk0jpw2tnwtrmpo   target = google
+sign-in-exp               socialSignInConnectorTargets = ['google']   (bật bởi script)
+apps/logto-ui             nút "Tiếp tục với Google" TỰ kích hoạt theo socialConnectors[]
+callback                  /callback/<connectorId>  → socialCallbackScreen trong app.js
 ```
 
-**Lựa chọn thay thế rẻ hơn nhiều, chưa bị bác bỏ:** đăng nhập bằng **mã gửi qua email**. SMTP
-đã chạy, không cần Google Cloud, không bị chặn bởi Privacy Policy, không bên thứ ba nào biết
-gì, và tái dùng được `codeStep` đã có. Bật bằng `verificationCode: true` trong
-`signIn.methods`. Nếu lý do chọn Google là "người dùng mong đợi có nó" thì đó là lý do hợp lệ
-— nhưng nên gọi đúng tên thay vì gộp vào lý do tiện lợi.
+Nút đọc `socialConnectors` từ `/api/.well-known/experience` để tự bật/tắt — không viết cứng
+ID. `infra/scripts/configure-logto-sign-in.mjs` suy ra `socialSignInConnectorTargets` từ
+connector thực tế, nên chạy lại luôn khớp hiện trạng.
+
+**Luồng bốn chặng** (contract đọc từ swagger + mã connector trong container, không đoán):
+
+```
+PUT  /api/experience                                 {interactionEvent:'SignIn'}
+POST /api/experience/verification/social/{id}/authorization-uri  {state, redirectUri}
+                                                  -> {authorizationUri, verificationId}
+   → RỜI TRANG sang Google;  ← Google trả về /callback/{id}?code=…&state=…
+POST /api/experience/verification/social/{id}/verify
+        {connectorData:{code, redirectUri}, verificationId}      -> {verificationId MỚI}
+POST /api/experience/identification  {verificationId, linkSocialIdentity:true}
+POST /api/experience/submit                                      -> {redirectTo}
+```
+
+Ba điều đã đo/xử lý đúng:
+
+- `connectorData` là `{code, redirectUri}` — đọc từ `authResponseGuard` trong mã connector,
+  không phải toàn bộ query params. `redirectUri` phải y hệt ở authorization-uri và verify,
+  Google đối chiếu khi đổi token.
+- `state` sinh bằng `crypto.getRandomValues`, lưu `sessionStorage` (biến JS mất khi rời
+  trang), đối chiếu lúc quay về — chốt chặn CSRF. Logto không kiểm hộ.
+- `sessionStorage` dùng MỘT LẦN: xoá ngay khi callback chạy, một lần quay về không phát lại được.
+
+**A-linking đã chốt = tự liên kết chỉ cho Google:**
+
+| | Hành vi | |
+|---|---|---|
+| A | không liên kết | bỏ |
+| **B** | **tự liên kết theo email đã xác minh** (`linkSocialIdentity:true`) | ✅ chọn — Google đảm bảo `email_verified` |
+| C | hỏi rồi đòi mật khẩu | bỏ |
+
+`linkSocialIdentity:true` khoá cứng cho luồng Google. Thêm IdP khác thì PHẢI xét lại: IdP nào
+không đảm bảo `email_verified` mà auto-link là mở đường chiếm tài khoản.
+
+**ĐÃ SỬA MỘT LỖI KHI TEST TAY (2026-07-22):** lần test đầu, log Logto cho thấy
+`verify → 200` nhưng `identification → 404 user_not_exist`. Nguyên nhân (đọc từ mã core):
+`POST /api/experience/identification` phân nhánh theo `interactionEvent` — `SignIn` gọi
+`identifyUser()` (chỉ tìm tài khoản đang có, không có thì 404), `Register` gọi `createUser()`
+(tạo mới). Người bấm "Tiếp tục với Google" lần đầu là tài khoản MỚI, mà luồng chỉ chạy SignIn.
+
+Đã sửa `completeGoogleSignIn`: thử SignIn trước (để đăng nhập/gộp nếu email đã có), gặp
+404 `user_not_exist` thì `PUT experience {interactionEvent:'Register'}` rồi định danh lại —
+verification record của Google sống sót qua lần đổi interactionEvent. Chính sách social hiện
+tại `{automaticAccountLinking:false, skipRequiredIdentifiers:false}`; register vẫn chạy vì
+Google cấp email đã xác minh (thoả định danh bắt buộc), và password không nằm trong hồ sơ
+bắt buộc của luồng social.
+
+**CÒN TREO — chủ dự án test tay rồi báo lại (sau bản sửa v17):**
+
+1. **Test đầu-đến-cuối bằng Gmail thật** (đã ở Test users). Ba tình huống: (a) tài khoản Google
+   HOÀN TOÀN MỚI → phải tự tạo tài khoản; (b) email Google TRÙNG tài khoản email+mật khẩu đã có
+   → phải GỘP, không tạo tài khoản thứ hai; (c) bấm Huỷ ở màn hình Google → về màn báo lỗi, không treo.
+2. **Chưa đo:** tài khoản chỉ có Google (không mật khẩu) rồi bấm "Quên mật khẩu" — Logto xử lý
+   ra sao. Cần kiểm trước khi coi là xong.
+
+**⚠ BẢO MẬT — XOAY CLIENT SECRET.** Ngày 2026-07-22, script đọc connector của agent in cả
+`config.clientSecret` ra khung chat, nên Client Secret Google đã lộ vào lịch sử hội thoại.
+Mức thấp (client dev, Testing mode, localhost) nhưng **phải xoay trước khi lên production**:
+Google Cloud → OAuth client → Add secret → dán vào Logto → xoá secret cũ. Cùng nhóm với A3
+(xoay Logto App Secret cũng đã lộ trong chat).
+
+**Chặn PRODUCTION (không chặn dev):** consent screen phải có Privacy Policy + Terms khi rời
+Testing mode — chưa soạn, cùng thứ treo ở C5. Ở dev/localhost thì Testing mode + test users là
+đủ, không cần hai văn bản đó.
 
 ---
 

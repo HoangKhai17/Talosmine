@@ -107,11 +107,32 @@ async function main() {
     );
   }
 
+  /*
+   * Bật đăng nhập Google — CHỈ khi connector Google có thật.
+   *
+   * `socialSignInConnectorTargets` là danh sách các target hiện lên nút social ở trang đăng
+   * nhập. Đặt 'google' vào đây mà chưa có connector là hứa một nút không bấm được; ngược lại,
+   * có connector mà không đặt thì nút không bao giờ xuất hiện dù đã cấu hình xong. Vì vậy giá
+   * trị này SUY RA TỪ connector thực tế, không viết cứng — chạy lại script luôn khớp hiện trạng.
+   *
+   * Giao diện `apps/logto-ui` đọc `socialConnectors` từ well-known để tự bật/tắt nút, nên bật
+   * ở đây là đủ; không phải sửa thêm gì phía frontend.
+   */
+  const socialTargets = connectors
+    .filter((c) => c.type === 'Social' && c.target)
+    .map((c) => c.target);
+
   const before = await api(env, token, '/api/sign-in-exp');
 
   await api(env, token, '/api/sign-in-exp', {
     method: 'PATCH',
-    body: JSON.stringify({ signUp: SIGN_UP, signIn: SIGN_IN, ...FORGOT_PASSWORD, ...BRANDING }),
+    body: JSON.stringify({
+      signUp: SIGN_UP,
+      signIn: SIGN_IN,
+      ...FORGOT_PASSWORD,
+      ...BRANDING,
+      socialSignInConnectorTargets: socialTargets,
+    }),
   });
 
   const after = await api(env, token, '/api/sign-in-exp');
@@ -130,6 +151,9 @@ async function main() {
   console.log(
     `ngôn ngữ: ${after.languageInfo.fallbackLanguage}` +
       `${after.languageInfo.autoDetect ? ' (tự đoán)' : ' (cố định)'}`,
+  );
+  console.log(
+    `đăng nhập mạng xã hội: ${after.socialSignInConnectorTargets?.join('+') || '(không có connector nào)'}`,
   );
 
   // Đọc lại và kiểm, không tin lời PATCH. Nếu thiết lập không vào được thì màn hình quên mật

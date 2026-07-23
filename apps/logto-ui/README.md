@@ -161,8 +161,42 @@ cần đúng một thứ, và hai bản sao là cách chắc chắn để sau n�
 | `/sign-in` | ✅ email hoặc tên đăng nhập + mật khẩu |
 | `/register` | ✅ email + xác minh bằng mã |
 | `/forgot-password` | ✅ thư → mã → mật khẩu mới → báo xong |
+| `/callback/<connectorId>` | ✅ Google đưa về đây → verify → định danh → chuyển tiếp |
 | `/unknown-session` | ✅ giải thích + đường quay lại |
-| MFA, đăng nhập mạng xã hội, màn hình đồng ý | ✗ chưa bật ở Logto nên chưa tới được |
+| MFA, màn hình đồng ý | ✗ chưa bật ở Logto nên chưa tới được |
+
+### Đăng nhập bằng Google
+
+Nút "Tiếp tục với Google" **tự bật/tắt** theo `socialConnectors[]` đọc từ
+`/api/.well-known/experience` — không viết cứng connector ID (Logto sinh ID khác nhau giữa các
+máy). Chưa bật connector thì nút để `disabled` kèm ghi chú.
+
+Luồng RỜI TRANG, khác hẳn các màn hình khác vốn gói trong một trang:
+
+```
+bấm nút → PUT experience(SignIn) → POST .../social/{id}/authorization-uri {state, redirectUri}
+        → lưu {state, verificationId, redirectUri} vào sessionStorage → sang Google
+Google → /callback/{id}?code=…&state=…
+        → đối chiếu state (chống CSRF) → POST .../social/{id}/verify {connectorData:{code,redirectUri}}
+        → POST identification {linkSocialIdentity:true} → submit → redirectTo
+```
+
+Ba chỗ dễ sai, đều đã xử lý:
+
+- **`connectorData` là `{code, redirectUri}`**, KHÔNG phải toàn bộ query params. Đọc từ
+  `authResponseGuard` trong mã connector Google của Logto, không đoán.
+- **`redirectUri` phải y hệt** ở authorization-uri và verify — Google đối chiếu khi đổi token,
+  lệch một ký tự là `redirect_uri_mismatch`. Dựng một lần rồi cất `sessionStorage`.
+- **`state`** sinh bằng `crypto.getRandomValues`, đối chiếu lúc quay về. Logto trả lại `state`
+  ta gửi nhưng KHÔNG kiểm hộ — bỏ đối chiếu là mở CSRF ngay đường đăng nhập. `sessionStorage`
+  dùng một lần (xoá ngay khi callback chạy).
+
+`linkSocialIdentity: true` — nếu email Google (đã xác minh) trùng tài khoản đã có thì GỘP vào
+đó, không tạo tài khoản thứ hai. Khoá cứng cho Google vì Google đảm bảo `email_verified`; IdP
+khác phải xét lại trước khi bật auto-link.
+
+Bật ở Logto bằng `node infra/scripts/configure-logto-sign-in.mjs` (đặt
+`socialSignInConnectorTargets` theo connector thực tế).
 
 ## ⚠ KHÔNG mở thẳng `localhost:3001/sign-in`
 

@@ -36,7 +36,27 @@ const ROUTES = {
     `redirect_uri` nào, `state` nào.
   */
   unknownSession: '/unknown-session',
+  /*
+    Google chuyển người dùng VỀ đây sau khi cấp quyền, dạng `/callback/<connectorId>?code=…&state=…`.
+    Đây là URL đã đăng ký trong Google Cloud, và Logto phục vụ giao diện của ta ở mọi đường
+    dẫn nên app.js phải tự xử lý nó. Không dựng màn hình này thì người dùng cấp quyền xong
+    rơi vào màn hình dự phòng — ngay lúc tệ nhất.
+  */
+  socialCallback: '/callback/',
 };
+
+/** Khoá lưu trạng thái luồng Google giữa hai lần tải trang (trước và sau chuyến đi Google). */
+const SOCIAL_STORAGE_KEY = 'talosmine.social';
+
+/**
+ * Connector Google, đọc từ Logto lúc khởi động — hoặc `null` nếu chưa bật.
+ *
+ * Đọc từ `/api/.well-known/experience` (`socialConnectors[]`) thay vì viết cứng ID: connector
+ * ID do Logto sinh và khác nhau giữa các máy. Nút "Tiếp tục với Google" TỰ kích hoạt khi giá
+ * trị này khác `null`, và tự về trạng thái `disabled` khi connector chưa bật — không cần sửa
+ * code hai nơi.
+ */
+let googleConnector = null;
 
 /**
  * Kiểm địa chỉ thư — CỐ Ý LỎNG, lấy đúng biểu thức mà Experience API dùng
@@ -307,6 +327,142 @@ async function resetPassword(password) {
   return result?.redirectTo;
 }
 
+/* ── Đăng nhập bằng Google ─────────────────────────────────────────────────────
+ *
+ * KHÁC HẲN mọi luồng trên: nó RỜI TRANG. Người dùng đi sang Google, cấp quyền, rồi Google
+ * đưa họ về `/callback/<connectorId>`. Vì trang bị tải lại ở giữa chừng, mọi thứ cần giữ
+ * (verificationId, state) phải nằm ở `sessionStorage` chứ không phải biến JS.
+ */
+
+/**
+ * Đọc connector Google từ Logto. Trả `null` nếu chưa bật.
+ *
+ * `socialConnectors[]` ở well-known endpoint là danh sách công khai, đọc được không cần
+ * phiên. Mỗi mục có `id` (dùng cho callback URI) và `target` ('google'). Không viết cứng ID
+ * vì Logto sinh ID khác nhau giữa các máy.
+ */
+async function fetchGoogleConnector() {
+  try {
+    const response = await fetch('/api/.well-known/experience', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const list = Array.isArray(data.socialConnectors) ? data.socialConnectors : [];
+    return list.find((c) => c.target === 'google') ?? null;
+  } catch {
+    // Mất mạng lúc khởi động: coi như chưa có Google, nút để disabled. Đăng nhập mật khẩu
+    // vẫn dùng được.
+    return null;
+  }
+}
+
+/**
+ * Sinh `state` ngẫu nhiên — chốt chặn CSRF cho luồng OAuth.
+ *
+ * Google trả lại đúng `state` ta gửi đi. Lúc quay về, ta đối chiếu: khác nghĩa là phản hồi
+ * không thuộc phiên ta khởi tạo (có thể là đòn CSRF), phải từ chối. `crypto.getRandomValues`
+ * chứ không `Math.random`: giá trị này phải không đoán trước được.
+ */
+function randomState() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Google — CHẶNG 1: xin URL cấp quyền rồi RỜI TRANG sang Google.
+ *
+ * `redirectUri` phải TRÙNG KHỚP hai nơi: (a) URL đã đăng ký trong Google Cloud, và (b) chuỗi
+ * ta gửi ở bước verify lúc quay về — Google đối chiếu nó khi đổi code lấy token, lệch một ký
+ * tự là `redirect_uri_mismatch`. Vì vậy dựng nó MỘT lần ở đây rồi cất đi dùng lại.
+ */
+async function startGoogleSignIn(connector) {
+  const redirectUri = `${window.location.origin}/callback/${connector.id}`;
+  const state = randomState();
+
+  await callExperience('PUT', '/api/experience', { interactionEvent: 'SignIn' });
+
+  const { authorizationUri, verificationId } = await callExperience(
+    'POST',
+    `/api/experience/verification/social/${connector.id}/authorization-uri`,
+    { state, redirectUri },
+  );
+
+  sessionStorage.setItem(
+    SOCIAL_STORAGE_KEY,
+    JSON.stringify({ state, verificationId, connectorId: connector.id, redirectUri }),
+  );
+
+  // `assign` chứ không `replace`: người dùng bấm Back ở màn hình Google sẽ quay lại được
+  // trang đăng nhập của ta.
+  window.location.assign(authorizationUri);
+}
+
+/**
+ * Google — CHẶNG 2: đổi `code` lấy phiên đăng nhập, chạy khi Google đưa người dùng về.
+ *
+ * `connectorData: { code, redirectUri }` là shape mà connector Google của Logto đòi đúng
+ * (đã đọc từ mã nguồn connector trong container, không đoán). `redirectUri` phải y hệt chuỗi
+ * ở chặng 1.
+ *
+ * `linkSocialIdentity: true` — nếu email Google (đã xác minh) này đã có tài khoản, GỘP Google
+ * vào tài khoản đó thay vì tạo tài khoản thứ hai. Quyết định của chủ dự án (2026-07-22): tự
+ * liên kết, và CHỈ cho Google, vì Google đảm bảo `email_verified`. Bật auto-link cho một IdP
+ * không đảm bảo điều đó là mở đường chiếm tài khoản — nên luồng này chỉ dùng cho Google.
+ *
+ * ĐĂNG NHẬP HAY ĐĂNG KÝ — QUYẾT ĐỊNH KHI QUAY VỀ, KHÔNG BIẾT TRƯỚC.
+ *
+ * `POST /api/experience/identification` phân nhánh theo `interactionEvent` (đọc từ mã core,
+ * không đoán):
+ *   - SignIn   → `identifyUser()`: tìm tài khoản đang có; KHÔNG có thì trả 404 `user_not_exist`.
+ *   - Register → `createUser()`:   tạo tài khoản mới từ hồ sơ Google.
+ *
+ * Nên với người bấm "Tiếp tục với Google", ta chưa biết họ đã có tài khoản hay chưa. Thử
+ * SignIn trước:
+ *   - Đã có tài khoản (hoặc email trùng để `linkSocialIdentity` gộp) → xong.
+ *   - 404 `user_not_exist` (tài khoản Google hoàn toàn mới) → chuyển interaction sang Register
+ *     rồi định danh lại. Verification record của Google SỐNG SÓT qua lần đổi interactionEvent
+ *     (chỉ `profile` bị dọn), nên dùng lại đúng `verificationId` đó.
+ *
+ * Đây đúng là lỗi đã đo được lần đầu: verify trả 200 nhưng identification trả 404 vì luồng
+ * chỉ chạy SignIn cho một tài khoản chưa tồn tại.
+ */
+async function completeGoogleSignIn({ connectorId, code, redirectUri, verificationId }) {
+  const verified = await callExperience(
+    'POST',
+    `/api/experience/verification/social/${connectorId}/verify`,
+    { connectorData: { code, redirectUri }, verificationId },
+  );
+  const socialVerificationId = verified.verificationId;
+
+  try {
+    // Đăng nhập: tài khoản đã tồn tại, hoặc email Google trùng tài khoản cũ để gộp vào.
+    await callExperience('POST', '/api/experience/identification', {
+      verificationId: socialVerificationId,
+      linkSocialIdentity: true,
+    });
+  } catch (error) {
+    // Tài khoản Google MỚI HOÀN TOÀN: chuyển sang đăng ký rồi tạo tài khoản từ hồ sơ Google.
+    if (
+      error instanceof ExperienceError &&
+      error.status === 404 &&
+      error.code === 'user.user_not_exist'
+    ) {
+      await callExperience('PUT', '/api/experience', { interactionEvent: 'Register' });
+      await callExperience('POST', '/api/experience/identification', {
+        verificationId: socialVerificationId,
+      });
+    } else {
+      throw error;
+    }
+  }
+
+  const result = await callExperience('POST', '/api/experience/submit');
+  return result.redirectTo;
+}
+
 /**
  * Đổi lỗi của máy chủ thành câu người dùng đọc được.
  *
@@ -493,21 +649,48 @@ function brandPanel() {
 /**
  * Nút "Tiếp tục với Google".
  *
- * LUÔN `disabled`: cấu hình Logto đang chạy có `socialSignIn: {}` và
- * `socialSignInConnectorTargets: []` — chưa khai báo connector Google nào. Nút giữ đúng chỗ
- * trong bố cục nhưng không giả vờ chạy được.
+ * TỰ KÍCH HOẠT theo `googleConnector` (đọc lúc khởi động). Chưa bật connector thì nút để
+ * `disabled` kèm ghi chú — giữ đúng chỗ trong bố cục nhưng không giả vờ chạy được.
+ *
+ * `showError` do màn hình gọi truyền vào: nếu bước xin URL cấp quyền hỏng (mất mạng, Logto
+ * lỗi), lỗi hiện ngay trong khối lỗi của biểu mẫu thay vì im lặng.
  */
-function googleButton() {
-  return [
-    el('button', { type: 'button', class: 'typeBody socialButton', disabled: '' }, [
-      googleIcon(),
-      el('span', { text: 'Tiếp tục với Google' }),
-    ]),
-    el('p', {
-      class: 'typeCaption textTertiary socialNote',
-      text: 'Chưa cấu hình connector Google',
-    }),
-  ];
+function googleButton(showError) {
+  if (!googleConnector) {
+    return [
+      el('button', { type: 'button', class: 'typeBody socialButton', disabled: '' }, [
+        googleIcon(),
+        el('span', { text: 'Tiếp tục với Google' }),
+      ]),
+      el('p', {
+        class: 'typeCaption textTertiary socialNote',
+        text: 'Chưa cấu hình connector Google',
+      }),
+    ];
+  }
+
+  const button = el('button', { type: 'button', class: 'typeBody socialButton' }, [
+    googleIcon(),
+    el('span', { text: 'Tiếp tục với Google' }),
+  ]);
+
+  button.addEventListener('click', async () => {
+    // Khoá nút trước khi gọi: một cú bấm đúp tạo hai phiên tương tác, cái sau đè cái trước.
+    button.disabled = true;
+    try {
+      await startGoogleSignIn(googleConnector);
+      // Không mở khoá nút: trang đang rời sang Google.
+    } catch (error) {
+      button.disabled = false;
+      const message =
+        error instanceof ExperienceError
+          ? 'Không mở được đăng nhập Google. Thử lại giúp bạn.'
+          : 'Không kết nối được tới máy chủ. Kiểm tra đường truyền rồi thử lại.';
+      if (showError) showError(message);
+    }
+  });
+
+  return [button];
 }
 
 /**
@@ -993,7 +1176,7 @@ function authScreen(config) {
     el('h1', { class: 'typeH2', text: config.title }),
     el('p', { class: 'typeBodySmall textSecondary lead', text: config.lead }),
     errorBox,
-    ...googleButton(),
+    ...googleButton(showError),
     el('div', { class: 'divider' }, [
       el('span', { class: 'typeBodySmall textTertiary', text: config.dividerLabel }),
     ]),
@@ -1311,6 +1494,101 @@ function unknownSessionScreen() {
 }
 
 /**
+ * Màn hình Google đưa người dùng VỀ — xử lý phần còn lại của luồng rồi chuyển tiếp.
+ *
+ * Chạy tại `/callback/<connectorId>`. Không có ô nhập nào: nó đọc `code` + `state` từ URL,
+ * đối chiếu `state`, đổi lấy phiên, rồi đi tới `redirectTo`. Người dùng chỉ thấy một dòng
+ * "đang hoàn tất" thoáng qua — trừ khi có lỗi thì dừng lại và nói rõ.
+ */
+function socialCallbackScreen() {
+  const formArea = el('div', { class: 'formArea' }, [
+    el('h1', { class: 'typeH2', text: 'Đang hoàn tất đăng nhập…' }),
+    el('p', {
+      class: 'typeBodySmall textSecondary lead',
+      text: 'Đang xác minh với Google, chờ một chút giúp bạn.',
+    }),
+  ]);
+
+  function fail(message) {
+    formArea.replaceChildren(
+      el('h1', { class: 'typeH2', text: 'Không đăng nhập được bằng Google' }),
+      el('p', { class: 'typeBodySmall textSecondary lead', text: message }),
+      el('a', { class: 'typeBody submitButton doneLink', href: ROUTES.signIn, text: 'Thử lại' }),
+    );
+  }
+
+  (async () => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = sessionStorage.getItem(SOCIAL_STORAGE_KEY);
+    // Dùng MỘT LẦN: xoá ngay để một lần quay về không thể phát lại (và tab cũ không dùng lại).
+    sessionStorage.removeItem(SOCIAL_STORAGE_KEY);
+
+    // Google trả `error` khi người dùng bấm Huỷ hoặc từ chối cấp quyền.
+    if (params.get('error')) {
+      fail(
+        'Bạn đã huỷ, hoặc Google từ chối cấp quyền. Bạn có thể thử lại hoặc đăng nhập bằng mật khẩu.',
+      );
+      return;
+    }
+
+    let pending = null;
+    try {
+      pending = raw ? JSON.parse(raw) : null;
+    } catch {
+      pending = null;
+    }
+
+    const code = params.get('code');
+    const state = params.get('state');
+
+    if (!pending || !code || !state) {
+      fail('Phiên đăng nhập bằng Google đã hết hoặc không đầy đủ. Bắt đầu lại từ trang đăng nhập.');
+      return;
+    }
+
+    // CHỐT CHẶN CSRF: state trả về phải khớp state đã gửi đi. Khác nghĩa là phản hồi này
+    // không thuộc phiên ta khởi tạo — dừng, không đổi lấy phiên.
+    if (state !== pending.state) {
+      fail(
+        'Phản hồi từ Google không khớp phiên đăng nhập. Dừng lại vì lý do an toàn — thử lại giúp bạn.',
+      );
+      return;
+    }
+
+    try {
+      const redirectTo = await completeGoogleSignIn({
+        connectorId: pending.connectorId,
+        code,
+        redirectUri: pending.redirectUri,
+        verificationId: pending.verificationId,
+      });
+      window.location.replace(redirectTo);
+    } catch (error) {
+      // Ghi lỗi thật (kèm code) cho người vận hành; hiện cho người dùng câu ngắn gọn.
+      console.error('Google sign-in failed:', error);
+      let message = 'Không hoàn tất được đăng nhập bằng Google. Thử lại giúp bạn.';
+      if (error instanceof ExperienceError) {
+        if (error.status === 403) {
+          message = 'Đăng nhập bằng Google chưa được bật cho ứng dụng này.';
+        } else if (error.code === 'user.missing_profile') {
+          // Tài khoản Google mới nhưng Logto còn đòi thêm hồ sơ để đăng ký. Nói rõ để người
+          // vận hành biết cần chỉnh cấu hình đăng ký, không phải lỗi phía người dùng.
+          message = 'Tài khoản Google thiếu thông tin bắt buộc để đăng ký. Liên hệ quản trị viên.';
+        } else if (error.code === 'user.identity_already_in_use') {
+          message = 'Tài khoản Google này đã liên kết với một người dùng khác.';
+        }
+      }
+      fail(message);
+    }
+  })();
+
+  return el('div', { class: 'page' }, [
+    el('main', { class: 'formPanel' }, [formTopRow(), formArea]),
+    brandPanel(),
+  ]);
+}
+
+/**
  * Màn hình dự phòng cho mọi đường dẫn chưa dựng.
  *
  * Nói thẳng là chưa hỗ trợ, thay vì để trang trắng. Trang trắng khiến người dùng bấm lại
@@ -1343,7 +1621,10 @@ function render() {
 
   let screen;
 
-  if (pathname.startsWith(ROUTES.unknownSession)) {
+  if (pathname.startsWith(ROUTES.socialCallback)) {
+    document.title = 'Talosmine — Đang đăng nhập';
+    screen = socialCallbackScreen();
+  } else if (pathname.startsWith(ROUTES.unknownSession)) {
     document.title = 'Talosmine — Phiên đăng nhập đã hết';
     screen = unknownSessionScreen();
   } else if (pathname.startsWith(ROUTES.register)) {
@@ -1395,4 +1676,17 @@ function render() {
  * Vì thế các link chuyển màn hình là `<a href>` bình thường: trình duyệt tải lại trang, và
  * `PUT /api/experience` ở lần gửi tiếp theo sẽ đặt lại đúng `interactionEvent`.
  */
-render();
+
+/**
+ * Khởi động: đọc connector Google TRƯỚC rồi mới vẽ, để nút "Tiếp tục với Google" biết mình
+ * nên bật hay tắt ngay từ lần vẽ đầu — không nhấp nháy từ disabled sang enabled.
+ *
+ * Một lượt fetch cùng origin, rất nhanh. Nếu hỏng, `googleConnector` giữ `null` và nút để
+ * disabled — đăng nhập bằng mật khẩu vẫn chạy bình thường.
+ */
+async function bootstrap() {
+  googleConnector = await fetchGoogleConnector();
+  render();
+}
+
+bootstrap();
