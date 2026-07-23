@@ -192,8 +192,18 @@ cấp email đã xác minh, password không nằm trong hồ sơ bắt buộc c�
 là do next dev CŨ còn trỏ cổng DB chết (56543) trước khi đổi sang 15432/16543 — restart next
 dev là hết. Control Plane ở 3100 nối DB bình thường (kiểm: token rác → 401, có correlationId).
 
-**Tầng (2) và (3) CHƯA test thật** (tài khoản Google của chủ dự án đã liên kết nên chỉ chạy
-tầng 1). Cần một Gmail chưa từng dùng để kiểm nhánh gộp-email và đăng-ký-mới.
+**LỖI TẦNG (3) ĐÃ SỬA (2026-07-23), tìm bằng test tay của chủ dự án + audit log:** tài khoản
+Google MỚI báo `session.verification_session_not_found` ở bước định danh Register. Nguyên nhân:
+tầng (3) chuyển sang Register bằng `PUT /api/experience` — mà swagger ghi rõ endpoint đó "Init
+a NEW interaction, any existing data will be CLEARED", tức XOÁ luôn social verification vừa làm.
+
+Đúng endpoint là `PUT /api/experience/interaction-event` — "switch event between SignIn and
+Register, KEEPING all the verification records data". Đã đổi sang dùng nó. Bài học: hai endpoint
+nghe giống nhau nhưng làm ngược nhau; đọc mô tả swagger, đừng đoán theo tên.
+
+**Trạng thái test tay:** tầng (1) tài khoản đã liên kết ✅ (chủ dự án đăng nhập được với
+`aitreviet@gmail.com`). Tầng (3) tài khoản mới — vừa sửa (v19), chờ test lại. Tầng (2) email
+trùng — vẫn chưa test, nhưng cùng cơ chế.
 
 **CÒN TREO — chủ dự án test tay rồi báo lại (sau bản sửa v17):**
 

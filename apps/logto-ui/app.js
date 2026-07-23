@@ -428,8 +428,17 @@ async function startGoogleSignIn(connector) {
  *
  *   (3) Email Google chưa gắn với tài khoản nào → ĐĂNG KÝ mới. `POST identification` phân
  *       nhánh theo `interactionEvent` (đọc từ mã core): SignIn chỉ TÌM, Register mới TẠO. Nên
- *       phải `PUT experience {Register}` rồi định danh lại. Verification record của Google
- *       sống sót qua lần đổi interactionEvent (chỉ `profile` bị dọn), nên dùng lại đúng vid.
+ *       phải chuyển interaction sang Register rồi định danh lại.
+ *
+ * ⚠ CHUYỂN EVENT BẰNG `PUT /api/experience/interaction-event`, KHÔNG PHẢI `PUT /api/experience`.
+ *   Hai endpoint nghe giống nhau nhưng làm ngược nhau (đọc thẳng từ swagger của instance):
+ *     - `PUT /api/experience`                → "Init a NEW interaction. Any existing
+ *                                               interaction data will be CLEARED."  ← XOÁ verification
+ *     - `PUT /api/experience/interaction-event` → "switch event between SignIn and Register,
+ *                                               KEEPING all the verification records data."  ← GIỮ
+ *   Bản trước dùng cái đầu, nên tài khoản Google MỚI báo `session.verification_session_not_found`
+ *   ở bước định danh Register (đã đo trong audit log Logto). Dùng cái sau thì social verification
+ *   sống sót, dùng lại đúng vid.
  *
  * Thử lần lượt 1 → 2 → 3, mỗi lần thất bại vì "social chưa liên kết" thì xuống tầng sau. Một
  * identification thất bại là assert ném TRƯỚC khi đổi trạng thái, nên interaction vẫn dùng lại được.
@@ -461,8 +470,11 @@ async function completeGoogleSignIn({ connectorId, code, redirectUri, verificati
       });
     } catch (error2) {
       if (!notLinkedYet(error2)) throw error2;
-      // (3) Không tài khoản nào khớp → đăng ký mới.
-      await callExperience('PUT', '/api/experience', { interactionEvent: 'Register' });
+      // (3) Không tài khoản nào khớp → đăng ký mới. Chuyển event bằng interaction-event
+      // (GIỮ verification), KHÔNG phải PUT /api/experience (XOÁ verification).
+      await callExperience('PUT', '/api/experience/interaction-event', {
+        interactionEvent: 'Register',
+      });
       await callExperience('POST', '/api/experience/identification', { verificationId: vid });
     }
   }
