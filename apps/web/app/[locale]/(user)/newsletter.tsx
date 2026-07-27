@@ -1,3 +1,5 @@
+import type { Locale } from '../../../i18n/locale';
+import { getMessages } from '../../../i18n/messages';
 import styles from './newsletter.module.css';
 
 /**
@@ -15,21 +17,18 @@ import styles from './newsletter.module.css';
  * cùng trang sẽ trùng `id`. Nếu sau này cần đặt hai lần, đổi sang `useId()` (và khi đó
  * component thành client component).
  */
-export function Newsletter() {
+export function Newsletter({ locale }: { locale: Locale }) {
+  const t = getMessages(locale);
+
   return (
     <section className="section">
       <div className="container grid">
         <div className={styles.newsletter}>
           <EnvelopeIcon />
 
-          <h2 className={`typeH2 ${styles.newsletterTitle}`}>
-            Đăng ký bản tin và cập nhật mỗi tuần
-          </h2>
+          <h2 className={`typeH2 ${styles.newsletterTitle}`}>{t.newsletter.title}</h2>
 
-          <p className={`typeBodySmall ${styles.newsletterText}`}>
-            Nhận tổng hợp công cụ mới, bài viết đáng đọc và thay đổi đáng chú ý của nền tảng — mỗi
-            tuần một lần, không spam.
-          </p>
+          <p className={`typeBodySmall ${styles.newsletterText}`}>{t.newsletter.text}</p>
 
           {/*
             Chưa có đích đến: hệ thống bản tin thuộc giai đoạn sau. Không đặt `action` thì
@@ -37,18 +36,18 @@ export function Newsletter() {
           */}
           <form className={styles.newsletterForm}>
             <label className="visuallyHidden" htmlFor="newsletter-email">
-              Địa chỉ thư điện tử
+              {t.newsletter.emailLabel}
             </label>
             <input
               id="newsletter-email"
               className={`typeBody ${styles.newsletterInput}`}
               type="email"
               name="email"
-              placeholder="Địa chỉ thư điện tử của bạn…"
+              placeholder={t.newsletter.emailPlaceholder}
               autoComplete="email"
             />
             <button type="submit" className={`typeBodySmall ${styles.newsletterSubmit}`}>
-              Đăng ký
+              {t.newsletter.submit}
             </button>
           </form>
         </div>

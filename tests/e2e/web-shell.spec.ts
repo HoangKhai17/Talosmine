@@ -263,5 +263,55 @@ test.describe('i18n routing (DEC-T25)', () => {
       const body = (await response.text()).toLowerCase();
       expect(body).not.toContain('quản trị');
     });
+
+    /**
+     * hreflang: cùng nội dung ở hai URL thì phải khai quan hệ giữa chúng, nếu không công cụ
+     * tìm kiếm coi đây là hai trang trùng lặp cạnh tranh nhau.
+     */
+    test(`/${locale} khai canonical và hreflang cho cả hai ngôn ngữ`, async ({ page }) => {
+      await page.goto(`/${locale}`);
+
+      await expect(page.locator('link[rel="canonical"]')).toHaveCount(1);
+
+      for (const other of LOCALES) {
+        await expect(page.locator(`link[rel="alternate"][hreflang="${other}"]`)).toHaveCount(1);
+      }
+      await expect(page.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveCount(1);
+    });
   }
+
+  /**
+   * Chống hồi quy cho việc dịch NỘI DUNG (không chỉ vỏ header/footer).
+   *
+   * Trước khi dịch xong, `/en` render vỏ tiếng Anh nhưng thân trang vẫn tiếng Việt. Hai bài
+   * dưới đây khoá trạng thái đó lại: mỗi trang phải nói đúng MỘT thứ tiếng.
+   */
+  /**
+   * `innerText` chứ KHÔNG phải `textContent`.
+   *
+   * `textContent` gồm cả nội dung bên trong `<script>`, mà RSC payload của Next là một
+   * `<script>` chứa nguyên văn cây React — kể cả nhánh `not-found` chưa hề hiển thị. Dùng
+   * `textContent` thì bài này báo đỏ vì chữ mà người dùng KHÔNG BAO GIỜ nhìn thấy.
+   * `innerText` chỉ trả về chữ đã render ra màn hình.
+   */
+  test('/en không còn sót chữ tiếng Việt trong thân trang', async ({ page }) => {
+    await page.goto('/en');
+    const body = await page.locator('body').innerText();
+
+    // Dấu phụ tiếng Việt chỉ tồn tại trong bản dịch `vi` — thấy chúng ở `/en` nghĩa là có
+    // chuỗi chưa đi qua message catalog.
+    expect(body).not.toMatch(/[ăâđêôơưĂÂĐÊÔƠƯ]/);
+  });
+
+  test('/vi và /en render nội dung khác nhau', async ({ page }) => {
+    await page.goto('/vi');
+    const viBody = await page.locator('body').innerText();
+
+    await page.goto('/en');
+    const enBody = await page.locator('body').innerText();
+
+    expect(viBody).not.toBe(enBody);
+    expect(enBody).toContain('Discover the best tools');
+    expect(viBody).toContain('Khám phá công cụ tốt nhất');
+  });
 });

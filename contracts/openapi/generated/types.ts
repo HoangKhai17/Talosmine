@@ -757,6 +757,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/site/nav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Điều hướng header và footer cho một ngôn ngữ
+         * @description CÔNG KHAI — không cần phiên đăng nhập. Header và footer hiện trên mọi trang, kể cả
+         *     với khách chưa đăng nhập; bắt buộc phiên ở đây sẽ làm trang chủ không render nổi.
+         *
+         *     CHỈ trả mục `active`. Mục `draft` (đang soạn) và `inactive` (đã gỡ) không xuất hiện.
+         *
+         *     Nhãn trả về theo `locale` yêu cầu. Mục thiếu bản dịch cho ngôn ngữ đó bị BỎ QUA —
+         *     thà thiếu một mục menu còn hơn hiện nhãn sai ngôn ngữ giữa một trang.
+         *
+         *     BFF cache kết quả này 60 giây (DEC-T26), nên thay đổi từ `/admin` hiện ra trong
+         *     vòng một phút chứ không tức thì.
+         */
+        get: operations["getSiteNav"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/site/nav": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Toàn bộ mục điều hướng (quản trị)
+         * @description Yêu cầu `content:read`. Trả MỌI trạng thái (kể cả `draft`, `inactive`) và MỌI ngôn
+         *     ngữ — màn hình quản trị cần thấy cả những gì người dùng chưa thấy.
+         */
+        get: operations["adminListNavItems"];
+        put?: never;
+        /**
+         * Thêm một mục điều hướng
+         * @description Yêu cầu `content:manage`. Mục mới LUÔN ở trạng thái `draft` — không tạo thẳng
+         *     `active`. Đưa lên header/footer là hành động riêng cần `content:publish`.
+         *
+         *     `sortOrder` bỏ trống thì mục được xếp cuối menu.
+         *
+         *     `href` phải là đường dẫn nội bộ bắt đầu bằng `/` (KHÔNG phải `//`) hoặc URL `https://`
+         *     đã nằm trong allowlist. Xem `docs/url-policy.md`.
+         */
+        post: operations["adminCreateNavItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/site/nav/{navItemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Xoá một mục điều hướng
+         * @description Yêu cầu `content:manage`.
+         *
+         *     VÌ SAO Ở ĐÂY CÓ XOÁ THẬT trong khi catalog thì không: một mục menu không được tham
+         *     chiếu bởi entitlement, quota hay dữ liệu usage nào. Xoá nó không để lại bản ghi mồ
+         *     côi. Bản dịch đi theo bằng `ON DELETE CASCADE`.
+         *
+         *     Vẫn ghi audit kèm lý do — nội dung đã từng hiển thị công khai.
+         */
+        delete: operations["adminDeleteNavItem"];
+        options?: never;
+        head?: never;
+        /**
+         * Sửa href và nhãn của một mục
+         * @description Yêu cầu `content:manage`. KHÔNG sửa được `status` ở đây — nó có đường riêng vì cần
+         *     permission khác. `menuKey` cũng không sửa được: chuyển mục sang menu khác là xoá và
+         *     tạo lại, và như vậy dấu vết audit nói đúng chuyện gì đã xảy ra.
+         */
+        patch: operations["adminUpdateNavItem"];
+        trace?: never;
+    };
+    "/v1/admin/site/nav/{navItemId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Đưa mục lên hoặc gỡ khỏi giao diện
+         * @description Yêu cầu `content:publish` — permission RIÊNG, không phải `content:manage`.
+         *
+         *     Lý do tách: đổi sang `active` là đưa mục đó lên header/footer của MỌI trang, cho MỌI
+         *     khách. Người sửa nhãn và người quyết định phát hành không nhất thiết là một.
+         *
+         *     Chỉ nhận `active` và `inactive`. `draft` không phải đích hợp lệ của bất kỳ chuyển
+         *     tiếp nào — mục đã từng hiển thị không quay lại được trạng thái "chưa từng phát hành".
+         */
+        post: operations["adminChangeNavItemStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/site/nav/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sắp xếp lại thứ tự các mục trong một menu
+         * @description Yêu cầu `content:manage`.
+         *
+         *     Nhận TOÀN BỘ danh sách id của menu theo thứ tự mới, không nhận thao tác "đổi chỗ hai
+         *     mục". Gửi trọn danh sách khiến kết quả không phụ thuộc thứ tự request tới, nên hai
+         *     người biên tập sắp xếp cùng lúc không tạo ra thứ tự lai giữa hai ý định.
+         *
+         *     Thiếu id nào của menu đó, hoặc thừa id không thuộc menu đó, đều bị từ chối.
+         */
+        post: operations["adminReorderNavItems"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -766,6 +910,88 @@ export interface components {
          *     và là thứ khiến bản ghi audit có giá trị điều tra sau này.
          */
         AdminReason: {
+            reason: string;
+        };
+        /**
+         * @description Vị trí đặt menu trên giao diện. Danh mục ĐÓNG: thêm một vị trí đòi code phải có chỗ
+         *     render nó, nên đó là migration chứ không phải dữ liệu người biên tập tạo.
+         * @enum {string}
+         */
+        NavMenuKey: "header.primary" | "footer.explore" | "footer.about" | "footer.resources";
+        /** @description Toàn bộ điều hướng cho MỘT ngôn ngữ, gom theo menu. */
+        SiteNav: {
+            /** @enum {string} */
+            locale: "vi" | "en";
+            menus: {
+                key: components["schemas"]["NavMenuKey"];
+                /** @description Đã sắp theo `sortOrder`. Client render nguyên thứ tự này. */
+                items: {
+                    /** Format: uuid */
+                    id: string;
+                    /** @description Nhãn theo ngôn ngữ yêu cầu. Text thuần, KHÔNG phải HTML. */
+                    label: string;
+                    /**
+                     * @description Đường dẫn nội bộ (`/tools`) hoặc URL ngoài (`https://…`).
+                     *
+                     *     KHÔNG mang prefix locale: web tự gắn `/vi` hoặc `/en` lúc render
+                     *     theo ngôn ngữ đang xem. Lưu sẵn prefix sẽ khiến cùng một mục phải
+                     *     tồn tại hai bản.
+                     */
+                    href: string;
+                }[];
+            }[];
+        };
+        AdminNavItem: {
+            /** Format: uuid */
+            id: string;
+            menuKey: components["schemas"]["NavMenuKey"];
+            sortOrder: number;
+            href: string;
+            /** @enum {string} */
+            status: "draft" | "active" | "inactive";
+            labels: components["schemas"]["NavLabels"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /**
+         * @description Nhãn theo từng ngôn ngữ. Thiếu một ngôn ngữ là hợp lệ ở trạng thái `draft` — nhưng
+         *     mục đó sẽ bị BỎ QUA ở đường công khai của ngôn ngữ còn thiếu.
+         */
+        NavLabels: {
+            vi?: string | null;
+            en?: string | null;
+        };
+        CreateNavItemRequest: {
+            menuKey: components["schemas"]["NavMenuKey"];
+            href: string;
+            labels: components["schemas"]["NavLabels"];
+            /** @description Bỏ trống thì xếp cuối menu. */
+            sortOrder?: number;
+            reason: string;
+        };
+        /**
+         * @description Trường vắng mặt = không đổi. `labels.vi = null` là XOÁ bản dịch tiếng Việt, khác với
+         *     việc không gửi `labels` (giữ nguyên).
+         */
+        UpdateNavItemRequest: {
+            href?: string;
+            labels?: components["schemas"]["NavLabels"];
+            reason: string;
+        };
+        ChangeNavItemStatusRequest: {
+            /**
+             * @description `draft` không phải đích hợp lệ — xem mô tả endpoint.
+             * @enum {string}
+             */
+            status: "active" | "inactive";
+            reason: string;
+        };
+        ReorderNavRequest: {
+            menuKey: components["schemas"]["NavMenuKey"];
+            /** @description TOÀN BỘ id của menu, theo thứ tự mới. Thiếu hoặc thừa đều bị từ chối. */
+            itemIds: string[];
             reason: string;
         };
         /**
@@ -997,6 +1223,7 @@ export interface components {
         };
     };
     parameters: {
+        NavItemId: string;
         FeatureId: string;
         ApplicationId: string;
         AccountId: string;
@@ -2563,6 +2790,191 @@ export interface operations {
         };
         responses: {
             /** @description Đã thu hồi. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getSiteNav: {
+        parameters: {
+            query: {
+                /** @description Ngôn ngữ cần lấy nhãn. Danh mục đóng theo DEC-B15. */
+                locale: "vi" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Các menu, mỗi menu kèm danh sách mục đã sắp theo `sortOrder`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteNav"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    adminListNavItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sách mục, sắp theo `menuKey` rồi `sortOrder`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminNavItem"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminCreateNavItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNavItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã tạo. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminDeleteNavItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                navItemId: components["parameters"]["NavItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReason"];
+            };
+        };
+        responses: {
+            /** @description Đã xoá. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminUpdateNavItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                navItemId: components["parameters"]["NavItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNavItemRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã lưu. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminChangeNavItemStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                navItemId: components["parameters"]["NavItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeNavItemStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã đổi trạng thái. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminReorderNavItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderNavRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã sắp xếp lại. */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -25,6 +25,11 @@ export const ADMIN_PERMISSIONS = [
   'catalog:read',
   'catalog:manage',
   'catalog:publish',
+  // Site content — điều hướng header/footer (migration 0010). Cùng lập luận tách `publish`:
+  // đổi một mục nav sang `active` là đưa nó lên MỌI trang cho MỌI khách.
+  'content:read',
+  'content:manage',
+  'content:publish',
 ] as const;
 
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];

@@ -125,29 +125,34 @@ export async function applyAllMigrations(sql: Sql): Promise<number> {
 const ROLLBACK_DIR = new URL('../../apps/control-plane/drizzle/rollback/', import.meta.url);
 
 /**
- * Thứ tự gỡ P3, NGƯỢC với thứ tự tạo.
+ * Thứ tự gỡ mọi migration sau P2, NGƯỢC với thứ tự tạo.
  *
  * Danh sách này cố ý viết tay chứ không suy ra từ journal: rollback không phải là "đảo
  * ngược journal" một cách máy móc. Nó là một quy trình có chủ đích, và thứ tự của nó là
  * điều cần được đọc và review — xem `apps/control-plane/drizzle/rollback/README.md`.
+ *
+ * THÊM MIGRATION MỚI THÌ THÊM VÀO ĐẦU DANH SÁCH NÀY. Bỏ sót không làm test đỏ ngay — bài
+ * diễn tập vẫn chạy qua — nhưng nó lặng lẽ ngừng kiểm file `.down.sql` mới, và đó chính là
+ * cách những file đó mục nát cho tới đêm sự cố.
  */
-const P3_ROLLBACK_ORDER = [
+const ROLLBACK_ORDER = [
+  '0010_site_nav.down.sql',
   '0009_catalog_permissions.down.sql',
   '0008_service_identities.down.sql',
   '0007_catalog.down.sql',
 ] as const;
 
 /**
- * Chạy bài gỡ P3 theo đúng thứ tự ngược, đưa schema về trạng thái cuối P2.
+ * Chạy bài gỡ theo đúng thứ tự ngược, đưa schema về trạng thái cuối P2.
  *
  * Trả về số statement đã chạy. Ném lỗi ngay tại statement đầu tiên thất bại — không nuốt
  * lỗi, vì một bước rollback lỗi mà vẫn chạy tiếp sẽ để lại schema nửa vời, thứ tệ hơn cả
  * không rollback.
  */
-export async function applyP3Rollback(sql: Sql): Promise<number> {
+export async function applyRollbackToP2(sql: Sql): Promise<number> {
   let count = 0;
 
-  for (const file of P3_ROLLBACK_ORDER) {
+  for (const file of ROLLBACK_ORDER) {
     const raw = await readFile(new URL(file, ROLLBACK_DIR), 'utf8');
     for (const statement of splitStatements(raw)) {
       await sql.unsafe(statement);

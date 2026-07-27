@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import type { Locale } from '../../../i18n/locale';
+import { format, getMessages } from '../../../i18n/messages';
 import styles from './article-card.module.css';
 import { ImageIcon } from './icons';
 
@@ -13,32 +15,31 @@ import { ImageIcon } from './icons';
  * bấm ra cả thẻ. Nhờ vậy trình đọc màn hình nghe đúng MỘT link mang tên bài viết, thay vì
  * nghe lặp cả ảnh, ngày đăng và tiêu đề như khi bọc `<Link>` quanh toàn bộ thẻ.
  */
-export function ArticleCard({ href }: { href: string }) {
+export function ArticleCard({ href, locale }: { href: string; locale: Locale }) {
+  const t = getMessages(locale);
+
   return (
     <article className={styles.card}>
       <div className={styles.thumb}>
         <ImageIcon />
-        <span className={`typeCaption ${styles.thumbTag}`}>Nhãn</span>
+        <span className={`typeCaption ${styles.thumbTag}`}>{t.common.tag}</span>
       </div>
 
       <div className={styles.body}>
         <p className={`typeCaption ${styles.meta}`}>
           {/* `<time>` mang giá trị máy đọc được — ngày hiển thị cho người, `dateTime` cho
-              trình duyệt và công cụ tìm kiếm. */}
-          <time dateTime="2026-05-15">15/05/2026</time>
-          <span>30 phút đọc</span>
+              trình duyệt và công cụ tìm kiếm. `dateTime` KHÔNG dịch: nó là ISO 8601. */}
+          <time dateTime="2026-05-15">{t.common.sampleDate}</time>
+          <span>{format(t.common.readTime, { minutes: 30 })}</span>
         </p>
 
         <h3 className="typeCardTitle">
           <Link className={styles.titleLink} href={href}>
-            Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật
+            {t.home.articleTitle}
           </Link>
         </h3>
 
-        <p className="typeBodySmall textSecondary">
-          Đoạn mở đầu của bài viết. Nội dung này đến từ hệ thống blog, sẽ được kết nối ở giai đoạn
-          sau.
-        </p>
+        <p className="typeBodySmall textSecondary">{t.home.articleLead}</p>
       </div>
     </article>
   );

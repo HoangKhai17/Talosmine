@@ -2,7 +2,7 @@ import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   applyAllMigrations,
-  applyP3Rollback,
+  applyRollbackToP2,
   connect,
   type Sql,
   startPostgres,
@@ -23,7 +23,7 @@ import {
  * Bỏ sót bước đó sẽ để lại một `audit_events` cho phép `actor_type = 'service'` trong khi
  * bảng `service_identities` không còn tồn tại: một khoảng trống ghi được dữ liệu vô nghĩa.
  */
-describe('diễn tập rollback P3', () => {
+describe('diễn tập rollback về trạng thái cuối P2', () => {
   let container: StartedPostgreSqlContainer;
   let sql: Sql;
 
@@ -57,7 +57,7 @@ describe('diễn tập rollback P3', () => {
     return rows[0]?.src ?? null;
   }
 
-  it('trước khi gỡ: schema đang ở trạng thái P3 đầy đủ', async () => {
+  it('trước khi gỡ: schema đang ở trạng thái đầy đủ nhất', async () => {
     // Chốt điểm xuất phát. Không có bước này thì một bài "rollback thành công" có thể chỉ
     // đang chứng minh rằng những bảng đó chưa từng được tạo.
     for (const table of [
@@ -66,6 +66,11 @@ describe('diễn tập rollback P3', () => {
       'features',
       'usage_metrics',
       'service_identities',
+      // Migration 0010 — điều hướng site. Có mặt ở đây để bài diễn tập không lặng lẽ bỏ qua
+      // file `.down.sql` mới nhất.
+      'nav_menus',
+      'nav_items',
+      'nav_item_translations',
     ]) {
       expect(await tableExists(table), `bảng ${table} phải tồn tại sau khi migrate`).toBe(true);
     }
@@ -74,20 +79,23 @@ describe('diễn tập rollback P3', () => {
     expect(actorCheck).toContain('service');
   });
 
-  it('gỡ được toàn bộ P3 theo thứ tự ngược mà không lỗi', async () => {
+  it('gỡ được toàn bộ theo thứ tự ngược mà không lỗi', async () => {
     // Nếu thứ tự sai, PostgreSQL sẽ từ chối ngay tại `DROP TABLE` đầu tiên còn khoá ngoại
-    // trỏ tới. Bài này pass nghĩa là thứ tự trong `applyP3Rollback` đúng.
-    const statements = await applyP3Rollback(sql);
+    // trỏ tới. Bài này pass nghĩa là thứ tự trong `applyRollbackToP2` đúng.
+    const statements = await applyRollbackToP2(sql);
     expect(statements).toBeGreaterThan(0);
   });
 
-  it('bốn bảng catalog và service_identities đã biến mất', async () => {
+  it('bảng của catalog, service identity và site content đã biến mất', async () => {
     for (const table of [
       'applications',
       'application_redirect_uris',
       'features',
       'usage_metrics',
       'service_identities',
+      'nav_menus',
+      'nav_items',
+      'nav_item_translations',
     ]) {
       expect(await tableExists(table), `bảng ${table} phải bị gỡ`).toBe(false);
     }

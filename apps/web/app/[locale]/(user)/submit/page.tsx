@@ -1,13 +1,20 @@
 import type { Metadata } from 'next';
+import { localeAlternates, type PageLocaleParams, resolvePageI18n } from '../../../../i18n/params';
 import { ComingSoon } from '../coming-soon';
 
-export const metadata: Metadata = { title: 'Talosmine — Gửi công cụ' };
+export async function generateMetadata({ params }: PageLocaleParams): Promise<Metadata> {
+  const { locale, t } = await resolvePageI18n(params);
+  return { title: t.meta.submit, alternates: localeAlternates(locale, '/submit') };
+}
 
-export default function SubmitPage() {
+export default async function SubmitPage({ params }: PageLocaleParams) {
+  const { locale, t } = await resolvePageI18n(params);
+
   return (
     <ComingSoon
-      title="Gửi công cụ"
-      description="Biểu mẫu đề xuất công cụ mới để đưa vào danh mục."
+      locale={locale}
+      title={t.comingSoon.submitTitle}
+      description={t.comingSoon.submitDescription}
     />
   );
 }

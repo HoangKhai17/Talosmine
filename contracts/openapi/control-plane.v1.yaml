@@ -66,6 +66,14 @@ tags:
       API quản trị. DENY-BY-DEFAULT: cần phiên hợp lệ **và** permission tương ứng qua
       RBAC (role còn `active`, assignment còn hiệu lực và chưa thu hồi). Mọi mutation
       bắt buộc có `reason` và ghi audit đồng bộ trong cùng transaction.
+  - name: site-content
+    description: |
+      Nội dung điều hướng (header/footer) do quản trị viên sửa, thay cho chữ hardcode
+      trong code. Đường ĐỌC ở đây là bề mặt CÔNG KHAI duy nhất không cần phiên đăng nhập:
+      header và footer phải render được cho cả khách vãng lai.
+
+      Ranh giới: code quyết định CHỖ NÀO có gì (bố cục, số cột, thứ tự section); CMS quyết
+      định CHỮ GÌ nằm ở đó. Không nhận HTML — xem DEC-T25.
 
 paths:
   /health/live:
@@ -1533,6 +1541,233 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  # ── Site content: điều hướng header/footer (DEC-T25, DEC-T26) ──────────────────
+
+  /v1/site/nav:
+    get:
+      tags: [site-content]
+      operationId: getSiteNav
+      summary: Điều hướng header và footer cho một ngôn ngữ
+      description: |
+        CÔNG KHAI — không cần phiên đăng nhập. Header và footer hiện trên mọi trang, kể cả
+        với khách chưa đăng nhập; bắt buộc phiên ở đây sẽ làm trang chủ không render nổi.
+
+        CHỈ trả mục `active`. Mục `draft` (đang soạn) và `inactive` (đã gỡ) không xuất hiện.
+
+        Nhãn trả về theo `locale` yêu cầu. Mục thiếu bản dịch cho ngôn ngữ đó bị BỎ QUA —
+        thà thiếu một mục menu còn hơn hiện nhãn sai ngôn ngữ giữa một trang.
+
+        BFF cache kết quả này 60 giây (DEC-T26), nên thay đổi từ `/admin` hiện ra trong
+        vòng một phút chứ không tức thì.
+      parameters:
+        - name: locale
+          in: query
+          required: true
+          description: Ngôn ngữ cần lấy nhãn. Danh mục đóng theo DEC-B15.
+          schema:
+            type: string
+            enum: [vi, en]
+      responses:
+        '200':
+          description: Các menu, mỗi menu kèm danh sách mục đã sắp theo `sortOrder`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteNav'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/admin/site/nav:
+    get:
+      tags: [admin]
+      operationId: adminListNavItems
+      summary: Toàn bộ mục điều hướng (quản trị)
+      description: |
+        Yêu cầu `content:read`. Trả MỌI trạng thái (kể cả `draft`, `inactive`) và MỌI ngôn
+        ngữ — màn hình quản trị cần thấy cả những gì người dùng chưa thấy.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Danh sách mục, sắp theo `menuKey` rồi `sortOrder`.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminNavItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [admin]
+      operationId: adminCreateNavItem
+      summary: Thêm một mục điều hướng
+      description: |
+        Yêu cầu `content:manage`. Mục mới LUÔN ở trạng thái `draft` — không tạo thẳng
+        `active`. Đưa lên header/footer là hành động riêng cần `content:publish`.
+
+        `sortOrder` bỏ trống thì mục được xếp cuối menu.
+
+        `href` phải là đường dẫn nội bộ bắt đầu bằng `/` (KHÔNG phải `//`) hoặc URL `https://`
+        đã nằm trong allowlist. Xem `docs/url-policy.md`.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNavItemRequest'
+      responses:
+        '201':
+          description: Đã tạo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                additionalProperties: false
+                properties:
+                  id: { type: string, format: uuid }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/site/nav/{navItemId}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateNavItem
+      summary: Sửa href và nhãn của một mục
+      description: |
+        Yêu cầu `content:manage`. KHÔNG sửa được `status` ở đây — nó có đường riêng vì cần
+        permission khác. `menuKey` cũng không sửa được: chuyển mục sang menu khác là xoá và
+        tạo lại, và như vậy dấu vết audit nói đúng chuyện gì đã xảy ra.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/NavItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNavItemRequest'
+      responses:
+        '204':
+          description: Đã lưu.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [admin]
+      operationId: adminDeleteNavItem
+      summary: Xoá một mục điều hướng
+      description: |
+        Yêu cầu `content:manage`.
+
+        VÌ SAO Ở ĐÂY CÓ XOÁ THẬT trong khi catalog thì không: một mục menu không được tham
+        chiếu bởi entitlement, quota hay dữ liệu usage nào. Xoá nó không để lại bản ghi mồ
+        côi. Bản dịch đi theo bằng `ON DELETE CASCADE`.
+
+        Vẫn ghi audit kèm lý do — nội dung đã từng hiển thị công khai.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/NavItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminReason'
+      responses:
+        '204':
+          description: Đã xoá.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/admin/site/nav/{navItemId}/status:
+    post:
+      tags: [admin]
+      operationId: adminChangeNavItemStatus
+      summary: Đưa mục lên hoặc gỡ khỏi giao diện
+      description: |
+        Yêu cầu `content:publish` — permission RIÊNG, không phải `content:manage`.
+
+        Lý do tách: đổi sang `active` là đưa mục đó lên header/footer của MỌI trang, cho MỌI
+        khách. Người sửa nhãn và người quyết định phát hành không nhất thiết là một.
+
+        Chỉ nhận `active` và `inactive`. `draft` không phải đích hợp lệ của bất kỳ chuyển
+        tiếp nào — mục đã từng hiển thị không quay lại được trạng thái "chưa từng phát hành".
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/NavItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeNavItemStatusRequest'
+      responses:
+        '204':
+          description: Đã đổi trạng thái.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/admin/site/nav/reorder:
+    post:
+      tags: [admin]
+      operationId: adminReorderNavItems
+      summary: Sắp xếp lại thứ tự các mục trong một menu
+      description: |
+        Yêu cầu `content:manage`.
+
+        Nhận TOÀN BỘ danh sách id của menu theo thứ tự mới, không nhận thao tác "đổi chỗ hai
+        mục". Gửi trọn danh sách khiến kết quả không phụ thuộc thứ tự request tới, nên hai
+        người biên tập sắp xếp cùng lúc không tạo ra thứ tự lai giữa hai ý định.
+
+        Thiếu id nào của menu đó, hoặc thừa id không thuộc menu đó, đều bị từ chối.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderNavRequest'
+      responses:
+        '204':
+          description: Đã sắp xếp lại.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
   responses:
     BadRequest:
@@ -1599,6 +1834,136 @@ components:
         reason:
           type: string
           minLength: 1
+    # ── Site content ───────────────────────────────────────────────────────────
+
+    NavMenuKey:
+      type: string
+      description: |
+        Vị trí đặt menu trên giao diện. Danh mục ĐÓNG: thêm một vị trí đòi code phải có chỗ
+        render nó, nên đó là migration chứ không phải dữ liệu người biên tập tạo.
+      enum:
+        - header.primary
+        - footer.explore
+        - footer.about
+        - footer.resources
+
+    SiteNav:
+      type: object
+      required: [locale, menus]
+      additionalProperties: false
+      description: Toàn bộ điều hướng cho MỘT ngôn ngữ, gom theo menu.
+      properties:
+        locale: { type: string, enum: [vi, en] }
+        menus:
+          type: array
+          items:
+            type: object
+            required: [key, items]
+            additionalProperties: false
+            properties:
+              key:
+                $ref: '#/components/schemas/NavMenuKey'
+              items:
+                type: array
+                description: Đã sắp theo `sortOrder`. Client render nguyên thứ tự này.
+                items:
+                  type: object
+                  required: [id, label, href]
+                  additionalProperties: false
+                  properties:
+                    id: { type: string, format: uuid }
+                    label:
+                      type: string
+                      description: Nhãn theo ngôn ngữ yêu cầu. Text thuần, KHÔNG phải HTML.
+                    href:
+                      type: string
+                      description: |
+                        Đường dẫn nội bộ (`/tools`) hoặc URL ngoài (`https://…`).
+
+                        KHÔNG mang prefix locale: web tự gắn `/vi` hoặc `/en` lúc render
+                        theo ngôn ngữ đang xem. Lưu sẵn prefix sẽ khiến cùng một mục phải
+                        tồn tại hai bản.
+
+    AdminNavItem:
+      type: object
+      required: [id, menuKey, sortOrder, href, status, labels, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        menuKey:
+          $ref: '#/components/schemas/NavMenuKey'
+        sortOrder: { type: integer, minimum: 0 }
+        href: { type: string }
+        status: { type: string, enum: [draft, active, inactive] }
+        labels:
+          $ref: '#/components/schemas/NavLabels'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    NavLabels:
+      type: object
+      description: |
+        Nhãn theo từng ngôn ngữ. Thiếu một ngôn ngữ là hợp lệ ở trạng thái `draft` — nhưng
+        mục đó sẽ bị BỎ QUA ở đường công khai của ngôn ngữ còn thiếu.
+      additionalProperties: false
+      properties:
+        vi: { type: [string, 'null'] }
+        en: { type: [string, 'null'] }
+
+    CreateNavItemRequest:
+      type: object
+      required: [menuKey, href, labels, reason]
+      additionalProperties: false
+      properties:
+        menuKey:
+          $ref: '#/components/schemas/NavMenuKey'
+        href: { type: string, minLength: 1 }
+        labels:
+          $ref: '#/components/schemas/NavLabels'
+        sortOrder:
+          type: integer
+          minimum: 0
+          description: Bỏ trống thì xếp cuối menu.
+        reason: { type: string, minLength: 1 }
+
+    UpdateNavItemRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      description: |
+        Trường vắng mặt = không đổi. `labels.vi = null` là XOÁ bản dịch tiếng Việt, khác với
+        việc không gửi `labels` (giữ nguyên).
+      properties:
+        href: { type: string, minLength: 1 }
+        labels:
+          $ref: '#/components/schemas/NavLabels'
+        reason: { type: string, minLength: 1 }
+
+    ChangeNavItemStatusRequest:
+      type: object
+      required: [status, reason]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [active, inactive]
+          description: '`draft` không phải đích hợp lệ — xem mô tả endpoint.'
+        reason: { type: string, minLength: 1 }
+
+    ReorderNavRequest:
+      type: object
+      required: [menuKey, itemIds, reason]
+      additionalProperties: false
+      properties:
+        menuKey:
+          $ref: '#/components/schemas/NavMenuKey'
+        itemIds:
+          type: array
+          minItems: 1
+          description: TOÀN BỘ id của menu, theo thứ tự mới. Thiếu hoặc thừa đều bị từ chối.
+          items: { type: string, format: uuid }
+        reason: { type: string, minLength: 1 }
+
     PublicApplication:
       type: object
       required: [id, key, displayName, description, imageUrl, launchUrl]
@@ -1822,6 +2187,12 @@ components:
           additionalProperties: true
 
   parameters:
+    NavItemId:
+      name: navItemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
     FeatureId:
       name: featureId
       in: path

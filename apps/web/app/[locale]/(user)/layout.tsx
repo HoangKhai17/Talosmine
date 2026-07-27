@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { isLocale, type Locale, localeHref } from '../../../i18n/locale';
 import { format, getMessages, type Messages } from '../../../i18n/messages';
+import { getSiteNav, type NavItem, type SiteNav } from '../../../server/site-nav';
 import styles from './layout.module.css';
 import { LogoutButton } from './logout-button';
 
@@ -17,9 +18,13 @@ import { LogoutButton } from './logout-button';
  * Không có link tới `/admin` ở đây: ẩn/hiện menu chỉ là UX, còn chặn thật nằm ở proxy,
  * RSC layout của `/admin` và `AdminPermissionGuard` phía Control Plane.
  *
- * CHỮ TRONG SHELL đến từ message catalog (`i18n/messages`), không hardcode. Nhãn menu sẽ
- * chuyển sang CMS ở bước sau; khi đó các hằng ở đây thành GIÁ TRỊ DỰ PHÒNG chứ không bị xoá —
- * Control Plane chết thì trang vẫn phải render (DEC-T26).
+ * HAI NGUỒN CHỮ, cố ý khác nhau:
+ *
+ *   • NHÃN MENU đến từ Control Plane (`server/site-nav`) — người biên tập sửa trong `/admin`
+ *     mà không cần deploy. Control Plane chết hoặc bảng còn trống thì rơi về hằng dự phòng,
+ *     nên trang vẫn render (DEC-T26).
+ *   • CHUỖI SẢN PHẨM (nhãn nút, `aria-label`, thông báo) đến từ message catalog trong code.
+ *     Chúng thuộc về sản phẩm và cần review, không phải nội dung biên tập (DEC-T25).
  */
 export default async function UserLayout({
   children,
@@ -45,6 +50,9 @@ export default async function UserLayout({
   const cookieStore = await cookies();
   const signedIn = cookieStore.has('__Host-talos_session');
 
+  // Cache 60 giây ở tiến trình web, có fallback — xem `server/site-nav.ts`.
+  const { nav } = await getSiteNav(locale);
+
   /** Rút gọn: mọi link nội bộ trong shell đều phải mang locale. */
   const href = (path: string) => localeHref(locale, path);
 
@@ -59,21 +67,13 @@ export default async function UserLayout({
 
           <nav aria-label={t.a11y.primaryNav} className={styles.primaryNav}>
             <ul className={styles.navList}>
-              <li>
-                <Link className={`typeBodySmall ${styles.navLink}`} href={href('/tools')}>
-                  {t.nav.tools}
-                </Link>
-              </li>
-              <li>
-                <Link className={`typeBodySmall ${styles.navLink}`} href={href('/blog')}>
-                  {t.nav.blog}
-                </Link>
-              </li>
-              <li>
-                <Link className={`typeBodySmall ${styles.navLink}`} href={href('/contact')}>
-                  {t.nav.contact}
-                </Link>
-              </li>
+              {nav['header.primary'].map((item) => (
+                <li key={item.id}>
+                  <Link className={`typeBodySmall ${styles.navLink}`} href={href(item.href)}>
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </nav>
 
@@ -130,7 +130,7 @@ export default async function UserLayout({
         {children}
       </main>
 
-      <SiteFooter locale={locale} t={t} />
+      <SiteFooter locale={locale} t={t} nav={nav} />
     </>
   );
 }
@@ -142,8 +142,32 @@ export default async function UserLayout({
  * một link dẫn tới 404 tệ hơn một dòng chữ không bấm được, và nó cũng nói dối về những
  * gì hệ thống đang có. Khi trang tương ứng ra đời thì đổi `<span>` thành `<Link>`.
  */
-function SiteFooter({ locale, t }: { locale: Locale; t: Messages }) {
+function SiteFooter({ locale, t, nav }: { locale: Locale; t: Messages; nav: SiteNav }) {
   const href = (path: string) => localeHref(locale, path);
+
+  /**
+   * Một cột link.
+   *
+   * Mục "chưa có trang" (`pending`) KHÔNG đến từ CMS và không thể đến từ đó: mô hình dữ liệu
+   * bắt buộc mọi mục phải có `href`, còn những mục này cố ý không có đích. Chúng ở lại trong
+   * code cho tới khi trang tương ứng ra đời, lúc đó xoá khỏi đây và thêm vào CMS.
+   */
+  const column = (items: NavItem[], pending: string[] = []) => (
+    <ul className={styles.footerLinks}>
+      {items.map((item) => (
+        <li key={item.id}>
+          <Link className={`typeBodySmall ${styles.footerLink}`} href={href(item.href)}>
+            {item.label}
+          </Link>
+        </li>
+      ))}
+      {pending.map((label) => (
+        <li key={label}>
+          <span className={`typeBodySmall ${styles.footerPending}`}>{label}</span>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <footer className={styles.footer}>
@@ -184,67 +208,34 @@ function SiteFooter({ locale, t }: { locale: Locale; t: Messages }) {
 
         <nav className={styles.footerCol} aria-label={t.footer.explore}>
           <p className="typeBodySmall">{t.footer.explore}</p>
-          <ul className={styles.footerLinks}>
-            <li>
-              <Link className={`typeBodySmall ${styles.footerLink}`} href={href('/tools')}>
-                {t.footer.allTools}
-              </Link>
-            </li>
-            <li>
-              <Link className={`typeBodySmall ${styles.footerLink}`} href={href('/categories')}>
-                {t.footer.categories}
-              </Link>
-            </li>
-            <li>
-              <Link className={`typeBodySmall ${styles.footerLink}`} href={href('/submit')}>
-                {t.footer.submitTool}
-              </Link>
-            </li>
-          </ul>
+          {column(nav['footer.explore'])}
         </nav>
 
-        {/* `<nav>` vì cột này CÓ link thật (Blog, Liên hệ) — cùng lý do với cột "Khám phá". */}
+        {/* `<nav>` vì cột này CÓ link thật — cùng lý do với cột "Khám phá". */}
         <nav className={styles.footerCol} aria-label={t.footer.about}>
           <p className="typeBodySmall">{t.footer.about}</p>
-          <ul className={styles.footerLinks}>
-            <li>
-              <span className={`typeBodySmall ${styles.footerPending}`}>{t.footer.aboutUs}</span>
-            </li>
-            <li>
-              <Link className={`typeBodySmall ${styles.footerLink}`} href={href('/blog')}>
-                {t.footer.blog}
-              </Link>
-            </li>
-            <li>
-              <Link className={`typeBodySmall ${styles.footerLink}`} href={href('/contact')}>
-                {t.footer.contact}
-              </Link>
-            </li>
-            <li>
-              <span className={`typeBodySmall ${styles.footerPending}`}>{t.footer.privacy}</span>
-            </li>
-          </ul>
+          {column(nav['footer.about'], [t.footer.aboutUs, t.footer.privacy])}
         </nav>
 
         {/*
-          CỐ Ý là `<div>`, không phải `<nav>`: cột này chưa có link nào — cả ba mục đều là
-          `footerPending`. Một landmark điều hướng rỗng khiến trình đọc màn hình loan báo một
-          vùng không đi tới đâu được. Khi mục đầu tiên thành link thật thì đổi sang `<nav>`.
+          `<div>` chứ không `<nav>` KHI cột này chưa có link nào — một landmark điều hướng
+          rỗng khiến trình đọc màn hình loan báo một vùng không đi tới đâu được.
+
+          Điều kiện chạy theo dữ liệu, không hardcode: người biên tập thêm mục đầu tiên vào
+          "Tài nguyên" là nó tự thành `<nav>`. Trước đây chỗ này cố định là `<div>` kèm ghi
+          chú "khi có link thì đổi sang nav" — đúng loại việc mà sẽ không ai nhớ làm.
         */}
-        <div className={styles.footerCol}>
-          <p className="typeBodySmall">{t.footer.resources}</p>
-          <ul className={styles.footerLinks}>
-            <li>
-              <span className={`typeBodySmall ${styles.footerPending}`}>{t.footer.guides}</span>
-            </li>
-            <li>
-              <span className={`typeBodySmall ${styles.footerPending}`}>{t.footer.newsletter}</span>
-            </li>
-            <li>
-              <span className={`typeBodySmall ${styles.footerPending}`}>{t.footer.faq}</span>
-            </li>
-          </ul>
-        </div>
+        {nav['footer.resources'].length > 0 ? (
+          <nav className={styles.footerCol} aria-label={t.footer.resources}>
+            <p className="typeBodySmall">{t.footer.resources}</p>
+            {column(nav['footer.resources'], [t.footer.guides, t.footer.newsletter, t.footer.faq])}
+          </nav>
+        ) : (
+          <div className={styles.footerCol}>
+            <p className="typeBodySmall">{t.footer.resources}</p>
+            {column([], [t.footer.guides, t.footer.newsletter, t.footer.faq])}
+          </div>
+        )}
       </div>
 
       {/*

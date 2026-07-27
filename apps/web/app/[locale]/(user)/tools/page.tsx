@@ -1,13 +1,17 @@
 import type { Metadata } from 'next';
+import type { Locale } from '../../../../i18n/locale';
+import { format, type Messages } from '../../../../i18n/messages';
+import { localeAlternates, type PageLocaleParams, resolvePageI18n } from '../../../../i18n/params';
 import { Breadcrumb } from '../breadcrumb';
 import { DraftBanner } from '../draft-banner';
 import { ChevronIcon, ImageIcon, SearchIcon } from '../icons';
 import { Newsletter } from '../newsletter';
 import styles from './page.module.css';
 
-export const metadata: Metadata = {
-  title: 'Talosmine — Duyệt công cụ theo danh mục',
-};
+export async function generateMetadata({ params }: PageLocaleParams): Promise<Metadata> {
+  const { locale, t } = await resolvePageI18n(params);
+  return { title: t.meta.tools, alternates: localeAlternates(locale, '/tools') };
+}
 
 /**
  * Trang duyệt công cụ — bố cục thô theo wireframe Figma của chủ dự án.
@@ -35,80 +39,39 @@ export const metadata: Metadata = {
  */
 
 /** Nhãn danh mục sẽ đến từ Catalog. Đánh số để không ai nhầm là taxonomy đã chốt. */
-const PLACEHOLDER_CATEGORY_TABS = [
-  'Danh mục 1',
-  'Danh mục 2',
-  'Danh mục 3',
-  'Danh mục 4',
-  'Danh mục 5',
-  'Danh mục 6',
-];
-
-/**
- * Bộ lọc theo tính năng. Giữ nhãn mang nghĩa (không phải "Tính năng 1") vì ĐỘ DÀI NHÃN là
- * thứ đang cần xem: nhãn dài quyết định cột trái có bị vỡ hay không.
- */
-const PLACEHOLDER_FEATURE_FILTERS = [
-  'Có API',
-  'Không cần code',
-  'Mã nguồn mở',
-  'Tiện ích trình duyệt',
-];
+const CATEGORY_TAB_COUNT = 6;
 
 /** Wireframe liệt kê tên thương hiệu ở đây. Đánh số thay vì bịa — danh sách thật chờ DEC-B01. */
-const PLACEHOLDER_MODEL_FILTERS = [
-  'Mô hình 1',
-  'Mô hình 2',
-  'Mô hình 3',
-  'Mô hình 4',
-  'Mô hình 5',
-  'Mô hình 6',
-];
-
-/** Đây là hành vi giao diện, không phải dữ liệu — nên giữ nhãn thật. */
-const SORT_OPTIONS = ['Phổ biến nhất', 'Mới nhất', 'Đánh giá cao nhất'];
+const MODEL_FILTER_COUNT = 6;
 
 /** Chín thẻ = ba hàng đầy ở desktop, đủ để thấy nhịp dọc giữa các hàng. */
-const PLACEHOLDER_RESULTS = [
-  { id: 'r1', price: 'Miễn phí' },
-  { id: 'r2', price: 'Miễn phí + Trả phí' },
-  { id: 'r3', price: 'Miễn phí' },
-  { id: 'r4', price: 'Miễn phí + Trả phí' },
-  { id: 'r5', price: 'Miễn phí' },
-  { id: 'r6', price: 'Miễn phí + Trả phí' },
-  { id: 'r7', price: 'Miễn phí' },
-  { id: 'r8', price: 'Miễn phí + Trả phí' },
-  { id: 'r9', price: 'Miễn phí' },
-];
+const RESULT_IDS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'];
 
-export default function ToolsPage() {
+export default async function ToolsPage({ params }: PageLocaleParams) {
+  const { locale, t } = await resolvePageI18n(params);
+
   return (
     <>
-      <DraftBanner>
-        Bản dựng bố cục — bộ lọc và danh sách công cụ là dữ liệu mẫu, chưa nối danh mục thật.
-      </DraftBanner>
+      <DraftBanner>{t.draft.tools}</DraftBanner>
 
-      <BrowseHeader />
-      <BrowseBody />
-      <Newsletter />
+      <BrowseHeader locale={locale} t={t} />
+      <BrowseBody t={t} />
+      <Newsletter locale={locale} />
     </>
   );
 }
 
-function BrowseHeader() {
+function BrowseHeader({ locale, t }: { locale: Locale; t: Messages }) {
   return (
     <section className={styles.headerSection}>
       <div className="container grid">
-        <Breadcrumb trail={[{ label: 'Công cụ' }]} />
+        <Breadcrumb locale={locale} trail={[{ label: t.tools.breadcrumb }]} />
 
-        <h1 className={`typeH1 ${styles.pageTitle}`}>Duyệt công cụ AI theo danh mục</h1>
+        <h1 className={`typeH1 ${styles.pageTitle}`}>{t.tools.title}</h1>
 
-        <p className={`typeBodySmall textSecondary ${styles.pageLead}`}>
-          Khám phá bộ sưu tập công cụ AI đang lớn dần, so sánh khả năng và tìm đúng giải pháp cho
-          từng dự án, từng quy trình làm việc.
-        </p>
+        <p className={`typeBodySmall textSecondary ${styles.pageLead}`}>{t.tools.lead}</p>
 
-        <CategoryStrip />
+        <CategoryStrip t={t} />
       </div>
     </section>
   );
@@ -125,15 +88,19 @@ function BrowseHeader() {
  * KHÔNG đặt `tabindex` lên `<ul>` — nó chỉ thêm một chặng dừng thừa trong luồng Tab mà
  * không mở thêm được nội dung nào.
  */
-function CategoryStrip() {
+function CategoryStrip({ t }: { t: Messages }) {
+  const tabs = Array.from({ length: CATEGORY_TAB_COUNT }, (_, i) =>
+    format(t.tools.categoryTab, { n: i + 1 }),
+  );
+
   return (
     <div className={styles.categoryStrip}>
-      <button type="button" className={styles.stripArrow} aria-label="Danh mục trước">
+      <button type="button" className={styles.stripArrow} aria-label={t.a11y.prevCategory}>
         <ChevronIcon className={styles.stripArrowPrev} />
       </button>
 
       <ul className={styles.stripList}>
-        {PLACEHOLDER_CATEGORY_TABS.map((label) => (
+        {tabs.map((label) => (
           <li key={label}>
             <button type="button" className={`typeBodySmall ${styles.stripTab}`}>
               {label}
@@ -142,23 +109,26 @@ function CategoryStrip() {
         ))}
       </ul>
 
-      <button type="button" className={styles.stripArrow} aria-label="Danh mục sau">
+      <button type="button" className={styles.stripArrow} aria-label={t.a11y.nextCategory}>
         <ChevronIcon className={styles.stripArrowNext} />
       </button>
     </div>
   );
 }
 
-function BrowseBody() {
+function BrowseBody({ t }: { t: Messages }) {
+  // Giá xen kẽ theo vị trí, không phải dữ liệu — chỉ để thấy hai độ dài nhãn khác nhau.
+  const priceFor = (index: number) => (index % 2 === 0 ? t.tools.priceFree : t.tools.priceFreePaid);
+
   return (
     <section className={styles.bodySection}>
       <div className="container grid">
-        <FilterSidebar />
+        <FilterSidebar t={t} />
 
-        <ul className={styles.results} aria-label="Kết quả">
-          {PLACEHOLDER_RESULTS.map((tool) => (
-            <li key={tool.id} className={styles.resultItem}>
-              <ToolCard price={tool.price} />
+        <ul className={styles.results} aria-label={t.a11y.results}>
+          {RESULT_IDS.map((id, index) => (
+            <li key={id} className={styles.resultItem}>
+              <ToolCard price={priceFor(index)} t={t} />
             </li>
           ))}
         </ul>
@@ -172,7 +142,7 @@ function BrowseBody() {
         */}
         <div className={styles.loadMoreRow}>
           <button type="button" className={`typeBodySmall ${styles.loadMore}`}>
-            Xem thêm
+            {t.common.loadMore}
           </button>
         </div>
       </div>
@@ -180,12 +150,30 @@ function BrowseBody() {
   );
 }
 
-function FilterSidebar() {
+function FilterSidebar({ t }: { t: Messages }) {
+  /**
+   * Bộ lọc theo tính năng. Giữ nhãn mang nghĩa (không phải "Tính năng 1") vì ĐỘ DÀI NHÃN là
+   * thứ đang cần xem: nhãn dài quyết định cột trái có bị vỡ hay không.
+   */
+  const features = [
+    t.tools.featureApi,
+    t.tools.featureNoCode,
+    t.tools.featureOpenSource,
+    t.tools.featureExtension,
+  ];
+
+  const models = Array.from({ length: MODEL_FILTER_COUNT }, (_, i) =>
+    format(t.tools.modelName, { n: i + 1 }),
+  );
+
+  /** Đây là hành vi giao diện, không phải dữ liệu — nên giữ nhãn thật. */
+  const sortOptions = [t.tools.sortPopular, t.tools.sortNewest, t.tools.sortTopRated];
+
   return (
-    <aside className={styles.sidebar} aria-label="Bộ lọc">
+    <aside className={styles.sidebar} aria-label={t.a11y.filters}>
       <div className={styles.filterField}>
         <label className="typeBodySmall" htmlFor="filter-name">
-          Tên công cụ
+          {t.tools.filterNameLabel}
         </label>
         <div className={styles.filterSearch}>
           <SearchIcon className={styles.filterSearchIcon} />
@@ -194,23 +182,24 @@ function FilterSidebar() {
             className={`typeBodySmall ${styles.filterSearchInput}`}
             type="search"
             name="q"
-            placeholder="Tìm kiếm…"
+            placeholder={t.tools.filterSearchPlaceholder}
           />
         </div>
       </div>
 
       <div className={styles.filterField}>
         <label className="typeBodySmall" htmlFor="filter-price">
-          Giá
+          {t.tools.filterPriceLabel}
         </label>
         {/*
           `<select>` gốc chứ không dựng dropdown riêng: nó đã đúng trên di động, đúng với
           bàn phím và đúng với trình đọc màn hình mà không cần một dòng JS nào.
         */}
         <select id="filter-price" className={`typeBodySmall ${styles.filterSelect}`} name="price">
-          <option value="">Tất cả</option>
-          <option value="free">Miễn phí</option>
-          <option value="paid">Trả phí</option>
+          {/* `value` là mã máy đọc — KHÔNG dịch. Chỉ nhãn hiển thị mới đổi theo ngôn ngữ. */}
+          <option value="">{t.tools.priceAll}</option>
+          <option value="free">{t.tools.priceFree}</option>
+          <option value="paid">{t.tools.pricePaid}</option>
         </select>
       </div>
 
@@ -220,8 +209,8 @@ function FilterSidebar() {
       */}
       <div className={styles.filterCard}>
         <fieldset className={styles.filterGroup}>
-          <legend className="typeBodySmall">Tính năng</legend>
-          {PLACEHOLDER_FEATURE_FILTERS.map((label) => (
+          <legend className="typeBodySmall">{t.tools.featureLegend}</legend>
+          {features.map((label) => (
             <label key={label} className={`typeCaption ${styles.checkRow}`}>
               <input type="checkbox" name="feature" value={label} />
               {label}
@@ -230,8 +219,8 @@ function FilterSidebar() {
         </fieldset>
 
         <fieldset className={styles.filterGroup}>
-          <legend className="typeBodySmall">Mô hình</legend>
-          {PLACEHOLDER_MODEL_FILTERS.map((label) => (
+          <legend className="typeBodySmall">{t.tools.modelLegend}</legend>
+          {models.map((label) => (
             <label key={label} className={`typeCaption ${styles.checkRow}`}>
               <input type="checkbox" name="model" value={label} />
               {label}
@@ -241,8 +230,8 @@ function FilterSidebar() {
 
         {/* Radio chứ không checkbox: chỉ sắp xếp được theo MỘT tiêu chí tại một thời điểm. */}
         <fieldset className={styles.filterGroup}>
-          <legend className="typeBodySmall">Sắp xếp theo</legend>
-          {SORT_OPTIONS.map((label, index) => (
+          <legend className="typeBodySmall">{t.tools.sortLegend}</legend>
+          {sortOptions.map((label, index) => (
             <label key={label} className={`typeCaption ${styles.checkRow}`}>
               <input type="radio" name="sort" value={label} defaultChecked={index === 0} />
               {label}
@@ -254,7 +243,9 @@ function FilterSidebar() {
   );
 }
 
-function ToolCard({ price }: { price: string }) {
+function ToolCard({ price, t }: { price: string; t: Messages }) {
+  const tags = [format(t.tools.cardTag, { n: 1 }), format(t.tools.cardTag, { n: 2 })];
+
   return (
     <article className={styles.card}>
       <div className={styles.thumb}>
@@ -263,20 +254,19 @@ function ToolCard({ price }: { price: string }) {
 
       <div className={styles.cardBody}>
         <div className={styles.cardTitleRow}>
-          <h2 className="typeCardTitle">Tên công cụ</h2>
+          <h2 className="typeCardTitle">{t.tools.cardTitle}</h2>
           <span className={`typeCaption ${styles.priceBadge}`}>{price}</span>
         </div>
 
-        <p className="typeBodySmall textSecondary">
-          Mô tả ngắn về công cụ sẽ hiển thị ở đây khi danh mục được kết nối.
-        </p>
-        <p className="typeBodySmall textSecondary">
-          Đoạn thứ hai giữ chỗ để thấy chiều cao thật của thẻ khi mô tả dài hơn một dòng.
-        </p>
+        <p className="typeBodySmall textSecondary">{t.tools.cardDescription}</p>
+        <p className="typeBodySmall textSecondary">{t.tools.cardDescriptionSecond}</p>
 
         <ul className={styles.tagList}>
-          <li className={`typeCaption ${styles.tag}`}>Nhãn 1</li>
-          <li className={`typeCaption ${styles.tag}`}>Nhãn 2</li>
+          {tags.map((tag) => (
+            <li key={tag} className={`typeCaption ${styles.tag}`}>
+              {tag}
+            </li>
+          ))}
         </ul>
       </div>
     </article>

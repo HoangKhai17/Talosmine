@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { Fragment } from 'react';
+import { type Locale, localeHref } from '../../../i18n/locale';
+import { getMessages } from '../../../i18n/messages';
 import styles from './breadcrumb.module.css';
 
 /** Một chặng trên đường dẫn. Không có `href` nghĩa là chặng đó chưa có trang riêng. */
@@ -21,12 +23,16 @@ export type Crumb = { label: string; href?: string };
  * Component tự mang `grid-column: 1 / -1`, nên chỗ dùng chỉ cần đặt nó làm con TRỰC TIẾP
  * của `.container.grid`.
  */
-export function Breadcrumb({ trail }: { trail: Crumb[] }) {
-  const crumbs: Crumb[] = [{ label: 'Trang chủ', href: '/' }, ...trail];
+export function Breadcrumb({ trail, locale }: { trail: Crumb[]; locale: Locale }) {
+  const t = getMessages(locale);
+
+  // Chặng "Trang chủ" trỏ về trang chủ CỦA LOCALE hiện tại, không phải `/` trần — nếu không
+  // thì mỗi lần bấm lại đi qua một vòng chuyển hướng của proxy.
+  const crumbs: Crumb[] = [{ label: t.common.home, href: localeHref(locale, '/') }, ...trail];
   const lastIndex = crumbs.length - 1;
 
   return (
-    <nav className={styles.breadcrumb} aria-label="Đường dẫn">
+    <nav className={styles.breadcrumb} aria-label={t.a11y.breadcrumb}>
       <ol className={styles.list}>
         {crumbs.map((crumb, index) => (
           // `key` là nhãn: một đường dẫn không bao giờ đi qua cùng một chặng hai lần.

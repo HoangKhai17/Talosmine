@@ -25,6 +25,14 @@ const TOLERANCE = 1.5;
  *
  * Chờ đúng điều kiện sẽ đo, thay vì chờ một khoảng thời gian đoán chừng.
  */
+/**
+ * Mọi lời gọi dùng đường dẫn GHIM LOCALE (`/vi/…`), không phải đường dẫn trần.
+ *
+ * Lý do: Chromium gửi `Accept-Language: en-US`, nên `/tools` bị proxy thương lượng về
+ * `/en/tools`. Bộ test này định vị phần tử bằng nhãn tiếng Việt (`getByRole('complementary',
+ * { name: 'Bộ lọc' })`) nên sẽ không tìm thấy gì. Nó đo LƯỚI, không đo ngôn ngữ — ghim một
+ * locale là cách giữ phép đo ổn định thay vì phụ thuộc cấu hình trình duyệt.
+ */
 async function gotoWithGrid(page: import('@playwright/test').Page, path: string) {
   await page.goto(path);
   await page.waitForFunction(() => {
@@ -129,7 +137,7 @@ async function expectEveryCellOnAColumnStart(page: import('@playwright/test').Pa
 
 test.describe('lưới cột trang chủ', () => {
   test('số cột đúng theo breakpoint (4 / 8 / 12)', async ({ page }, testInfo) => {
-    await gotoWithGrid(page, '/');
+    await gotoWithGrid(page, '/vi');
     const geometry = await readGridGeometry(page);
 
     // Ánh xạ project → số cột mong đợi. Đây chính là quy chuẩn Figma.
@@ -138,7 +146,7 @@ test.describe('lưới cột trang chủ', () => {
   });
 
   test('hero KHÔNG bị ghim bằng max-width — bề ngang đến từ số cột', async ({ page }, testInfo) => {
-    await gotoWithGrid(page, '/');
+    await gotoWithGrid(page, '/vi');
     const geometry = await readGridGeometry(page);
 
     // Bản đồ cột của hero heading, khớp comment trong page.module.css.
@@ -155,7 +163,7 @@ test.describe('lưới cột trang chủ', () => {
   });
 
   test('thẻ công cụ: 1 / 2 / 3 thẻ mỗi hàng và khít cột', async ({ page }, testInfo) => {
-    await gotoWithGrid(page, '/');
+    await gotoWithGrid(page, '/vi');
     const geometry = await readGridGeometry(page);
 
     const cards = page.locator('ul.gridRow').first().locator('> li');
@@ -179,12 +187,12 @@ test.describe('lưới cột trang chủ', () => {
   });
 
   test('mọi ô lưới bắt đầu tại một mốc cột hợp lệ', async ({ page }) => {
-    await gotoWithGrid(page, '/');
+    await gotoWithGrid(page, '/vi');
     await expectEveryCellOnAColumnStart(page);
   });
 
   test('footer dùng chung lưới với trang', async ({ page }, testInfo) => {
-    await gotoWithGrid(page, '/');
+    await gotoWithGrid(page, '/vi');
     const geometry = await readGridGeometry(page);
 
     const brand = page.locator('footer .container.grid > *').first();
@@ -207,7 +215,7 @@ test.describe('lưới cột trang chủ', () => {
  */
 test.describe('lưới cột trang /tools', () => {
   test('mọi ô lưới bắt đầu tại một mốc cột hợp lệ', async ({ page }) => {
-    await gotoWithGrid(page, '/tools');
+    await gotoWithGrid(page, '/vi/tools');
     await expectEveryCellOnAColumnStart(page);
   });
 
@@ -224,7 +232,7 @@ test.describe('lưới cột trang /tools', () => {
    * lệch là nội dung BÊN TRONG chúng.
    */
   test('breadcrumb: chữ các mục thẳng hàng dọc', async ({ page }) => {
-    await gotoWithGrid(page, '/tools');
+    await gotoWithGrid(page, '/vi/tools');
 
     const nav = page.locator('nav[aria-label="Đường dẫn"]');
     const home = nav.locator('a');
@@ -242,7 +250,7 @@ test.describe('lưới cột trang /tools', () => {
   });
 
   test('cột bộ lọc: 4 / 8 / 3 cột', async ({ page }, testInfo) => {
-    await gotoWithGrid(page, '/tools');
+    await gotoWithGrid(page, '/vi/tools');
     const geometry = await readGridGeometry(page);
 
     const box = await page.getByRole('complementary', { name: 'Bộ lọc' }).boundingBox();
@@ -254,7 +262,7 @@ test.describe('lưới cột trang /tools', () => {
   });
 
   test('subgrid: thẻ kết quả khít ĐÚNG cột của lưới trang', async ({ page }, testInfo) => {
-    await gotoWithGrid(page, '/tools');
+    await gotoWithGrid(page, '/vi/tools');
     const geometry = await readGridGeometry(page);
 
     const cards = page.locator('ul[aria-label="Kết quả"] > li');
@@ -289,14 +297,14 @@ test.describe('lưới cột trang blog', () => {
   test('danh sách bài viết: mọi ô lưới bắt đầu tại một mốc cột hợp lệ', async ({ page }) => {
     // Trang blog có nhịp thẻ xen kẽ (3+6+3 rồi 6+6) và một hàng năm ô chia đều bằng flex —
     // hai chỗ dễ trượt khỏi cột nhất. Phép quét chung bắt được cả hai.
-    await gotoWithGrid(page, '/blog');
+    await gotoWithGrid(page, '/vi/blog');
     await expectEveryCellOnAColumnStart(page);
   });
 
   test('chi tiết bài viết: mọi ô lưới bắt đầu tại một mốc cột hợp lệ', async ({ page }) => {
     // Trang này trộn ba bề rộng trong cùng một lưới: chữ 9 cột, ảnh bìa trọn hàng, thẻ liên
     // quan 4 cột. Đúng loại trang dễ có một khối lạc khỏi cột.
-    await gotoWithGrid(page, '/blog/bai-viet-mau');
+    await gotoWithGrid(page, '/vi/blog/bai-viet-mau');
     await expectEveryCellOnAColumnStart(page);
   });
 });

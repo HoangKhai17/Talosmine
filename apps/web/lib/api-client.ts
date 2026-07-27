@@ -91,6 +91,18 @@ export const api = {
   delete: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),
 };
 
+/** Khớp `AdminNavItemView` của Control Plane (modules/site-content/site-nav.service.ts). */
+export interface AdminNavItemView {
+  id: string;
+  menuKey: 'header.primary' | 'footer.explore' | 'footer.about' | 'footer.resources';
+  sortOrder: number;
+  href: string;
+  status: 'draft' | 'active' | 'inactive';
+  labels: { vi?: string | null; en?: string | null };
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Khớp `OwnAccountView` của Control Plane (apps/control-plane/.../account.service.ts). */
 export interface AccountView {
   id: string;

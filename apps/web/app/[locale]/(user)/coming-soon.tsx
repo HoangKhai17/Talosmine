@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { type Locale, localeHref } from '../../../i18n/locale';
+import { getMessages } from '../../../i18n/messages';
 
 /**
  * Trang cho route đã có trong điều hướng nhưng CHƯA có nội dung.
@@ -9,20 +11,27 @@ import Link from 'next/link';
  *
  * Khi trang thật ra đời thì xoá file tương ứng, không phải sửa header.
  */
-export function ComingSoon({ title, description }: { title: string; description: string }) {
+export function ComingSoon({
+  title,
+  description,
+  locale,
+}: {
+  title: string;
+  description: string;
+  locale: Locale;
+}) {
+  const t = getMessages(locale);
+
   return (
     <div className="container section stack">
       <h1 className="typeH1">{title}</h1>
       <p className="typeBodyLarge textSecondary">{description}</p>
       <div className="notice">
-        <p className="typeBody">
-          Phần này chưa được xây dựng. Danh mục ứng dụng thuộc giai đoạn sau và còn chờ chốt danh
-          sách ứng dụng của Hub.
-        </p>
+        <p className="typeBody">{t.comingSoon.body}</p>
       </div>
       <p>
-        <Link className="typeBody" href="/">
-          Về trang chủ
+        <Link className="typeBody" href={localeHref(locale, '/')}>
+          {t.common.backToHome}
         </Link>
       </p>
     </div>

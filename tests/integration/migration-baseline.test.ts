@@ -323,7 +323,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
     await container?.stop();
   });
 
-  it('apply được và tạo đúng tập bảng hiện tại (P2 + P3)', async () => {
+  it('apply được và tạo đúng tập bảng hiện tại (P2 + P3 + site content)', async () => {
     await applyAllMigrations(sql);
 
     const tables = await sql<{ table_name: string }[]>`
@@ -334,8 +334,9 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
     // Danh sách CHÍNH XÁC — không thừa không thiếu. Cập nhật ở đây mỗi khi thêm bảng là
     // CÓ CHỦ ĐÍCH: test này bắt "bảng lọt vào ngoài ý muốn".
     //
-    // P2: identity (3) + audit (1) + admin RBAC (3) = 7
-    // P3: catalog (4) + service identity (1)        = 5
+    // P2:           identity (3) + audit (1) + admin RBAC (3) = 7
+    // P3:           catalog (4) + service identity (1)        = 5
+    // Site content: nav menus/items/translations              = 3
     expect(tables.map((t) => t.table_name)).toEqual([
       'accounts',
       'admin_role_assignments',
@@ -346,6 +347,9 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
       'audit_events',
       'external_identities',
       'features',
+      'nav_item_translations',
+      'nav_items',
+      'nav_menus',
       'service_identities',
       'usage_metrics',
       'web_sessions',

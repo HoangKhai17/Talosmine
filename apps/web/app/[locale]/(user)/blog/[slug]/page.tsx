@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { type Locale, localeHref } from '../../../../../i18n/locale';
+import { format, type Messages } from '../../../../../i18n/messages';
+import { localeAlternates, resolvePageI18n } from '../../../../../i18n/params';
 import { ArticleCard } from '../../article-card';
 import { Breadcrumb } from '../../breadcrumb';
 import { DraftBanner } from '../../draft-banner';
@@ -6,7 +9,25 @@ import { ImageIcon } from '../../icons';
 import { Newsletter } from '../../newsletter';
 import styles from './page.module.css';
 
-export const metadata: Metadata = { title: 'Talosmine — Bài viết' };
+/**
+ * Route này có HAI segment động (`locale` và `slug`), nên không dùng chung
+ * `PageLocaleParams` với các trang một segment.
+ */
+interface PostParams {
+  params: Promise<{ locale: string; slug: string }>;
+}
+
+export async function generateMetadata({ params }: PostParams): Promise<Metadata> {
+  const { locale, t } = await resolvePageI18n(params);
+  const { slug } = await params;
+
+  // `encodeURIComponent` vì slug đến từ URL do người khác gõ: một slug chứa `?` hoặc `#`
+  // chưa mã hoá sẽ làm canonical trỏ sang một trang khác hẳn.
+  return {
+    title: t.meta.blogPost,
+    alternates: localeAlternates(locale, `/blog/${encodeURIComponent(slug)}`),
+  };
+}
 
 /**
  * Trang chi tiết bài viết — bố cục thô theo wireframe Figma của chủ dự án.
@@ -40,94 +61,81 @@ type Block = { id: string } & (
   | { kind: 'list'; items: string[] }
 );
 
-const LOREM_LONG =
-  'Đây là đoạn văn mẫu để thấy nhịp dòng và độ dài dòng đọc của thân bài. Nội dung thật sẽ ' +
-  'đến từ hệ thống blog ở giai đoạn sau, nên phần chữ ở đây chỉ có nhiệm vụ chiếm đúng chỗ ' +
-  'mà một đoạn văn thật sẽ chiếm, không nhiều hơn cũng không ít hơn.';
+/** Dựng từ catalog thay vì hằng ở module scope — chữ phải đổi theo ngôn ngữ. */
+function placeholderBlocks(t: Messages): Block[] {
+  return [
+    { id: 'h1', kind: 'heading', text: t.blogPost.heading1 },
+    { id: 'p1', kind: 'paragraph', text: t.blogPost.paragraphLong },
+    { id: 'p2', kind: 'paragraph', text: t.blogPost.paragraphShort },
+    { id: 'img1', kind: 'image' },
+    { id: 'h2', kind: 'heading', text: t.blogPost.heading2 },
+    { id: 'p3', kind: 'paragraph', text: t.blogPost.paragraphLong },
+    { id: 'p4', kind: 'paragraph', text: t.blogPost.paragraphShort },
+    { id: 'quote1', kind: 'quote', text: t.blogPost.quote },
+    { id: 'h3', kind: 'heading', text: t.blogPost.heading3 },
+    { id: 'p5', kind: 'paragraph', text: t.blogPost.paragraphLong },
+    {
+      id: 'list1',
+      kind: 'list',
+      items: [
+        t.blogPost.listItem1,
+        t.blogPost.listItem2,
+        t.blogPost.listItem3,
+        t.blogPost.listItem4,
+      ],
+    },
+    { id: 'p6', kind: 'paragraph', text: t.blogPost.paragraphShort },
+    { id: 'img2', kind: 'image' },
+    { id: 'h4', kind: 'heading', text: t.blogPost.heading4 },
+    { id: 'p7', kind: 'paragraph', text: t.blogPost.paragraphLong },
+  ];
+}
 
-const LOREM_SHORT =
-  'Đoạn tiếp theo ngắn hơn, để thấy khoảng cách giữa hai đoạn liền nhau và giữa một đoạn với ' +
-  'tiêu đề phụ ngay dưới nó.';
+const RELATED_IDS = ['rp1', 'rp2', 'rp3'];
 
-const PLACEHOLDER_BLOCKS: Block[] = [
-  { id: 'h1', kind: 'heading', text: 'Tiêu đề phụ thứ nhất' },
-  { id: 'p1', kind: 'paragraph', text: LOREM_LONG },
-  { id: 'p2', kind: 'paragraph', text: LOREM_SHORT },
-  { id: 'img1', kind: 'image' },
-  { id: 'h2', kind: 'heading', text: 'Tiêu đề phụ thứ hai' },
-  { id: 'p3', kind: 'paragraph', text: LOREM_LONG },
-  { id: 'p4', kind: 'paragraph', text: LOREM_SHORT },
-  {
-    id: 'quote1',
-    kind: 'quote',
-    text:
-      'Một câu trích dẫn nổi bật trong bài. Khối này có vạch đậm bên trái và nền phụ để tách ' +
-      'khỏi mạch đọc chính.',
-  },
-  { id: 'h3', kind: 'heading', text: 'Tiêu đề phụ thứ ba' },
-  { id: 'p5', kind: 'paragraph', text: LOREM_LONG },
-  {
-    id: 'list1',
-    kind: 'list',
-    items: [
-      'Ý thứ nhất trong danh sách gạch đầu dòng.',
-      'Ý thứ hai, dài hơn một chút để thấy dòng thứ hai thụt vào đúng chỗ.',
-      'Ý thứ ba.',
-      'Ý thứ tư.',
-    ],
-  },
-  { id: 'p6', kind: 'paragraph', text: LOREM_SHORT },
-  { id: 'img2', kind: 'image' },
-  { id: 'h4', kind: 'heading', text: 'Tiêu đề phụ thứ tư' },
-  { id: 'p7', kind: 'paragraph', text: LOREM_LONG },
-];
+export default async function BlogDetailPage({ params }: PostParams) {
+  const { locale, t } = await resolvePageI18n(params);
 
-const PLACEHOLDER_RELATED = ['rp1', 'rp2', 'rp3'];
-
-export default function BlogDetailPage() {
   return (
     <>
-      <DraftBanner>Bản dựng bố cục — toàn bộ nội dung bài viết là văn bản mẫu.</DraftBanner>
+      <DraftBanner>{t.draft.blogPost}</DraftBanner>
 
-      <ArticleHeader />
-      <ArticleBody />
-      <RelatedPosts />
-      <Newsletter />
+      <ArticleHeader locale={locale} t={t} />
+      <ArticleBody t={t} />
+      <RelatedPosts locale={locale} t={t} />
+      <Newsletter locale={locale} />
     </>
   );
 }
 
-function ArticleHeader() {
+function ArticleHeader({ locale, t }: { locale: Locale; t: Messages }) {
   return (
     <section className={styles.headerSection}>
       <div className="container grid">
         {/* Chặng "Chủ đề" chưa có `href`: trang lọc theo chủ đề chưa tồn tại, nên nó là chữ
             chứ không phải link dẫn tới 404. */}
         <Breadcrumb
+          locale={locale}
           trail={[
-            { label: 'Blog', href: '/blog' },
-            { label: 'Chủ đề' },
-            { label: 'Tiêu đề bài viết' },
+            { label: t.blog.breadcrumb, href: localeHref(locale, '/blog') },
+            { label: t.blogPost.topic },
+            { label: t.blogPost.breadcrumbTitle },
           ]}
         />
 
         <p className={styles.topicRow}>
-          <span className={`typeCaption ${styles.topicTag}`}>Chủ đề</span>
+          <span className={`typeCaption ${styles.topicTag}`}>{t.blogPost.topic}</span>
         </p>
 
-        <h1 className={`typeH1 ${styles.title}`}>
-          Tiêu đề bài viết sẽ hiển thị ở đây khi hệ thống blog được kết nối
-        </h1>
+        <h1 className={`typeH1 ${styles.title}`}>{t.blogPost.title}</h1>
 
-        <p className={`typeBodySmall textSecondary ${styles.lead}`}>
-          Đoạn tóm tắt ngắn nằm ngay dưới tiêu đề, nói cho người đọc biết bài này giải quyết chuyện
-          gì trước khi họ quyết định đọc tiếp.
-        </p>
+        <p className={`typeBodySmall textSecondary ${styles.lead}`}>{t.blogPost.lead}</p>
 
         <p className={`typeCaption ${styles.meta}`}>
-          <time dateTime="2026-05-15">15/05/2026</time>
+          {/* `dateTime` là ISO 8601 — giá trị máy đọc, KHÔNG dịch. */}
+          <time dateTime="2026-05-15">{t.common.sampleDate}</time>
           <span aria-hidden="true">·</span>
-          <span>6 phút đọc</span>
+          <span>{format(t.common.readTime, { minutes: 6 })}</span>
         </p>
 
         {/* Ảnh bìa chiếm TRỌN hàng — rộng hơn cột chữ. Đây là điểm nhấn mở đầu bài. */}
@@ -139,7 +147,7 @@ function ArticleHeader() {
   );
 }
 
-function ArticleBody() {
+function ArticleBody({ t }: { t: Messages }) {
   return (
     <section className={styles.bodySection}>
       <div className="container grid">
@@ -148,7 +156,7 @@ function ArticleBody() {
           dọc, nên nhịp dọc do flex lo (globals.css: lưới lo cột ngang, flex lo nhịp dọc).
         */}
         <article className={styles.article}>
-          {PLACEHOLDER_BLOCKS.map((block) => (
+          {placeholderBlocks(t).map((block) => (
             <BlockView key={block.id} block={block} />
           ))}
         </article>
@@ -192,16 +200,16 @@ function BlockView({ block }: { block: Block }) {
   }
 }
 
-function RelatedPosts() {
+function RelatedPosts({ locale, t }: { locale: Locale; t: Messages }) {
   return (
     <section className="section">
       <div className="container grid">
-        <h2 className={`typeH2 ${styles.relatedHeading}`}>Bài viết liên quan</h2>
+        <h2 className={`typeH2 ${styles.relatedHeading}`}>{t.blogPost.relatedTitle}</h2>
 
         <ul className="gridRow">
-          {PLACEHOLDER_RELATED.map((id) => (
+          {RELATED_IDS.map((id) => (
             <li key={id} className={styles.relatedItem}>
-              <ArticleCard href="/blog/bai-viet-mau" />
+              <ArticleCard locale={locale} href={localeHref(locale, '/blog/bai-viet-mau')} />
             </li>
           ))}
         </ul>

@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
-import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
-import { DEFAULT_LOCALE, isLocale } from '../i18n/locale';
 import { getMessages } from '../i18n/messages';
+import { localeFromHeaders } from '../i18n/params';
 import './globals.css';
 
 /**
@@ -27,9 +26,30 @@ const inter = Inter({
   display: 'swap',
 });
 
+/**
+ * `metadataBase` biến `alternates` tương đối (`/vi/tools`) thành URL tuyệt đối trong thẻ
+ * `<link rel="alternate" hreflang>` — hreflang tương đối bị công cụ tìm kiếm bỏ qua.
+ *
+ * Đọc từ `APP_BASE_URL`, và biến này là TUỲ CHỌN (xem `server/env.ts`) nên phải chịu được
+ * việc nó vắng mặt: thiếu thì Next chỉ cảnh báo lúc build và phát hreflang tương đối, chứ
+ * không được làm sập trang. Dev/CI không phải cấu hình thêm gì.
+ */
+function readMetadataBase(): URL | null {
+  const raw = process.env.APP_BASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
+  }
+}
+
+const metadataBase = readMetadataBase();
+
 export const metadata: Metadata = {
   title: 'Talosmine',
   description: 'Talosmine web shell',
+  ...(metadataBase ? { metadataBase } : {}),
 };
 
 /**
@@ -74,12 +94,7 @@ export const viewport: Viewport = {
  * trình duyệt dựa vào nó để gợi ý dịch trang.
  */
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const headerList = await headers();
-  const raw = headerList.get('x-locale');
-
-  // Header do proxy đặt, nhưng vẫn kiểm: nếu matcher của proxy đổi và request lọt qua mà
-  // không có header, `lang` phải là một giá trị hợp lệ chứ không phải `null`.
-  const locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
+  const locale = await localeFromHeaders();
   const t = getMessages(locale);
 
   return (
