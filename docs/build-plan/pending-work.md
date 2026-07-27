@@ -402,6 +402,35 @@ tự bịa màu sẽ lệch thiết kế. Cần chủ dự án cung cấp bảng
 
 ## D. Khoảng trống giữa thiết kế và kế hoạch
 
+### D0. Module Site Content + i18n — ĐÃ LÀM, nằm ngoài P0–P9
+
+Ghi ở đây vì build plan không có mục nào cho hai việc này; chúng đến từ yêu cầu trực tiếp
+của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T26, DEC-B15.
+
+**Đã xong:**
+
+| Phần | Trạng thái |
+|---|---|
+| i18n khung (`/vi`, `/en`, proxy, `<html lang>`, hreflang) | Xong, có test |
+| Dịch toàn bộ nhánh `(user)` + `loading`/`not-found`/`error` | Xong |
+| Migration `0010_site_nav` + rollback + diễn tập | Xong |
+| API `/v1/site/nav` (công khai) + `/v1/admin/site/nav` | Xong, trong OpenAPI |
+| Trang `/admin/content/nav` | Xong |
+| Đọc nav ở web: cache 60s + fallback | Xong |
+
+**Chưa làm — việc kế tiếp của hướng này:**
+
+1. **Content slot + SEO theo route** (bước 3 của plan gốc): tiêu đề/mô tả từng section và
+   `title`/`description`/OG theo route. Hiện vẫn nằm trong message catalog của code.
+2. **Vô hiệu hoá cache xuyên tiến trình.** DEC-T26 chấp nhận độ trễ 60 giây và cache theo
+   từng tiến trình web. Khi chạy nhiều instance, hai người dùng có thể thấy hai phiên bản
+   menu trong vòng một phút. Cần pub/sub khi việc đó thành vấn đề thật.
+3. **Icon mạng xã hội ở footer** vẫn là `<span>` không link — chưa có tài khoản thật, và
+   mô hình `nav_items` bắt buộc mọi mục phải có `href` nên chúng chưa vào CMS được.
+4. **Mục `footerPending`** (Giới thiệu, Chính sách riêng tư, Hướng dẫn, Bản tin, FAQ) vẫn
+   hardcode: chúng cố ý không có đích đến. Khi trang tương ứng ra đời thì xoá khỏi code và
+   thêm vào CMS.
+
 ### D1. Blog, "Gửi công cụ", "Liên hệ" không nằm trong phase nào
 
 Ba mục này có trong thiết kế Figma và **đã dựng bố cục đầy đủ**, nhưng **build plan P0–P9

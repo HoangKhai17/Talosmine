@@ -309,6 +309,76 @@ Application/redirect tối thiểu trong Phase 1; feature trong Phase 2; approve
 - Metric chưa duyệt không thể đi vào quota policy/reservation.
 - Catalog API không trả hoặc lưu dữ liệu domain của app và không proxy business traffic.
 
+## 5b. Site Content — điều hướng header/footer
+
+> Module ngoài P0–P9, đến từ yêu cầu trực tiếp của chủ dự án. Quyết định nền: DEC-T25
+> (i18n), DEC-T26 (cache + fallback), DEC-B15 (danh sách ngôn ngữ).
+
+### 5b.1. Mục tiêu, trách nhiệm và ngoài phạm vi
+
+Đưa **nội dung điều hướng** (nhãn menu header, các cột footer) ra khỏi code để quản trị viên
+sửa được mà không deploy.
+
+Ranh giới cốt lõi: **code quyết định CHỖ NÀO có gì, dữ liệu quyết định CHỮ GÌ nằm ở đó.** Bố
+cục, số cột, thứ tự section và cấu trúc HTML vẫn nằm trong code và đi qua review.
+
+Ngoài phạm vi: không nhận HTML từ người biên tập (CSP theo nonce sẽ chặn, và nới CSP để chạy
+page-builder là đánh đổi tệ nhất trong kiến trúc này); không quản lý bài viết/trang nội dung
+(đó là hệ thống blog, xem pending-work D1); không quyết định ai được xem gì.
+
+### 5b.2. Tính năng
+
+Thêm/sửa/xoá/sắp xếp mục điều hướng theo từng vị trí menu; nhãn song ngữ; vòng đời
+`draft → active ⇄ inactive`; đọc công khai theo một ngôn ngữ.
+
+### 5b.3. Command và query chính
+
+- `getPublicNav(locale)` — chỉ mục `active`, chỉ ngôn ngữ yêu cầu.
+- `listForAdmin()` — mọi trạng thái, mọi ngôn ngữ.
+- `create` / `update` / `changeStatus` / `reorder` / `remove`.
+
+### 5b.4. Invariant và authorization
+
+- Vị trí menu là **danh mục đóng**; runtime không tạo/sửa/xoá được vị trí.
+- Mục mới **luôn** ở `draft`; không quay lại `draft` sau khi đã phát hành.
+- Ba permission tách bạch: `content:read`, `content:manage`, `content:publish`. Tách `publish`
+  vì đưa một mục sang `active` là đặt nó lên header/footer của **mọi** trang cho **mọi** khách.
+- `href` đi qua chính sách URL trước khi chạm database — đây là bề mặt open redirect.
+- Mọi mutation bắt buộc `reason` và ghi audit **đồng bộ trong cùng transaction**.
+- Mục thiếu bản dịch bị **bỏ qua** ở ngôn ngữ đó, không rơi về ngôn ngữ khác.
+
+### 5b.5. Dependency và port được phép
+
+Tiêu thụ `WebSessionGuard` (Identity) và `AdminPermissionGuard` (Admin). Dùng
+`checkUrlSyntax` của shared url-policy cho `href` ngoài. **Không export gì** — chưa module
+nào cần tra cứu điều hướng, và mở service ra ngoài là mời module khác ghi mà không qua
+permission guard.
+
+### 5b.6. Domain event / integration effect
+
+Không phát event. Web đọc qua HTTP và tự cache — xem 5b.8.
+
+### 5b.7. Dữ liệu sở hữu
+
+`nav_menus`, `nav_items`, `nav_item_translations` (database-schema mục 10b).
+
+### 5b.8. Giai đoạn
+
+Đã hiện thực: điều hướng header/footer. Kế tiếp: content slot cho tiêu đề/mô tả section, và
+SEO theo route (pending-work D0).
+
+Đường đọc phía web có **cache in-process TTL 60 giây** và **fallback bắt buộc** về hằng trong
+code. Fallback không phải phòng xa: header/footer nằm trên mọi trang, nên một sự cố Control
+Plane không có đường lui sẽ biến lỗi cục bộ thành sự cố toàn site.
+
+### 5b.9. Acceptance criteria
+
+- Đường đọc công khai không cần phiên đăng nhập và không lộ mục `draft`.
+- `content:manage` không phát hành được.
+- Sắp xếp lại chạy trong một transaction (cần unique `DEFERRABLE`).
+- `href` dạng `//host`, `javascript:`, host ngoài allowlist đều bị từ chối.
+- Control Plane không phản hồi → trang vẫn render bằng menu dự phòng.
+
 ## 6. Plan / Plan Version
 
 ### 6.1. Mục tiêu, trách nhiệm và ngoài phạm vi

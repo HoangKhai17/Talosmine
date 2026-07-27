@@ -1,20 +1,25 @@
-# Rollback migration — P3
+# Rollback migration — mọi thứ sau P2
 
 ## Đây là gì
 
-Ba file `.down.sql` gỡ đúng những gì migration `0007`–`0009` đã tạo, **theo thứ tự ngược**.
+Bốn file `.down.sql` gỡ đúng những gì migration `0007`–`0010` đã tạo, **theo thứ tự ngược**.
 
-Yêu cầu đến từ [phase-3 §8 và §17](../../../../docs/build-plan/phase-3-application-catalog.md):
+Yêu cầu gốc đến từ [phase-3 §8 và §17](../../../../docs/build-plan/phase-3-application-catalog.md):
 rollback phải bỏ khoá ngoại service của audit và **phục hồi ràng buộc actor của P2 trước**,
 rồi mới bỏ bảng service identity và các bảng catalog.
 
 ## Thứ tự bắt buộc
 
 ```
+0010_site_nav.down.sql              ← thu hẹp permission content, rồi bỏ 3 bảng nav
 0009_catalog_permissions.down.sql   ← thu hẹp permission catalog
 0008_service_identities.down.sql    ← bỏ FK + phục hồi actor check P2, rồi bỏ bảng
 0007_catalog.down.sql               ← bỏ 4 bảng catalog
 ```
+
+Thứ tự này được mã hoá ở `ROLLBACK_ORDER` trong `tests/support/postgres.ts`. **Thêm migration
+mới thì thêm vào đầu danh sách đó** — bỏ sót không làm test đỏ ngay, nhưng bài diễn tập sẽ
+lặng lẽ ngừng kiểm file `.down.sql` mới, và đó chính là cách chúng mục nát.
 
 Chạy sai thứ tự sẽ hỏng: bỏ `service_identities` trước khi bỏ khoá ngoại trỏ tới nó thì
 PostgreSQL từ chối, và bỏ `applications` trước `service_identities` cũng vậy. Đó là điều

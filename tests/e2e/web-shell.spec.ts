@@ -294,9 +294,24 @@ test.describe('i18n routing (DEC-T25)', () => {
    * `textContent` thì bài này báo đỏ vì chữ mà người dùng KHÔNG BAO GIỜ nhìn thấy.
    * `innerText` chỉ trả về chữ đã render ra màn hình.
    */
+  /**
+   * Đọc thân trang SAU KHI nội dung thật đã render.
+   *
+   * `page.goto` trả về ở sự kiện `load`, nhưng layout `(user)` là async (nó đọc điều hướng
+   * từ Control Plane), nên Next stream `loading.tsx` trước rồi mới tới nội dung. Đọc ngay
+   * sau `goto` sẽ bắt được đúng khoảnh khắc "Đang tải…" — và đó là một lần test đỏ ngẫu
+   * nhiên đã xảy ra thật.
+   *
+   * Chờ `h1` là mốc đúng: nó chỉ tồn tại ở nội dung thật, không có trong `loading.tsx`.
+   */
+  async function readSettledBody(page: import('@playwright/test').Page, path: string) {
+    await page.goto(path);
+    await expect(page.locator('h1')).toBeVisible();
+    return page.locator('body').innerText();
+  }
+
   test('/en không còn sót chữ tiếng Việt trong thân trang', async ({ page }) => {
-    await page.goto('/en');
-    const body = await page.locator('body').innerText();
+    const body = await readSettledBody(page, '/en');
 
     // Dấu phụ tiếng Việt chỉ tồn tại trong bản dịch `vi` — thấy chúng ở `/en` nghĩa là có
     // chuỗi chưa đi qua message catalog.
@@ -304,11 +319,8 @@ test.describe('i18n routing (DEC-T25)', () => {
   });
 
   test('/vi và /en render nội dung khác nhau', async ({ page }) => {
-    await page.goto('/vi');
-    const viBody = await page.locator('body').innerText();
-
-    await page.goto('/en');
-    const enBody = await page.locator('body').innerText();
+    const viBody = await readSettledBody(page, '/vi');
+    const enBody = await readSettledBody(page, '/en');
 
     expect(viBody).not.toBe(enBody);
     expect(enBody).toContain('Discover the best tools');

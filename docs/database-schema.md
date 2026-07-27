@@ -35,6 +35,7 @@ Hồ sơ account trong MVP dùng các cột typed `display_name`, `email`, `emai
 | Service Identity | `service_identities`, `service_identity_scopes` |
 | Quota | `usage_buckets`, `usage_reservations`, `usage_events`, `idempotency_records` |
 | Audit/Admin | `admin_roles`, `admin_role_permissions`, `admin_role_assignments`, `audit_events` |
+| Site Content | `nav_menus`, `nav_items`, `nav_item_translations` |
 | Reconciliation | Không sở hữu bảng và không truy cập bảng trực tiếp; chỉ gọi `QuotaReconciliationPort` |
 
 Thiết kế gồm **25 domain tables**. Billing, outbox, provider-specific data và `reconciliation_runs` được hoãn, không tạo trong MVP.
@@ -672,6 +673,58 @@ Phân kỳ này chỉ là **deployment staging** để migration không tạo FK
 - **P3 — Canonical upgrade:** tạo Catalog với `applications` trước, sau đó mới tạo `service_identities`. Khi bảng đích đã tồn tại, thêm FK của `audit_events.actor_service_identity_id` tới `service_identities(id) ON DELETE RESTRICT`, rồi thay actor check P2 bằng canonical check cho `account`, `service`, `system`: đúng một actor ID tương ứng cho `account`/`service`, và cả hai ID đều null cho `system`. Append-only trigger P2 được giữ nguyên và luôn có hiệu lực trong quá trình nâng cấp.
 
 P2 không phải một biến thể schema được hỗ trợ lâu dài và không được dùng để nhận service audit actor. Sau bước nâng cấp P3, bảng phải khớp chính xác định nghĩa canonical tại mục 10.4.
+
+## 10b. Site Content — điều hướng header/footer
+
+Migration `0010_site_nav`. Đưa nhãn menu ra khỏi code để quản trị viên sửa được từ `/admin`
+mà không deploy (DEC-T25, DEC-T26). Ranh giới: **code giữ bố cục, dữ liệu giữ nội dung**.
+
+### 10b.1. `nav_menus`
+
+- **Vai trò:** danh mục các vị trí đặt menu trên giao diện. Seed bằng chính migration.
+- **Cột:** `id uuid PK`, `key text`, `display_name text`, `created_at`.
+- **Check:** `key IN ('header.primary','footer.explore','footer.about','footer.resources')`.
+- **Unique:** `nav_menus_key_key (key)` — đích của khoá ngoại từ `nav_items`.
+- **Vì sao là danh mục đóng:** thêm một vị trí đòi code phải có chỗ render nó, nên đó là một
+  thay đổi có migration và review, không phải dữ liệu người biên tập tạo. Runtime **không**
+  được cấp UPDATE/DELETE trên bảng này.
+
+### 10b.2. `nav_items`
+
+- **Vai trò:** một mục điều hướng, phần **không phụ thuộc ngôn ngữ**.
+- **Cột:** `id uuid PK`, `menu_key -> nav_menus(key) ON DELETE RESTRICT`, `sort_order integer`,
+  `href text`, `status text`, `created_at`, `updated_at`.
+- **Check:** `status IN ('draft','active','inactive')`; `sort_order >= 0`; `href` non-empty.
+- **Unique:** `nav_items_menu_sort_key (menu_key, sort_order)` **`DEFERRABLE INITIALLY DEFERRED`**.
+  Hoãn là bắt buộc chứ không phải tối ưu: sắp xếp lại là nhiều câu `UPDATE`, và giữa chúng
+  hai hàng sẽ tạm trùng `sort_order` dù trạng thái cuối transaction hợp lệ. Ràng buộc này
+  **không** khai được bằng `CREATE UNIQUE INDEX`.
+- **Index:** `nav_items_menu_status_sort_idx (menu_key, status, sort_order)` — phục vụ truy vấn
+  nóng nhất của hệ thống, vì header/footer render trên mọi trang.
+- **`href` không mang prefix locale:** web tự gắn `/vi` hoặc `/en` lúc render. Lưu sẵn prefix
+  buộc cùng một mục phải tồn tại hai bản.
+- **Ranh giới DB/application:** DB cố ý chấp nhận `//evil.com`. Kiểm scheme, `//`, backslash
+  và ký tự điều khiển nằm ở application layer (`checkNavHref`) — xem `url-policy.md`.
+
+### 10b.3. `nav_item_translations`
+
+- **Vai trò:** nhãn theo từng ngôn ngữ.
+- **Cột:** `id uuid PK`, `nav_item_id -> nav_items(id) ON DELETE CASCADE`, `locale text`,
+  `label text`, `created_at`, `updated_at`.
+- **Check:** `locale IN ('vi','en')` (DEC-B15); `label` non-empty.
+- **Unique:** `nav_item_translations_item_locale_key (nav_item_id, locale)`.
+- **Vì sao tách bảng:** một mục có **một** `href` và **một** thứ tự nhưng **hai** nhãn. Để
+  `locale` trên chính hàng `nav_items` sẽ nhân đôi `href`/`sort_order`, và bản `vi` với bản
+  `en` sẽ trỏ hai nơi khác nhau mà không ai phát hiện.
+- **CASCADE là ngoại lệ có chủ đích** so với `RESTRICT` của catalog: bản dịch không có nghĩa
+  độc lập với mục menu, và không bảng lịch sử nào tham chiếu nó.
+
+### 10b.4. Quyền của role runtime
+
+Migration cấp **tường minh** `UPDATE, DELETE` cho `talosmine_runtime` trên `nav_items` và
+`nav_item_translations`. `ALTER DEFAULT PRIVILEGES` ở migration 0000 chỉ cho `SELECT, INSERT`,
+nên thiếu bước này thì mọi đường ghi chạy được ở test (testcontainers nối bằng superuser)
+nhưng chết ở dev/production với `permission denied`.
 
 ## 11. State machines
 
