@@ -1,5 +1,12 @@
 import type { NextProxy, NextRequest, ProxyConfig } from 'next/server';
 import { NextResponse } from 'next/server';
+import {
+  DEFAULT_LOCALE,
+  isUnlocalizedPath,
+  type Locale,
+  negotiateLocale,
+  splitLocale,
+} from './i18n/locale';
 import { decideAdminAccess, isAdminPath } from './server/admin-authorization';
 
 const isProduction = process.env.NODE_ENV === 'production';
@@ -80,6 +87,45 @@ function authEntryRedirect(request: NextRequest): URL | null {
   return null;
 }
 
+/**
+ * Đưa request về đúng dạng có prefix locale (DEC-T25).
+ *
+ * VÌ SAO Ở PROXY CHỨ KHÔNG PHẢI TRONG PAGE: cùng lý do với `authEntryRedirect` ngay trên —
+ * proxy chạy trước khi render nên trả được 307 thật, không tốn một byte HTML nào.
+ *
+ * `/admin`, `/auth`, `/api` KHÔNG bao giờ được gắn prefix. Với `/admin` đây là ràng buộc AN
+ * NINH chứ không phải lựa chọn tiện lợi: `isAdminPath` so khớp tiền tố `/admin` chính xác,
+ * nên `/vi/admin` sẽ trượt guard bên dưới. Danh sách nhánh miễn trừ nằm ở `i18n/locale.ts`.
+ *
+ * Trả `null` nghĩa là "đường dẫn đã đúng dạng, không phải việc của hàm này".
+ */
+function localeRedirect(request: NextRequest): URL | null {
+  const { pathname, search, origin } = request.nextUrl;
+
+  if (isUnlocalizedPath(pathname)) return null;
+  if (splitLocale(pathname).locale !== null) return null;
+
+  const locale = negotiateLocale({
+    cookieHeader: request.headers.get('cookie'),
+    acceptLanguage: request.headers.get('accept-language'),
+  });
+
+  // `/` → `/vi` chứ không phải `/vi/`: hai URL cho cùng một trang là một nguồn lỗi SEO.
+  const rest = pathname === '/' ? '' : pathname;
+  return new URL(`/${locale}${rest}${search}`, origin);
+}
+
+/**
+ * Locale để render request này.
+ *
+ * Chạy SAU `localeRedirect`, nên đường dẫn đã có prefix hợp lệ nếu nó thuộc vùng locale.
+ * Nhánh miễn trừ (`/admin`, `/auth`) nhận locale mặc định — chúng chỉ có một ngôn ngữ, nhưng
+ * `<html lang>` vẫn cần một giá trị đúng.
+ */
+function resolveLocale(request: NextRequest): Locale {
+  return splitLocale(request.nextUrl.pathname).locale ?? DEFAULT_LOCALE;
+}
+
 const proxy: NextProxy = async (request: NextRequest) => {
   const nonce = createNonce();
   const contentSecurityPolicy = buildContentSecurityPolicy(nonce);
@@ -89,6 +135,17 @@ const proxy: NextProxy = async (request: NextRequest) => {
     return NextResponse.redirect(authRedirect, {
       // Không bao giờ cache: mỗi lần đăng nhập phải sinh state/nonce mới ở `/auth/login`.
       headers: { 'Cache-Control': 'no-store' },
+    });
+  }
+
+  // Chuẩn hoá đường dẫn về dạng có locale TRƯỚC guard admin. An toàn vì `/admin` nằm trong
+  // danh sách miễn trừ nên không bao giờ bị hàm này chạm tới.
+  const toLocalized = localeRedirect(request);
+  if (toLocalized) {
+    return NextResponse.redirect(toLocalized, {
+      // Không cache: locale chọn theo cookie/`Accept-Language` của từng người. Một redirect
+      // được cache sẽ ép mọi người dùng sau đó vào ngôn ngữ của người đầu tiên.
+      headers: { 'Cache-Control': 'no-store', Vary: 'Accept-Language, Cookie' },
     });
   }
 
@@ -129,6 +186,11 @@ const proxy: NextProxy = async (request: NextRequest) => {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', contentSecurityPolicy);
+
+  // Locale đi xuống render qua header, cùng cách với nonce. Nhờ vậy ROOT layout đặt được
+  // `<html lang>` đúng mà không phải tách thành hai root layout riêng cho vùng có locale và
+  // vùng không có (`/admin`, `/auth`).
+  requestHeaders.set('x-locale', resolveLocale(request));
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', contentSecurityPolicy);

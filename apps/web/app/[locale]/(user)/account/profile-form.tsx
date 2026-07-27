@@ -1,7 +1,7 @@
 'use client';
 
 import { type FormEvent, useRef, useState } from 'react';
-import { type AccountView, ApiError, api } from '../../../lib/api-client';
+import { type AccountView, ApiError, api } from '../../../../lib/api-client';
 import styles from './profile-form.module.css';
 
 /**

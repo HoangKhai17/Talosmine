@@ -94,18 +94,15 @@
     flex-wrap: nowrap;
   }
 
-  .primaryNav {
-    order: 0;
-    width: auto;
-    overflow-x: visible;
-  }
-
   /* Nav về giữa: thương hiệu đẩy trái, khu tài khoản đẩy phải. */
   .brand {
     margin-right: 0;
   }
 
   .primaryNav {
+    order: 0;
+    width: auto;
+    overflow-x: visible;
     margin-inline: auto;
   }
 }
@@ -148,7 +145,15 @@
  * rõ hơn khoảng cách giữa các cột nằm ngang.
  *
  * Bản đồ cột: thương hiệu 4/8/3 · mỗi cột link 4/2/3.
- * Desktop: 3 + 3 + 3 + 3 = 12 cột chẵn.
+ *
+ *   mobile   4 cột:  thương hiệu 4 → trọn hàng; mỗi cột link 4 → xếp chồng
+ *   tablet   8 cột:  thương hiệu 8 → TRỌN MỘT HÀNG; ba cột link 2+2+2 = 6/8
+ *   desktop 12 cột:  3 + 3 + 3 + 3 = 12, bốn khối bằng nhau trên một hàng
+ *
+ * Ở tablet ba cột link chỉ lấp 6/8, chừa HAI CỘT TRỐNG bên phải. Đây là chủ đích, không
+ * phải sót: khối thương hiệu có một đoạn mô tả nên được cả hàng, và 8 không chia hết cho 3
+ * nên ba cột link không thể vừa đều vừa lấp kín. `grid.spec.ts` khoá giá trị này lại —
+ * đổi nó phải đổi cả test, và phải là một quyết định thiết kế chứ không phải dọn dẹp.
  */
 .footerInner {
   row-gap: var(--space-10);
@@ -224,6 +229,18 @@
   border-radius: var(--radius-button);
   background-color: color-mix(in srgb, var(--color-text-inverse) 6%, transparent);
   color: var(--color-text-inverse);
+}
+
+/*
+ * Hàng cuối footer — bản quyền.
+ *
+ * Nằm NGOÀI `.footerInner` và không dùng `.grid`: đây là một dòng chữ trải ngang, không
+ * phải một khối trong bản đồ cột. Nhét nó vào lưới sẽ buộc phải bịa thêm một span.
+ */
+.footerBottom {
+  margin-top: var(--space-10);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border-dark);
 }
 
 @media (prefers-reduced-motion: no-preference) {

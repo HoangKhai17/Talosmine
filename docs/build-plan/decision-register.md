@@ -348,6 +348,67 @@ rồi trả `id_token`. Phiên vẫn là của Talosmine.
 **Ảnh hưởng:** `@auth0/nextjs-auth0@4.25.0` đã **gỡ khỏi** `apps/web`. DEC-T08 phần đó
 chính thức khép lại.
 
+### DEC-T25 — i18n: locale trong path, message catalog tự viết *(approved 2026-07-27)*
+
+- **Trạng thái:** `approved` — 2026-07-27. Chủ dự án chốt "Việt + Anh ngay từ đầu" và duyệt
+  plan chứa quyết định này.
+- **Bối cảnh:** header/footer và mọi copy đang hardcode tiếng Việt trong JSX. Yêu cầu song
+  ngữ đặt ra trước khi dựng CMS nội dung (DEC-T26 và bảng `nav_*`).
+
+**Ba nhóm chữ, ba cơ chế — không gộp:**
+
+| Nhóm | Ví dụ | Sống ở đâu |
+|---|---|---|
+| Nội dung | nhãn menu, cột footer | DB + `/admin` |
+| Chuỗi sản phẩm | "Đăng nhập", nhãn lỗi form, `aria-label` | message catalog trong code |
+| Định tuyến | `/vi`, `/en`, `lang`, hreflang | proxy + cấu trúc route |
+
+Chuỗi sản phẩm **không** vào CMS: chữ trên nút "Đăng nhập" thuộc về sản phẩm và cần review.
+
+**Quyết định:**
+
+- **Locale nằm ở path prefix** (`/vi/...`, `/en/...`), không phải cookie đơn thuần. Cùng một
+  URL trả hai nội dung khác nhau sẽ làm Google index sai và link chia sẻ ra sai ngôn ngữ.
+- **`vi` là mặc định.** Thứ tự quyết định locale: prefix trong URL → cookie `talos_locale` →
+  `Accept-Language` → `vi`.
+- **Thiếu bản dịch thì fallback về `vi`** và ghi log. **Không bao giờ** render khoá thô
+  (`header.signIn`) ra mặt người dùng.
+- **Message catalog tự viết**, không thêm dependency. Nội dung là copy marketing, không có
+  pluralization phức tạp; `Intl.*` có sẵn cho số/ngày. Bản `en` khai `satisfies Messages` nên
+  thiếu khoá là **lỗi typecheck**, không phải lỗi phát hiện trên trang thật.
+- **`/admin` và `/auth` nằm NGOÀI vùng locale**, giữ một ngôn ngữ, không prefix.
+
+**Vì sao `/admin` không prefix — lý do an ninh, không phải tiết kiệm công:**
+
+`isAdminPath` (`apps/web/server/admin-authorization.ts`) so khớp tiền tố `/admin` chính xác.
+Nếu prefix locale áp cho toàn site, `/vi/admin` **không khớp** và lớp chặn admin thứ nhất ở
+`proxy.ts` mất tác dụng. Còn lớp 2 (RSC layout) và lớp 3 (`AdminPermissionGuard`) đỡ, nhưng
+mất một lớp phòng thủ vì một thay đổi trông như chuyện định tuyến thuần tuý là cái giá không
+đáng trả. Giữ `/admin` ngoài vùng locale làm vấn đề biến mất thay vì phải nhớ xử lý.
+E2E có test riêng: `/vi/admin` và `/en/admin` phải trả **404**.
+
+- **Điều kiện xem lại:** nếu cần ICU message/pluralization thật thì tạo record superseding và
+  cân nhắc `next-intl`.
+- **Affected phase:** ngoài P0–P9 (xem `pending-work.md`).
+
+### DEC-T26 — Cache nội dung site ở BFF: TTL in-process 60s *(approved 2026-07-27)*
+
+- **Trạng thái:** `approved` — 2026-07-27, cùng plan với DEC-T25.
+- **Vấn đề:** header/footer xuất hiện trên **mọi** trang. Toàn site đã `force-dynamic`
+  (`apps/web/app/layout.tsx`), nên mỗi request đều render lại; gọi Control Plane mỗi lần là
+  thêm một round-trip vào từng lượt xem.
+- **Quyết định:** cache in-process ở `apps/web/server/`, khoá theo locale, **TTL 60 giây**.
+- **Không dựa vào fetch cache của Next:** dưới `force-dynamic` mặc định là không cache. Dựa
+  vào nó là dựa vào một hành vi framework có thể đổi giữa các bản minor.
+- **Đánh đổi được chấp nhận:** admin bấm publish thì thay đổi hiện ra **trong vòng 60 giây**,
+  không tức thì. Vô hiệu hoá cache xuyên tiến trình cần pub/sub — chưa làm. Màn hình quản trị
+  phải nói rõ điều này, nếu không người biên tập sẽ tưởng thao tác không lưu được.
+- **Fallback là bắt buộc, không phải tuỳ chọn:** Control Plane chết hoặc DB thiếu dữ liệu thì
+  render bằng hằng mặc định trong code. Không có fallback thì một sự cố DB làm trắng toàn bộ
+  trang marketing. Chữ đang hardcode trong `layout.tsx` **trở thành** hằng fallback đó — nó
+  không bị xoá đi.
+- **Affected phase:** đi cùng module nội dung site.
+
 ### DEC-B14 — Recovery flow: IdP sở hữu, **hoãn kích hoạt** *(approved 2026-07-21)*
 
 - **Quyết định của chủ dự án:** khôi phục quyền truy cập (quên mật khẩu) **thuộc trách nhiệm
@@ -386,6 +447,7 @@ Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default
 | DEC-B11 | Retention và privacy matrix | `open` | P2, P5, P8 | |
 | DEC-B12 | RPO/RTO và restore drill cadence | `open` | P8 | |
 | DEC-B13 | Payment provider | `open` | P9 | Deferred có chủ đích. |
+| DEC-B15 | **Danh sách ngôn ngữ hỗ trợ** | `approved` 2026-07-27 | module nội dung site | `vi` (mặc định) + `en`. Xem dưới. |
 
 ### DEC-B04a — Account activation policy
 
@@ -402,6 +464,22 @@ Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default
 - **Ràng buộc giữ nguyên:** account `disabled` vẫn luôn deny (không bị policy này ảnh hưởng);
   và việc đổi sang `pending`-by-default sau này phải là một quyết định có record, không âm thầm.
 - **Affected phase:** P2 (provisioning logic).
+
+### DEC-B15 — Danh sách ngôn ngữ hỗ trợ
+
+`approved` 2026-07-27 bởi chủ dự án.
+
+- **Quyết định:** hệ thống phục vụ **hai** ngôn ngữ: `vi` (mặc định) và `en`. Người dùng cuối
+  thấy cả hai; `/admin` và `/auth` chỉ tiếng Việt (DEC-T25).
+- **Danh mục ĐÓNG ở cả hai tầng.** Thêm một ngôn ngữ **không** phải việc code tự làm được:
+  - DB: `CHECK (locale IN ('vi','en'))` trên bảng bản dịch → cần migration;
+  - code: `LOCALES` trong `apps/web/i18n/locale.ts` → cần thêm file message đầy đủ.
+
+  Cố ý làm khó: một locale nửa vời (có trong danh sách nhưng thiếu bản dịch) tạo ra trang
+  hiển thị lẫn lộn hai thứ tiếng — tệ hơn là không hỗ trợ ngôn ngữ đó.
+- **Không suy ra locale từ quốc gia/IP.** Chỉ dùng URL → cookie → `Accept-Language`. Địa lý
+  không phải ngôn ngữ.
+- **Affected phase:** module nội dung site.
 
 ### DEC-T14 — Cấu trúc Auth0 topology *(`proposed` — chờ DEC-B03)*
 

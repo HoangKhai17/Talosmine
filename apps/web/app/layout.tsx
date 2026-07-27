@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
+import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
+import { DEFAULT_LOCALE, isLocale } from '../i18n/locale';
+import { getMessages } from '../i18n/messages';
 import './globals.css';
 
 /**
@@ -59,13 +62,31 @@ export const viewport: Viewport = {
 /**
  * Root layout. Skip link ở đây trỏ tới `#main`; mọi layout con và mọi file
  * loading/error/not-found đều phải render đúng một `<main id="main">` để link này luôn có đích.
+ *
+ * LOCALE LẤY TỪ HEADER `x-locale` do `proxy.ts` đặt, không phải từ `params`.
+ *
+ * Lý do: root layout phủ CẢ vùng có locale (`/[locale]/…`) lẫn vùng không có (`/admin`,
+ * `/auth`), nên nó không có `params.locale` để đọc. Cách còn lại là tách thành hai root
+ * layout — nghĩa là hai bản khai `<html>`, hai chỗ nạp font, và hai chỗ phải nhớ sửa mỗi khi
+ * đổi một thứ chung. Header rẻ hơn nhiều.
+ *
+ * `<html lang>` không phải chi tiết vụn: trình đọc màn hình chọn giọng đọc theo nó, và
+ * trình duyệt dựa vào nó để gợi ý dịch trang.
  */
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const headerList = await headers();
+  const raw = headerList.get('x-locale');
+
+  // Header do proxy đặt, nhưng vẫn kiểm: nếu matcher của proxy đổi và request lọt qua mà
+  // không có header, `lang` phải là một giá trị hợp lệ chứ không phải `null`.
+  const locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
+  const t = getMessages(locale);
+
   return (
-    <html lang="vi" className={`${montserrat.variable} ${inter.variable}`}>
+    <html lang={locale} className={`${montserrat.variable} ${inter.variable}`}>
       <body>
         <a className="skipLink" href="#main">
-          Bỏ qua tới nội dung chính
+          {t.a11y.skipToContent}
         </a>
         {children}
       </body>

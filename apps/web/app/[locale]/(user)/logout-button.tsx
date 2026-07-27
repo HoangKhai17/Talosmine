@@ -12,7 +12,20 @@ import { useState } from 'react';
  * dùng `<form action>` thuần vì form HTML không đặt được header tùy ý, mà chính việc
  * "đặt được header" là thứ chứng minh request đến từ trang của ta.
  */
-export function LogoutButton({ className }: { className?: string }) {
+/**
+ * Nhãn TRUYỀN TỪ SERVER xuống, không tự đọc catalog.
+ *
+ * Đây là Client Component: nếu nó `import` message catalog thì cả hai bản dịch sẽ nằm trong
+ * bundle gửi về trình duyệt, và bundle đó lớn dần theo số ngôn ngữ. Server đã biết locale
+ * rồi, nên nó gửi xuống đúng ba chuỗi cần dùng.
+ */
+export function LogoutButton({
+  className,
+  labels,
+}: {
+  className?: string;
+  labels: { signOut: string; signingOut: string; failed: string };
+}) {
   const [pending, setPending] = useState(false);
 
   async function logout() {
@@ -28,13 +41,13 @@ export function LogoutButton({ className }: { className?: string }) {
       window.location.href = response.url || '/';
     } catch {
       setPending(false);
-      window.alert('Không đăng xuất được. Vui lòng thử lại.');
+      window.alert(labels.failed);
     }
   }
 
   return (
     <button type="button" className={className} onClick={() => void logout()} disabled={pending}>
-      {pending ? 'Đang đăng xuất…' : 'Đăng xuất'}
+      {pending ? labels.signingOut : labels.signOut}
     </button>
   );
 }

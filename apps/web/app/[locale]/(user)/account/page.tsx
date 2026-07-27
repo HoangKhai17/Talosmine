@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { type AccountView, ApiError, api } from '../../../lib/api-client';
+import { type AccountView, ApiError, api } from '../../../../lib/api-client';
 import styles from './page.module.css';
 import { ProfileForm } from './profile-form';
 

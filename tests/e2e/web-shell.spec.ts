@@ -14,17 +14,25 @@ import { expect, test } from '@playwright/test';
  * THÊM TRANG MỚI THÌ THÊM VÀO ĐÂY. Đây là cách rẻ nhất để một trang vừa dựng không lặng lẽ
  * bỏ qua hai lớp bảo vệ này.
  */
+/** Ngôn ngữ hỗ trợ — khớp `LOCALES` ở `apps/web/i18n/locale.ts` (DEC-B15). */
+const LOCALES = ['vi', 'en'] as const;
+
+/** Trang thuộc nhánh `(user)`: có prefix locale, phải kiểm ở CẢ HAI ngôn ngữ. */
+const LOCALIZED_PAGES = ['/', '/tools', '/blog', '/blog/bai-viet-mau'] as const;
+
+/**
+ * Trang NGOÀI vùng locale (DEC-T25). `/auth` một ngôn ngữ; gắn prefix vào chúng sẽ ra 404.
+ */
+const UNLOCALIZED_PAGES = ['/auth', '/auth/sign-up', '/auth/check-email'] as const;
+
 const PUBLIC_PAGES = [
-  '/',
-  '/tools',
-  '/blog',
-  '/blog/bai-viet-mau',
-  '/auth',
-  '/auth/sign-up',
-  '/auth/check-email',
+  ...LOCALES.flatMap((locale) =>
+    LOCALIZED_PAGES.map((path) => (path === '/' ? `/${locale}` : `/${locale}${path}`)),
+  ),
+  ...UNLOCALIZED_PAGES,
   // Đường dẫn KHÔNG tồn tại — trang 404 cũng là một trang, và nó từng là trang tĩnh duy
   // nhất còn lại nên dính đúng lỗi nonce/CSP mà cả bộ test này sinh ra để bắt.
-  '/khong-ton-tai-abc',
+  '/vi/khong-ton-tai-abc',
 ] as const;
 
 test.describe('(user) shell', () => {
@@ -181,7 +189,79 @@ test.describe('responsive và bàn phím', () => {
 
 test.describe('not-found', () => {
   test('route không tồn tại trả 404', async ({ request }) => {
-    const response = await request.get('/khong-ton-tai-abcxyz', { maxRedirects: 0 });
+    // Đường dẫn không mang prefix locale bị proxy chuẩn hoá trước (DEC-T25), nên 404 nằm ở
+    // URL ĐÃ gắn locale. Kiểm thẳng ở đó để test nói đúng một chuyện.
+    const response = await request.get('/vi/khong-ton-tai-abcxyz', { maxRedirects: 0 });
     expect(response.status()).toBe(404);
   });
+
+  test('đường dẫn trần được chuẩn hoá về locale rồi mới 404', async ({ request }) => {
+    const redirect = await request.get('/khong-ton-tai-abcxyz', { maxRedirects: 0 });
+    expect(redirect.status()).toBe(307);
+
+    const location = redirect.headers().location;
+    expect(location, 'redirect phải có header Location').toBeDefined();
+    expect(new URL(location as string, 'http://localhost').pathname).toBe(
+      '/vi/khong-ton-tai-abcxyz',
+    );
+  });
+});
+
+/**
+ * Định tuyến theo ngôn ngữ (DEC-T25).
+ *
+ * Nhóm test này tồn tại vì prefix locale đụng vào ĐÚNG chỗ mà guard admin dựa vào để hoạt
+ * động. Xem test `/vi/admin` bên dưới — nó là lý do chính của cả nhóm.
+ */
+test.describe('i18n routing (DEC-T25)', () => {
+  test('`/` chuyển hướng 307 về locale mặc định', async ({ request }) => {
+    const response = await request.get('/', { maxRedirects: 0 });
+    expect(response.status()).toBe(307);
+
+    const location = response.headers().location;
+    expect(location, 'redirect phải có header Location').toBeDefined();
+    expect(new URL(location as string, 'http://localhost').pathname).toBe('/vi');
+  });
+
+  test('`Accept-Language: en` đưa về `/en`', async ({ request }) => {
+    const response = await request.get('/', {
+      maxRedirects: 0,
+      headers: { 'accept-language': 'en-US,en;q=0.9' },
+    });
+    expect(response.status()).toBe(307);
+    expect(new URL(response.headers().location as string, 'http://localhost').pathname).toBe('/en');
+  });
+
+  test('cookie thắng Accept-Language', async ({ request }) => {
+    // Cookie là lựa chọn TƯỜNG MINH của người dùng; `Accept-Language` chỉ là cấu hình OS.
+    const response = await request.get('/', {
+      maxRedirects: 0,
+      headers: { 'accept-language': 'en-US,en;q=0.9', cookie: 'talos_locale=vi' },
+    });
+    expect(response.status()).toBe(307);
+    expect(new URL(response.headers().location as string, 'http://localhost').pathname).toBe('/vi');
+  });
+
+  for (const locale of LOCALES) {
+    test(`\`<html lang>\` khớp prefix ở /${locale}`, async ({ page }) => {
+      await page.goto(`/${locale}`);
+      await expect(page.locator('html')).toHaveAttribute('lang', locale);
+    });
+
+    /**
+     * LÝ DO AN NINH, không phải chuyện định tuyến.
+     *
+     * `isAdminPath` so khớp tiền tố `/admin` CHÍNH XÁC. Nếu ai đó "sửa cho nhất quán" bằng
+     * cách cho `/admin` vào vùng locale, thì `/vi/admin` sẽ không khớp guard ở proxy —
+     * lớp chặn admin thứ nhất biến mất mà không có lỗi nào nổi lên. Test này biến việc đó
+     * thành CI đỏ.
+     */
+    test(`/${locale}/admin không tồn tại — 404, không phải trang admin`, async ({ request }) => {
+      const response = await request.get(`/${locale}/admin`, { maxRedirects: 0 });
+      expect(response.status()).toBe(404);
+
+      const body = (await response.text()).toLowerCase();
+      expect(body).not.toContain('quản trị');
+    });
+  }
 });

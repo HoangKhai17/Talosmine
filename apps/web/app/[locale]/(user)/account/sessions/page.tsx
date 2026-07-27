@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, api, type SessionView } from '../../../../lib/api-client';
+import { ApiError, api, type SessionView } from '../../../../../lib/api-client';
 import styles from './page.module.css';
 
 /**
