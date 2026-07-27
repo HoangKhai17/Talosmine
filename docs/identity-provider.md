@@ -417,13 +417,51 @@ cứng ở giá trị `'logto'`.
 
 ---
 
+## 14b. Đăng xuất — hai phiên, hai bước
+
+Hệ thống có **hai** phiên chồng nhau, TTL khác nhau:
+
+| Phiên | TTL | Nơi giữ |
+|---|---|---|
+| Talosmine | 7 ngày | cookie `__Host-talos_session` + bảng `web_sessions` |
+| Logto | 14 ngày | cookie của chính Logto ở `:3001` |
+
+`POST /auth/logout` xử lý cả hai, theo thứ tự:
+
+1. Thu hồi phiên ở Control Plane (`DELETE /v1/auth/sessions/current`).
+2. Xoá cookie phiên của trình duyệt.
+3. Trả về `{ next }` — URL `end_session_endpoint` của Logto; client `window.location` tới đó.
+
+**Vì sao bước 3 tồn tại.** Trước 2026-07-27, đăng xuất chỉ làm bước 1–2. Phiên Logto vẫn
+sống, nên bấm "Đăng nhập" ngay sau đó là vào lại tài khoản cũ **không cần mật khẩu** —
+authorization request không có `prompt`, Logto thấy cookie của nó và trả code luôn. Trên máy
+dùng chung đó là lỗ hổng, không phải bất tiện.
+
+**Vì sao dùng `client_id` chứ không `id_token_hint`.** Spec cho phép cả hai. `client_id` giữ
+được nguyên tắc ở `/auth/callback`: *không giữ token của IdP*. Đi đường `id_token_hint` buộc
+phải lưu `id_token` suốt vòng đời phiên — thêm một bản sao claim của người dùng mà không đổi
+lại được gì.
+
+**Vì sao route trả JSON chứ không 303.** Nút đăng xuất gọi bằng `fetch` để gắn header CSRF.
+Nếu route trả 303 sang Logto thì `fetch` đi theo redirect đó thành request xuyên origin — vừa
+dính `connect-src 'self'`, vừa vô ích vì `fetch` không chạy JavaScript, mà trang của Logto
+**tự submit form bằng JavaScript** rồi mới quay về. Client phải điều hướng cấp cao nhất.
+
+**Ràng buộc cấu hình:** `post_logout_redirect_uri` phải khớp CHÍNH XÁC giá trị trong Logto
+(Applications → Talosmine Hub → Post sign-out redirect URIs). Hiện là `http://localhost:3000`.
+Thừa một dấu `/` ở cuối là bị từ chối, và lỗi chỉ hiện ra ở bước `/confirm`.
+
+---
+
 ## 15. Những gì chưa làm
 
 Ghi lại để không ai tưởng đã có:
 
 - **CAPTCHA / rate limit** — DEC-T23 chưa chốt. Hiện chưa có lớp chống spam đăng ký.
-- **Propagate logout từ IdP.** Cột `web_sessions.idp_sid` đã có sẵn cho mục đích này nhưng
-  chưa có endpoint nhận tín hiệu back-channel logout từ Logto.
+- **Back-channel logout (chiều Logto → Talosmine).** Chiều ngược lại đã xong (xem mục 14b):
+  đăng xuất ở Talosmine kết thúc luôn phiên Logto. Nhưng nếu người dùng đăng xuất TỪ Logto
+  hoặc admin Logto thu hồi phiên, Talosmine không nhận được tín hiệu. Cột `web_sessions.idp_sid`
+  đã có sẵn cho mục đích này; discovery của Logto khai `backchannel_logout_supported: true`.
 - **Giao diện quản lý phiên.** API đã xong; trang cho người dùng xem và thu hồi phiên
   chưa dựng.
 - **HTTPS.** Development chạy HTTP trên loopback. Production bắt buộc HTTPS — cookie

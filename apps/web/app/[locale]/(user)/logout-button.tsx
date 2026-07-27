@@ -28,6 +28,16 @@ export function LogoutButton({
 }) {
   const [pending, setPending] = useState(false);
 
+  /**
+   * Hai chặng, và chặng hai BẮT BUỘC là điều hướng cấp cao nhất chứ không phải `fetch`.
+   *
+   *   1. `POST /auth/logout` — thu hồi phiên Talosmine, xoá cookie, trả về `next`.
+   *   2. `window.location` tới `next` (trang kết thúc phiên của IdP).
+   *
+   * Vì sao không để `fetch` tự đi theo redirect sang IdP: đó là request xuyên origin, vừa
+   * dính `connect-src 'self'` vừa vô ích — `fetch` không chạy JavaScript, mà trang của IdP
+   * tự submit form bằng JavaScript rồi mới quay về đây.
+   */
   async function logout() {
     setPending(true);
     try {
@@ -35,10 +45,14 @@ export function LogoutButton({
         method: 'POST',
         headers: { 'x-csrf-token': readCsrfToken() ?? '' },
         credentials: 'same-origin',
-        redirect: 'follow',
       });
-      // BFF trả 303 về trang chủ; dùng URL cuối cùng để không hardcode đích ở hai nơi.
-      window.location.href = response.url || '/';
+
+      if (!response.ok) throw new Error(`logout failed: ${response.status}`);
+
+      const body = (await response.json()) as { next?: unknown };
+      // Phiên Talosmine đã bị thu hồi ở bước 1 rồi, nên kể cả khi `next` hỏng thì về trang
+      // chủ vẫn là trạng thái đúng — chỉ là phiên IdP còn sống.
+      window.location.href = typeof body.next === 'string' ? body.next : '/';
     } catch {
       setPending(false);
       window.alert(labels.failed);

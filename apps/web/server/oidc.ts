@@ -71,6 +71,58 @@ export function redirectUri(cfg: OidcConfig): string {
   return new URL('/auth/callback', cfg.appBaseUrl).toString();
 }
 
+/**
+ * Dựng URL kết thúc phiên ở IdP (RP-Initiated Logout).
+ *
+ * VÌ SAO KHÔNG DÙNG `id_token_hint`: spec cho phép thay bằng `client_id`, và Logto chấp nhận.
+ * Dùng `client_id` giữ được nguyên tắc đã ghi ở `/auth/callback` — **không giữ token của
+ * IdP**. Đi đường `id_token_hint` sẽ buộc phải lưu `id_token` suốt vòng đời phiên, tức là
+ * thêm một bản sao claim của người dùng nằm trên đĩa hoặc trong cookie mà không đổi lại
+ * được gì.
+ *
+ * `postLogoutRedirectUri` phải KHỚP CHÍNH XÁC giá trị đã đăng ký trong Logto
+ * (Applications → Talosmine Hub → Post sign-out redirect URIs). Thừa một dấu `/` ở cuối là
+ * bị từ chối — vì vậy hàm này truyền thẳng `appBaseUrl`, không ghép thêm path.
+ *
+ * Hàm THUẦN, tách khỏi discovery để test được mà không chạm mạng.
+ */
+export function buildEndSessionUrl(input: {
+  endSessionEndpoint: string;
+  clientId: string;
+  postLogoutRedirectUri: string;
+}): string {
+  const url = new URL(input.endSessionEndpoint);
+  url.searchParams.set('client_id', input.clientId);
+  url.searchParams.set('post_logout_redirect_uri', input.postLogoutRedirectUri);
+  return url.toString();
+}
+
+/**
+ * URL kết thúc phiên IdP cho cấu hình hiện tại, hoặc `null` nếu IdP không hỗ trợ.
+ *
+ * Trả `null` thay vì ném lỗi: đăng xuất khỏi Talosmine phải thành công kể cả khi IdP không
+ * có `end_session_endpoint`. Một IdP thiếu tính năng không được biến nút đăng xuất thành nút
+ * báo lỗi.
+ */
+export async function endSessionUrl(): Promise<string | null> {
+  const cfg = requireOidcConfig();
+
+  try {
+    const configuration = await getOidcConfiguration();
+    const endpoint = configuration.serverMetadata().end_session_endpoint;
+    if (!endpoint) return null;
+
+    return buildEndSessionUrl({
+      endSessionEndpoint: endpoint,
+      clientId: cfg.clientId,
+      postLogoutRedirectUri: cfg.appBaseUrl,
+    });
+  } catch (error) {
+    console.error('[auth/logout] không đọc được end_session_endpoint:', error);
+    return null;
+  }
+}
+
 export interface Transaction {
   state: string;
   nonce: string;
