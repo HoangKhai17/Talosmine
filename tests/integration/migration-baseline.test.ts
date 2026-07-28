@@ -336,7 +336,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
     //
     // P2:           identity (3) + audit (1) + admin RBAC (3) = 7
     // P3:           catalog (4) + service identity (1)        = 5
-    // Site content: nav menus/items/translations + settings   = 4
+    // Site content: nav menus/items/translations + settings + content_slots = 5
     // Survey:       questions/options + 2 bảng dịch + responses/answers = 6
     expect(tables.map((t) => t.table_name)).toEqual([
       'accounts',
@@ -346,6 +346,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
       'application_redirect_uris',
       'applications',
       'audit_events',
+      'content_slots',
       'external_identities',
       'features',
       'nav_item_translations',

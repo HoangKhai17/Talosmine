@@ -35,7 +35,7 @@ Hồ sơ account trong MVP dùng các cột typed `display_name`, `email`, `emai
 | Service Identity | `service_identities`, `service_identity_scopes` |
 | Quota | `usage_buckets`, `usage_reservations`, `usage_events`, `idempotency_records` |
 | Audit/Admin | `admin_roles`, `admin_role_permissions`, `admin_role_assignments`, `audit_events` |
-| Site Content | `nav_menus`, `nav_items`, `nav_item_translations`, `site_settings` |
+| Site Content | `nav_menus`, `nav_items`, `nav_item_translations`, `site_settings`, `content_slots` |
 | Survey | `survey_questions`, `survey_question_translations`, `survey_options`, `survey_option_translations`, `survey_responses`, `survey_answers` |
 | Reconciliation | Không sở hữu bảng và không truy cập bảng trực tiếp; chỉ gọi `QuotaReconciliationPort` |
 
@@ -738,10 +738,29 @@ Migration `0011_site_settings`. Cài đặt chung của site — hiện chỉ c�
 - **Kiểm URL** dùng lại `checkNavHref` của `nav_items`: cùng bề mặt tấn công (giá trị vào
   thuộc tính `src`/`href` trên mọi trang), nên hai bộ kiểm riêng sẽ có ngày lệch nhau.
 
-### 10b.5. Quyền của role runtime
+### 10b.5. `content_slots`
 
-Migration cấp **tường minh** `UPDATE, DELETE` cho `talosmine_runtime` trên `nav_items` và
-`nav_item_translations`. `ALTER DEFAULT PRIVILEGES` ở migration 0000 chỉ cho `SELECT, INSERT`,
+Migration `0013_content_slots`. Khe nội dung của các trang tĩnh — tiêu đề, đoạn dẫn, chữ SEO.
+
+- **Cột:** `id uuid PK`, `key text`, `locale text`, `value text NOT NULL`, `created_at`,
+  `updated_at`.
+- **Check:** `key` thuộc danh mục ĐÓNG 41 khoá (khớp `CONTENT_SLOT_KEYS` ở schema.ts và enum
+  OpenAPI); `locale IN ('vi','en')`; `value` non-empty.
+- **Unique:** `content_slots_key_locale_key (key, locale)` — đích của upsert.
+- **Khoá là đường dẫn message catalog** (`home.heroTitle`): web merge giá trị DB đè lên
+  catalog. "Chưa đặt" = KHÔNG CÓ HÀNG — bảng rỗng cho ra trang y nguyên bản trong code, xoá
+  hàng = quay về mặc định. Cấm chuỗi rỗng vì hàng rỗng sẽ đè mất chữ dự phòng.
+- **Mỗi (key, locale) một hàng**, không tách bảng bản dịch như nav/survey: khe không có thuộc
+  tính nào ngoài giá trị chữ, một JOIN để đọc một cột là cái giá vô nghĩa.
+- **Không seed** — khác `site_settings`: "chưa đặt" là trạng thái mặc định hợp lệ của mọi khe.
+- **Quyền runtime:** `UPDATE, DELETE` tường minh (xoá override là thao tác biên tập bình
+  thường, không phải huỷ dữ liệu lịch sử).
+
+### 10b.6. Quyền của role runtime
+
+Migration cấp **tường minh** `UPDATE, DELETE` cho `talosmine_runtime` trên `nav_items`,
+`nav_item_translations` và `content_slots` (riêng `site_settings` chỉ `UPDATE` — xem 10b.4).
+`ALTER DEFAULT PRIVILEGES` ở migration 0000 chỉ cho `SELECT, INSERT`,
 nên thiếu bước này thì mọi đường ghi chạy được ở test (testcontainers nối bằng superuser)
 nhưng chết ở dev/production với `permission denied`.
 

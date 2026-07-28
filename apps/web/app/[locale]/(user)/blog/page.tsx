@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { type Locale, localeHref } from '../../../../i18n/locale';
 import { format, type Messages } from '../../../../i18n/messages';
-import { localeAlternates, type PageLocaleParams, resolvePageI18n } from '../../../../i18n/params';
+import { localeAlternates, type PageLocaleParams } from '../../../../i18n/params';
+import { resolvePageContent } from '../../../../server/site-content';
 import { ArticleCard } from '../article-card';
 import { Breadcrumb } from '../breadcrumb';
 import { SearchIcon } from '../icons';
@@ -10,8 +11,13 @@ import { Newsletter } from '../newsletter';
 import styles from './page.module.css';
 
 export async function generateMetadata({ params }: PageLocaleParams): Promise<Metadata> {
-  const { locale, t } = await resolvePageI18n(params);
-  return { title: t.meta.blog, alternates: localeAlternates(locale, '/blog') };
+  const { locale, t, slots } = await resolvePageContent(params);
+  const description = slots['seo.description.blog'];
+  return {
+    title: t.meta.blog,
+    ...(description !== undefined ? { description } : {}),
+    alternates: localeAlternates(locale, '/blog'),
+  };
 }
 
 /**
@@ -50,7 +56,7 @@ const FEATURED_IDS = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6'];
 const TRENDING_TOPIC_COUNT = 5;
 
 export default async function BlogPage({ params }: PageLocaleParams) {
-  const { locale, t } = await resolvePageI18n(params);
+  const { locale, t } = await resolvePageContent(params);
 
   return (
     <>

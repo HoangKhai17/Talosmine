@@ -1922,6 +1922,102 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /v1/site/content:
+    get:
+      tags: [site-content]
+      operationId: getSiteContent
+      summary: Khe nội dung của các trang, theo một ngôn ngữ
+      description: |
+        CÔNG KHAI — không cần phiên, cùng lý do với `/v1/site/nav`: chữ này nằm trên các
+        trang marketing mở cho mọi khách.
+
+        Chỉ trả những khoá ĐÃ ĐƯỢC ĐẶT. Khoá vắng mặt nghĩa là "dùng chữ mặc định trong
+        code" — web merge kết quả này đè lên message catalog, nên bảng rỗng cho ra trang
+        y nguyên bản hardcode. Đó là đường lui, không phải lỗi.
+
+        BFF cache 60 giây (DEC-T26).
+      parameters:
+        - name: locale
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [vi, en]
+      responses:
+        '200':
+          description: Các khe đã đặt cho ngôn ngữ này.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteContent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /v1/admin/site/content:
+    get:
+      tags: [admin]
+      operationId: adminListSiteContent
+      summary: Khe nội dung (quản trị)
+      description: |
+        Yêu cầu `content:read`. Trả CẢ HAI ngôn ngữ cạnh nhau — màn hình quản trị sửa song
+        song vi/en.
+
+        Cũng chỉ trả khoá đã đặt: DANH MỤC khoá (nhóm, nhãn hiển thị, chữ mặc định) nằm
+        trong code của web — nơi duy nhất biết khe nào render ở đâu — không phải ở đây.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Toàn bộ khe đã đặt.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminContentSlot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/site/content/{slotKey}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateSiteContent
+      summary: Đặt hoặc xoá giá trị một khe nội dung
+      description: |
+        Yêu cầu `content:manage`.
+
+        Ngữ nghĩa từng ngôn ngữ trong `values`: vắng mặt = không đổi; chuỗi có chữ = đặt;
+        `null` hoặc chuỗi rỗng = XOÁ — trang quay về chữ mặc định trong code. Xoá là thao
+        tác biên tập bình thường, không phải huỷ dữ liệu.
+
+        KHÔNG nhận HTML — giá trị là chữ thuần, render qua JSX nên markup không bao giờ
+        chạy, và CSP theo nonce (DEC-T20) là ranh giới không thương lượng.
+      security:
+        - webSession: []
+      parameters:
+        - name: slotKey
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ContentSlotKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContentSlotRequest'
+      responses:
+        '204':
+          description: Đã lưu.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   # ── Survey: quản trị ───────────────────────────────────────────────────────
 
   /v1/admin/survey/questions:
@@ -2647,6 +2743,88 @@ components:
         Trường vắng mặt = không đổi. `logoUrl` bằng `null` = xoá logo.
       properties:
         logoUrl: { type: [string, 'null'] }
+        reason: { type: string, minLength: 1 }
+
+    ContentSlotKey:
+      type: string
+      description: |
+        Khoá khe nội dung — danh mục ĐÓNG, khớp CHECK ở migration `0013_content_slots`.
+        Khoá là ĐƯỜNG DẪN trong message catalog của web (trừ nhóm `seo.description.*`
+        không có bản dự phòng); một khe không có chỗ render trong code là dữ liệu chết,
+        nên thêm khe = migration + code, không phải việc admin làm được.
+      enum:
+        - home.heroTitle
+        - home.heroLead
+        - home.statToolCount
+        - home.statCategoryCount
+        - home.statUpdated
+        - home.toolsTitle
+        - home.toolsLead
+        - home.categoriesTitle
+        - home.whatsNewTitle
+        - home.whatsNewLead
+        - home.blogTitle
+        - home.faqTitle
+        - home.faqLead
+        - tools.title
+        - tools.lead
+        - blog.title
+        - blog.lead
+        - blog.latestTitle
+        - blog.featuredTitle
+        - blog.trendingTitle
+        - comingSoon.categoriesTitle
+        - comingSoon.categoriesDescription
+        - comingSoon.contactTitle
+        - comingSoon.contactDescription
+        - comingSoon.submitTitle
+        - comingSoon.submitDescription
+        - footer.tagline
+        - newsletter.title
+        - newsletter.text
+        - meta.home
+        - meta.tools
+        - meta.blog
+        - meta.categories
+        - meta.contact
+        - meta.submit
+        - seo.description.home
+        - seo.description.tools
+        - seo.description.blog
+        - seo.description.categories
+        - seo.description.contact
+        - seo.description.submit
+
+    SiteContent:
+      type: object
+      required: [locale, values]
+      additionalProperties: false
+      properties:
+        locale: { type: string, enum: [vi, en] }
+        values:
+          type: object
+          description: |
+            Chỉ chứa khoá ĐÃ ĐẶT. Khoá vắng mặt = web dùng chữ mặc định trong code.
+          additionalProperties: { type: string }
+
+    AdminContentSlot:
+      type: object
+      required: [key, values, updatedAt]
+      additionalProperties: false
+      properties:
+        key:
+          $ref: '#/components/schemas/ContentSlotKey'
+        values:
+          $ref: '#/components/schemas/LocalizedText'
+        updatedAt: { type: string, format: date-time }
+
+    UpdateContentSlotRequest:
+      type: object
+      required: [values, reason]
+      additionalProperties: false
+      properties:
+        values:
+          $ref: '#/components/schemas/LocalizedText'
         reason: { type: string, minLength: 1 }
 
     NavMenuKey:

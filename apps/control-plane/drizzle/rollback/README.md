@@ -2,7 +2,7 @@
 
 ## Đây là gì
 
-Sáu file `.down.sql` gỡ đúng những gì migration `0007`–`0012` đã tạo, **theo thứ tự ngược**.
+Bảy file `.down.sql` gỡ đúng những gì migration `0007`–`0013` đã tạo, **theo thứ tự ngược**.
 
 Yêu cầu gốc đến từ [phase-3 §8 và §17](../../../../docs/build-plan/phase-3-application-catalog.md):
 rollback phải bỏ khoá ngoại service của audit và **phục hồi ràng buộc actor của P2 trước**,
@@ -11,6 +11,7 @@ rồi mới bỏ bảng service identity và các bảng catalog.
 ## Thứ tự bắt buộc
 
 ```
+0013_content_slots.down.sql         ← bỏ bảng khe nội dung (web quay về chữ trong code)
 0012_survey.down.sql                ← thu hẹp permission survey, rồi bỏ 6 bảng khảo sát
 0011_site_settings.down.sql        ← bỏ bảng cài đặt site
 0010_site_nav.down.sql              ← thu hẹp permission content, rồi bỏ 3 bảng nav

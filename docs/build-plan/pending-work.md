@@ -457,8 +457,10 @@ của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T
    - **Người dùng chưa xem/xoá được câu trả lời của chính mình.** Phụ thuộc câu 2 của DEC-B11.
    - **Chưa có xuất CSV.** Báo cáo hiện chỉ đọc trên màn hình; xuất file là một bề mặt rò dữ
      liệu mới nên chờ chính sách lưu trữ trước.
-2. **Content slot + SEO theo route** (bước 3 của plan gốc): tiêu đề/mô tả từng section và
-   `title`/`description`/OG theo route. Hiện vẫn nằm trong message catalog của code.
+2. ~~Content slot + SEO theo route~~ — **ĐÃ LÀM (2026-07-28, migration 0013)**: 41 khe cho 6
+   trang + footer/newsletter, gồm cả `<title>` và meta description theo route; sửa ở
+   `/admin/content/pages`. Chưa có: ảnh OG (chờ object storage), và FAQ trên trang chủ vẫn
+   là placeholder (cần cấu trúc Q&A riêng, không phải khe chữ đơn).
 3. **Vô hiệu hoá cache xuyên tiến trình.** DEC-T26 chấp nhận độ trễ 60 giây và cache theo
    từng tiến trình web. Khi chạy nhiều instance, hai người dùng có thể thấy hai phiên bản
    menu trong vòng một phút. Cần pub/sub khi việc đó thành vấn đề thật.

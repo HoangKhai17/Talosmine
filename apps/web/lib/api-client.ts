@@ -103,6 +103,13 @@ export interface AdminNavItemView {
   updatedAt: string;
 }
 
+/** Khớp `AdminContentSlotView` của Control Plane (modules/site-content/content-slots.service.ts). */
+export interface AdminContentSlotView {
+  key: string;
+  values: { vi?: string | null; en?: string | null };
+  updatedAt: string;
+}
+
 /* ── Khảo sát onboarding ──────────────────────────────────────────────────────
  * Khớp view của `apps/control-plane/src/modules/survey/survey-admin.service.ts`. */
 

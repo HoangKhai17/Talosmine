@@ -2,14 +2,20 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { type Locale, localeHref } from '../../../i18n/locale';
 import { format, type Messages } from '../../../i18n/messages';
-import { localeAlternates, type PageLocaleParams, resolvePageI18n } from '../../../i18n/params';
+import { localeAlternates, type PageLocaleParams } from '../../../i18n/params';
+import { resolvePageContent } from '../../../server/site-content';
 import { ChevronIcon, ImageIcon, SearchIcon } from './icons';
 import { Newsletter } from './newsletter';
 import styles from './page.module.css';
 
 export async function generateMetadata({ params }: PageLocaleParams): Promise<Metadata> {
-  const { locale, t } = await resolvePageI18n(params);
-  return { title: t.meta.home, alternates: localeAlternates(locale, '/') };
+  const { locale, t, slots } = await resolvePageContent(params);
+  const description = slots['seo.description.home'];
+  return {
+    title: t.meta.home,
+    ...(description !== undefined ? { description } : {}),
+    alternates: localeAlternates(locale, '/'),
+  };
 }
 
 /**
@@ -49,7 +55,8 @@ const NEWS_IDS = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6'];
 const PARTNER_IDS = ['p1', 'p2', 'p3', 'p4', 'p5'];
 
 export default async function UserHomePage({ params }: PageLocaleParams) {
-  const { locale, t } = await resolvePageI18n(params);
+  // `t` đã merge chữ CMS (nếu có) đè lên message catalog — component bên dưới không đổi.
+  const { locale, t } = await resolvePageContent(params);
 
   return (
     <>

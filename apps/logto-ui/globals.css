@@ -63,34 +63,33 @@
 
 :root {
   /* ── Màu ──────────────────────────────────────────────────────────────────
-   * Giữ ĐÚNG giá trị của `apps/web/app/globals.css`. */
+   * Giữ ĐÚNG giá trị của `apps/web/app/globals.css` — bảng xanh lá + lime của
+   * chủ dự án (2026-07-28). Bản trước của file này còn giữ bảng đơn sắc đã bị
+   * thay từ 2026-07-23: đúng loại lệch mà quy tắc đồng bộ ở đầu file cảnh báo. */
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f7f7f5;
-  --color-text-primary: #111111;
-  --color-text-secondary: #62625f;
-  --color-text-tertiary: #8a8a86;
-  --color-border-default: #e5e5e1;
-  --color-border-hover: #c9c9c4;
-  --color-button-primary: #111111;
+  --color-bg-secondary: #f6faf3;
+  --color-text-primary: #0d1f2d;
+  --color-text-secondary: #40505b;
+  --color-text-tertiary: #71808a;
+  --color-border-default: #dce6d8;
+  --color-border-hover: #a3c644;
+  --color-button-primary: #1f8f3a;
   --color-button-text: #ffffff;
 
-  --color-focus: var(--color-text-primary);
+  /* Bản gốc: focus = Border Focus = xanh lá thương hiệu. */
+  --color-focus: #1f8f3a;
 
   /*
-   * MÀU NHẤN — TOKEN DUY NHẤT KHÔNG CÓ Ở BẢN GỐC.
+   * MÀU NHẤN — nhóm token chỉ trang đăng nhập dùng (từ được nhấn, nút chính, link).
    *
-   * Thiết kế Figma của trang đăng nhập dùng một màu tím cho từ được nhấn, nút chính và
-   * link. Bảng màu đã duyệt hiện đơn sắc, không có token nào màu này.
-   *
-   * Giá trị dưới đây là ƯỚC LƯỢNG ĐỌC TỪ ẢNH THIẾT KẾ, không phải mã lấy từ Figma.
-   *
-   * ⚠ Phần còn lại của web app vẫn đơn sắc (nút chính màu đen). Muốn cả site dùng màu này
-   * thì phải thêm token tương ứng vào `globals.css` bản gốc — đó là quyết định về bảng màu,
-   * thuộc quyền chủ dự án.
+   * Trước đây là màu tím ước lượng từ ảnh Figma vì bảng đơn sắc không có màu nhấn.
+   * Bảng 2026-07-28 CÓ màu thương hiệu, nên accent nay trỏ về đúng thang xanh lá
+   * của bản gốc: Green Primary / Green Hover / Background Green Soft. Không còn
+   * giá trị nào tự bịa ở đây.
    */
-  --color-accent: #6139f6;
-  --color-accent-hover: #4f2ce0;
-  --color-accent-tint: #eeeafd;
+  --color-accent: #1f8f3a;
+  --color-accent-hover: #197832;
+  --color-accent-tint: #eef7e8;
 
   /* ── Spacing ──────────────────────────────────────────────────────────────
    * Thang đã duyệt. KHÔNG dùng giá trị ngoài danh sách này. */

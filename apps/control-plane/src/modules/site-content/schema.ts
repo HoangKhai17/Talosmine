@@ -2,8 +2,8 @@ import { index, integer, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/
 import { controlPlane } from '../account/schema.js';
 
 /**
- * Module Site Content sở hữu `nav_menus`, `nav_items`, `nav_item_translations`.
- * Khớp migration 0010.
+ * Module Site Content sở hữu `nav_menus`, `nav_items`, `nav_item_translations` (0010),
+ * `site_settings` (0011) và `content_slots` (0013).
  *
  * SQL-first (DEC-T09): migration là nguồn sự thật của DDL. File này chỉ để query có type,
  * KHÔNG dùng `drizzle-kit push`.
@@ -111,3 +111,74 @@ export const siteSettings = controlPlane.table(
 );
 
 export type SiteSettingRow = typeof siteSettings.$inferSelect;
+
+/**
+ * Khoá khe nội dung — danh mục ĐÓNG, PHẢI khớp CHECK ở migration 0013 và enum
+ * `ContentSlotKey` trong OpenAPI.
+ *
+ * Khoá là ĐƯỜNG DẪN trong message catalog của web (`home.heroTitle` → `t.home.heroTitle`);
+ * web merge giá trị DB đè lên catalog, nên khoá không có hàng = trang dùng chữ trong code.
+ * Nhóm `seo.description.*` là ngoại lệ không có bản dự phòng: chưa đặt thì trang không phát
+ * thẻ description — đúng hành vi trước khi có CMS.
+ */
+export const CONTENT_SLOT_KEYS = [
+  'home.heroTitle',
+  'home.heroLead',
+  'home.statToolCount',
+  'home.statCategoryCount',
+  'home.statUpdated',
+  'home.toolsTitle',
+  'home.toolsLead',
+  'home.categoriesTitle',
+  'home.whatsNewTitle',
+  'home.whatsNewLead',
+  'home.blogTitle',
+  'home.faqTitle',
+  'home.faqLead',
+  'tools.title',
+  'tools.lead',
+  'blog.title',
+  'blog.lead',
+  'blog.latestTitle',
+  'blog.featuredTitle',
+  'blog.trendingTitle',
+  'comingSoon.categoriesTitle',
+  'comingSoon.categoriesDescription',
+  'comingSoon.contactTitle',
+  'comingSoon.contactDescription',
+  'comingSoon.submitTitle',
+  'comingSoon.submitDescription',
+  'footer.tagline',
+  'newsletter.title',
+  'newsletter.text',
+  'meta.home',
+  'meta.tools',
+  'meta.blog',
+  'meta.categories',
+  'meta.contact',
+  'meta.submit',
+  'seo.description.home',
+  'seo.description.tools',
+  'seo.description.blog',
+  'seo.description.categories',
+  'seo.description.contact',
+  'seo.description.submit',
+] as const;
+
+export type ContentSlotKey = (typeof CONTENT_SLOT_KEYS)[number];
+
+export const contentSlots = controlPlane.table(
+  'content_slots',
+  {
+    id: uuid('id').primaryKey(),
+    key: text('key').notNull(),
+    locale: text('locale').notNull(),
+    /** KHÔNG NULL, KHÔNG rỗng — "chưa đặt" biểu diễn bằng việc không có hàng. */
+    value: text('value').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('content_slots_key_locale_key').on(table.key, table.locale)],
+);
+
+export type ContentSlotRow = typeof contentSlots.$inferSelect;

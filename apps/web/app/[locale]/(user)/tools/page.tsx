@@ -1,15 +1,21 @@
 import type { Metadata } from 'next';
 import type { Locale } from '../../../../i18n/locale';
 import { format, type Messages } from '../../../../i18n/messages';
-import { localeAlternates, type PageLocaleParams, resolvePageI18n } from '../../../../i18n/params';
+import { localeAlternates, type PageLocaleParams } from '../../../../i18n/params';
+import { resolvePageContent } from '../../../../server/site-content';
 import { Breadcrumb } from '../breadcrumb';
 import { ChevronIcon, ImageIcon, SearchIcon } from '../icons';
 import { Newsletter } from '../newsletter';
 import styles from './page.module.css';
 
 export async function generateMetadata({ params }: PageLocaleParams): Promise<Metadata> {
-  const { locale, t } = await resolvePageI18n(params);
-  return { title: t.meta.tools, alternates: localeAlternates(locale, '/tools') };
+  const { locale, t, slots } = await resolvePageContent(params);
+  const description = slots['seo.description.tools'];
+  return {
+    title: t.meta.tools,
+    ...(description !== undefined ? { description } : {}),
+    alternates: localeAlternates(locale, '/tools'),
+  };
 }
 
 /**
@@ -47,7 +53,7 @@ const MODEL_FILTER_COUNT = 6;
 const RESULT_IDS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'];
 
 export default async function ToolsPage({ params }: PageLocaleParams) {
-  const { locale, t } = await resolvePageI18n(params);
+  const { locale, t } = await resolvePageContent(params);
 
   return (
     <>

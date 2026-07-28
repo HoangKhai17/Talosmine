@@ -160,9 +160,14 @@
     min-width: 0;
   }
 
+  /*
+   * KHÔNG max-width — khác trang marketing, và là quyết định của chủ dự án (2026-07-28).
+   * `--container-max` (1420px) dành cho trang đọc; khu quản trị là màn hình LÀM VIỆC trên
+   * form và bảng, khoá bề ngang chỉ tạo một dải trống bên phải trên màn hình rộng. Độ dài
+   * dòng đọc được đã do từng field tự giới hạn (`ch`), không cần khoá cả khung.
+   */
   .content {
     padding: var(--space-10) var(--space-10) var(--space-20);
-    max-width: var(--container-max);
   }
 }
 

@@ -10,75 +10,85 @@
 
 :root {
   /* ── Màu ──────────────────────────────────────────────────────────────────
-   * Bảng màu chính thức của chủ dự án (2026-07-23). Trước đây là bảng đơn sắc
-   * (đen/trắng/xám) "đang chỉnh lại"; nay chuyển sang HỆ XANH THƯƠNG HIỆU.
+   * Bảng màu chính thức của chủ dự án (2026-07-28) — HỆ XANH LÁ + LIME.
+   * Thay bảng xanh dương 2026-07-23; trước nữa là bảng đơn sắc.
    *
    * Component chỉ dùng var() nên đổi bảng = sửa duy nhất ở đây. 10 token mà
    * component ĐANG dựa vào (đừng đổi TÊN, chỉ đổi giá trị): bg-primary,
    * bg-secondary, text-primary/secondary/tertiary, border-default/hover,
    * button-primary, button-text, focus. Các token còn lại là bổ sung.
    *
-   * Cách tổ chức: THANG XANH gốc giữ hex thô một lần; token ngữ nghĩa (button,
-   * icon, tag, focus…) tham chiếu lại bằng var() để không lệch giá trị.
+   * Cách tổ chức: THANG XANH LÁ gốc giữ hex thô một lần; token ngữ nghĩa
+   * (button, icon, tag, focus…) tham chiếu lại bằng var() để không lệch giá trị.
    */
 
-  /* Thang xanh gốc — nguồn hex duy nhất cho mọi thứ "xanh". */
-  --color-blue-primary: #2563eb; /* thương hiệu, nút chính, link, icon nổi bật */
-  --color-blue-hover: #1d4ed8; /* nút/link khi hover */
-  --color-blue-active: #1e40af; /* nút đang nhấn, menu active */
-  --color-blue-light: #dbeafe; /* nền badge, tag, icon box */
-  --color-blue-soft: #eff6ff; /* nền xanh rất nhẹ */
+  /* Thang xanh lá gốc — nguồn hex duy nhất cho mọi thứ "xanh". */
+  --color-green-primary: #1f8f3a; /* thương hiệu, nút chính, link, icon nổi bật */
+  --color-green-hover: #197832; /* nút/link khi hover */
+  --color-green-active: #146329; /* nút đang nhấn, menu active */
+  --color-lime: #a3c644; /* màu nhấn, badge, visual, gradient */
+  --color-lime-hover: #92b53b; /* hover của thành phần lime */
+  --color-green-light: #ddecb8; /* nền badge, tag, icon box */
+  --color-green-soft: #f1f8e8; /* nền xanh rất nhẹ */
 
   /* Nền trang & section */
   --color-bg-primary: #ffffff; /* nền chính */
-  --color-bg-secondary: #f8fafc; /* section phụ */
-  --color-bg-blue-soft: #f5f9ff; /* section điểm nhấn xanh nhẹ */
-  --color-bg-dark: #070b14; /* footer / section tối */
+  --color-bg-secondary: #f6faf3; /* section phụ */
+  --color-bg-green-soft: #eef7e8; /* section điểm nhấn xanh nhẹ */
+  --color-bg-dark: #0d1f2d; /* footer / section tối */
 
   /* Bề mặt (card, input, modal) */
   --color-surface-primary: #ffffff;
-  --color-surface-blue: var(--color-blue-soft);
+  --color-surface-green: var(--color-green-soft);
 
   /* Chữ */
-  --color-text-primary: #0a0a0a; /* tiêu đề, nội dung chính */
-  --color-text-secondary: #374151; /* mô tả */
-  --color-text-tertiary: #6b7280; /* ngày tháng, metadata */
-  --color-text-disabled: #9ca3af; /* placeholder, nội dung vô hiệu */
+  --color-text-primary: #0d1f2d; /* tiêu đề, nội dung chính */
+  --color-text-secondary: #40505b; /* mô tả */
+  --color-text-tertiary: #71808a; /* ngày tháng, metadata */
+  --color-text-disabled: #a5afb5; /* placeholder, nội dung vô hiệu */
   --color-text-inverse: #ffffff; /* chữ trên nền xanh/tối */
+  --color-text-black: #000000; /* chữ cần tương phản cao nhất */
 
   /* Viền */
-  --color-border-default: #dce6f5; /* viền card, input, divider */
-  --color-border-soft: #e5e7eb; /* phân cách nhẹ */
-  --color-border-hover: #93c5fd; /* viền khi hover */
-  --color-border-focus: var(--color-blue-primary); /* viền khi focus */
-  --color-border-dark: #1e293b; /* viền card trên nền tối */
+  --color-border-default: #dce6d8; /* viền card, input, divider */
+  --color-border-soft: #e8eee5; /* phân cách nhẹ */
+  --color-border-hover: var(--color-lime); /* viền khi hover */
+  --color-border-focus: var(--color-green-primary); /* viền khi focus */
+  --color-border-dark: #263846; /* viền card trên nền tối */
 
   /* Nút chính */
-  --color-button-primary: var(--color-blue-primary);
-  --color-button-primary-hover: var(--color-blue-hover);
-  --color-button-primary-active: var(--color-blue-active);
+  --color-button-primary: var(--color-green-primary);
+  --color-button-primary-hover: var(--color-green-hover);
+  --color-button-primary-active: var(--color-green-active);
   --color-button-text: #ffffff;
   /* Nút phụ */
   --color-button-secondary: #ffffff;
-  --color-button-secondary-text: #0a0a0a;
+  --color-button-secondary-text: #0d1f2d;
 
   /* Icon & tag */
-  --color-icon-primary: var(--color-blue-primary);
-  --color-icon-bg: var(--color-blue-light);
-  --color-tag-bg: var(--color-blue-soft);
-  --color-tag-text: var(--color-blue-primary);
+  --color-icon-primary: var(--color-green-primary);
+  --color-icon-accent: var(--color-lime);
+  --color-icon-bg: var(--color-bg-green-soft);
+  --color-tag-bg: var(--color-green-soft);
+  --color-tag-text: var(--color-green-primary);
 
-  /* Gradient — dùng cho CTA, banner, hero, section tối. Tham số nguyên văn bảng
-   * quy chuẩn; các hex phụ (#60a5fa, #38bdf8, #0f172a, #1e3a8a) chỉ xuất hiện
-   * trong gradient nên không tách thành token riêng. */
-  --gradient-blue-primary: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
-  --gradient-blue-strong: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #38bdf8 100%);
-  --gradient-blue-soft: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #ffffff 100%);
-  --gradient-dark-blue: linear-gradient(135deg, #070b14 0%, #0f172a 55%, #1e3a8a 100%);
+  /* Gradient.
+   *
+   * ⚠ KHÔNG CÓ TRONG BẢNG QUY CHUẨN — bảng xanh lá chỉ ghi lime "dùng cho
+   * gradient" mà không cho tham số. Giá trị dưới đây do tôi SUY RA từ thang
+   * (green-primary → lime, cùng góc 135deg với bảng cũ) để nút CTA của trang
+   * onboarding không mất nền. Chủ dự án cho tham số thật thì thay tại đây.
+   *
+   * Ba gradient còn lại của bảng xanh dương (strong/soft/dark) đã XOÁ: không
+   * component nào gọi, và bảng mới không định nghĩa chúng. */
+  --gradient-green-primary: linear-gradient(
+    135deg,
+    var(--color-green-primary) 0%,
+    var(--color-lime) 100%
+  );
 
   /* Focus ring: BẮT BUỘC nhìn thấy được (phase-1 mục 10, có test Playwright).
-   * Bảng mới có màu focus riêng (Border Focus xanh) nên dùng nó thay cho
-   * text-primary đơn sắc trước đây — vừa hợp thương hiệu vừa đủ tương phản. */
+   * Dùng Border Focus của bảng (xanh lá thương hiệu). */
   --color-focus: var(--color-border-focus);
 
   /* ── Spacing ──────────────────────────────────────────────────────────────
@@ -181,7 +191,7 @@
   --weight-body: 400;
   --weight-caption: 500;
 
-  /* Khoá ở light. Bảng mới CÓ token nền tối (--color-bg-dark, --color-border-dark,
+  /* Khoá ở light. Bảng CÓ token nền tối (--color-bg-dark, --color-border-dark,
    * --color-text-inverse) nhưng đó là để dựng SECTION TỐI trên trang sáng (footer,
    * banner), KHÔNG phải một dark mode đầy đủ. Bật dark mode thật cần bảng riêng cho
    * mọi token — chưa có, nên chưa mở. */

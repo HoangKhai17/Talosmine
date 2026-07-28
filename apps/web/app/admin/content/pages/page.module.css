@@ -1,0 +1,90 @@
+/*
+ * Bố cục riêng của màn hình quản trị nội dung trang.
+ *
+ * Ô nhập, nút và hàng field nằm ở `admin-forms.module.css` — dùng chung với các màn hình
+ * quản trị nội dung khác. Chỉ dùng token từ globals.css, không có màu/px thô.
+ */
+
+/*
+ * Nhóm là <details> để đóng/mở được — 41 khe trải phẳng là một trang cuộn vô tận.
+ *
+ * `width: 100%` là BẮT BUỘC: khối này nằm trong `.stack` (align-items: flex-start) nên mặc
+ * định co theo nội dung — đó chính là nguyên nhân card bị bóp hẹp thay vì trải hết khung.
+ */
+.group {
+  width: 100%;
+  padding: var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+}
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  cursor: pointer;
+  /* Bỏ marker mặc định — chevron tự vẽ ở ::after để xoay được theo trạng thái. */
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary::after {
+  content: "▸";
+  margin-inline-start: auto;
+  color: var(--color-text-tertiary);
+}
+
+.group[open] .summary::after {
+  content: "▾";
+}
+
+.summaryCount {
+  color: var(--color-text-tertiary);
+}
+
+.slot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: var(--border-default);
+}
+
+/* Nhãn khe + khoá máy cùng hàng; khoá xuống dòng khi hẹp thay vì đẩy tràn. */
+.slotHeader {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/*
+ * Hai ô giá trị vi/en là nội dung chính — chiếm phần lớn bề ngang; ô lý do hẹp hơn.
+ * Đáy tính bằng đơn vị chữ, cùng ngoại lệ đã ghi ở admin-forms.
+ */
+.valueField {
+  flex: 3 1 32ch;
+}
+
+.reasonField {
+  flex: 1 1 16ch;
+}
+
+/* Textarea cho đoạn dẫn/mô tả — cùng khung với .input của admin-forms, chỉ thêm chiều cao
+ * và cho kéo dọc. */
+.textarea {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  width: 100%;
+  min-height: calc(var(--space-10) + var(--space-6));
+  resize: vertical;
+  font: inherit;
+}

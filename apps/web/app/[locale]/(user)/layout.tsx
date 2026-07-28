@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { isLocale, type Locale, localeHref } from '../../../i18n/locale';
-import { format, getMessages, type Messages } from '../../../i18n/messages';
+import { format, type Messages } from '../../../i18n/messages';
+import { getContentMessages } from '../../../server/site-content';
 import { getSiteNav, type NavItem, type SiteNav } from '../../../server/site-nav';
 import { getSiteSettings } from '../../../server/site-settings';
 import { HeaderNav } from './header-nav';
@@ -46,14 +47,18 @@ export default async function UserLayout({
    */
   if (!isLocale(raw)) notFound();
   const locale: Locale = raw;
-  const t = getMessages(locale);
 
   const cookieStore = await cookies();
   const signedIn = cookieStore.has('__Host-talos_session');
 
-  // SONG SONG: hai lời gọi mạng độc lập nhau, nên chúng chỉ tốn độ trễ của một lời gọi.
-  // Cả hai đều cache 60 giây và đều có đường lui — xem `server/site-nav.ts`.
-  const [{ nav }, settings] = await Promise.all([getSiteNav(locale), getSiteSettings()]);
+  // SONG SONG: ba lời gọi mạng độc lập nhau, nên chúng chỉ tốn độ trễ của một lời gọi.
+  // Cả ba đều cache 60 giây và đều có đường lui — xem `server/site-nav.ts`.
+  // `t` đã merge chữ CMS (hiện dùng cho `footer.tagline`) đè lên message catalog.
+  const [{ nav }, settings, { t }] = await Promise.all([
+    getSiteNav(locale),
+    getSiteSettings(),
+    getContentMessages(locale),
+  ]);
 
   /** Rút gọn: mọi link nội bộ trong shell đều phải mang locale. */
   const href = (path: string) => localeHref(locale, path);

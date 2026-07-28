@@ -38,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/admin', label: 'Tài khoản', permission: 'account:read' },
   { href: '/admin/catalog', label: 'Danh mục ứng dụng', permission: 'catalog:read' },
   { href: '/admin/content/nav', label: 'Menu website', permission: 'content:read' },
+  { href: '/admin/content/pages', label: 'Nội dung trang', permission: 'content:read' },
   { href: '/admin/content/survey', label: 'Khảo sát', permission: 'content:read' },
   // Permission KHÁC hẳn hai mục trên dù cùng nói về khảo sát: đây là dữ liệu cá nhân của
   // người dùng, không phải nội dung biên tập. Ai sửa được câu hỏi chưa chắc được đọc kết quả.

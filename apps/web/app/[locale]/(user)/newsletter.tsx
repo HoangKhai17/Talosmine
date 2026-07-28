@@ -1,5 +1,5 @@
 import type { Locale } from '../../../i18n/locale';
-import { getMessages } from '../../../i18n/messages';
+import { getContentMessages } from '../../../server/site-content';
 import styles from './newsletter.module.css';
 
 /**
@@ -17,8 +17,10 @@ import styles from './newsletter.module.css';
  * cùng trang sẽ trùng `id`. Nếu sau này cần đặt hai lần, đổi sang `useId()` (và khi đó
  * component thành client component).
  */
-export function Newsletter({ locale }: { locale: Locale }) {
-  const t = getMessages(locale);
+export async function Newsletter({ locale }: { locale: Locale }) {
+  // Tiêu đề và đoạn mô tả sửa được trong CMS; nhãn nút/ô nhập vẫn là chuỗi sản phẩm.
+  // Cache 60s nên các trang cùng render không gọi mạng lặp.
+  const { t } = await getContentMessages(locale);
 
   return (
     <section className="section">

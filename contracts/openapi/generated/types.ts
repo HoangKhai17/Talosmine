@@ -999,6 +999,84 @@ export interface paths {
         patch: operations["adminUpdateSiteSettings"];
         trace?: never;
     };
+    "/v1/site/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Khe nội dung của các trang, theo một ngôn ngữ
+         * @description CÔNG KHAI — không cần phiên, cùng lý do với `/v1/site/nav`: chữ này nằm trên các
+         *     trang marketing mở cho mọi khách.
+         *
+         *     Chỉ trả những khoá ĐÃ ĐƯỢC ĐẶT. Khoá vắng mặt nghĩa là "dùng chữ mặc định trong
+         *     code" — web merge kết quả này đè lên message catalog, nên bảng rỗng cho ra trang
+         *     y nguyên bản hardcode. Đó là đường lui, không phải lỗi.
+         *
+         *     BFF cache 60 giây (DEC-T26).
+         */
+        get: operations["getSiteContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/site/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Khe nội dung (quản trị)
+         * @description Yêu cầu `content:read`. Trả CẢ HAI ngôn ngữ cạnh nhau — màn hình quản trị sửa song
+         *     song vi/en.
+         *
+         *     Cũng chỉ trả khoá đã đặt: DANH MỤC khoá (nhóm, nhãn hiển thị, chữ mặc định) nằm
+         *     trong code của web — nơi duy nhất biết khe nào render ở đâu — không phải ở đây.
+         */
+        get: operations["adminListSiteContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/site/content/{slotKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Đặt hoặc xoá giá trị một khe nội dung
+         * @description Yêu cầu `content:manage`.
+         *
+         *     Ngữ nghĩa từng ngôn ngữ trong `values`: vắng mặt = không đổi; chuỗi có chữ = đặt;
+         *     `null` hoặc chuỗi rỗng = XOÁ — trang quay về chữ mặc định trong code. Xoá là thao
+         *     tác biên tập bình thường, không phải huỷ dữ liệu.
+         *
+         *     KHÔNG nhận HTML — giá trị là chữ thuần, render qua JSX nên markup không bao giờ
+         *     chạy, và CSP theo nonce (DEC-T20) là ranh giới không thương lượng.
+         */
+        patch: operations["adminUpdateSiteContent"];
+        trace?: never;
+    };
     "/v1/admin/survey/questions": {
         parameters: {
             query?: never;
@@ -1400,6 +1478,32 @@ export interface components {
         /** @description Trường vắng mặt = không đổi. `logoUrl` bằng `null` = xoá logo. */
         UpdateSiteSettingsRequest: {
             logoUrl?: string | null;
+            reason: string;
+        };
+        /**
+         * @description Khoá khe nội dung — danh mục ĐÓNG, khớp CHECK ở migration `0013_content_slots`.
+         *     Khoá là ĐƯỜNG DẪN trong message catalog của web (trừ nhóm `seo.description.*`
+         *     không có bản dự phòng); một khe không có chỗ render trong code là dữ liệu chết,
+         *     nên thêm khe = migration + code, không phải việc admin làm được.
+         * @enum {string}
+         */
+        ContentSlotKey: "home.heroTitle" | "home.heroLead" | "home.statToolCount" | "home.statCategoryCount" | "home.statUpdated" | "home.toolsTitle" | "home.toolsLead" | "home.categoriesTitle" | "home.whatsNewTitle" | "home.whatsNewLead" | "home.blogTitle" | "home.faqTitle" | "home.faqLead" | "tools.title" | "tools.lead" | "blog.title" | "blog.lead" | "blog.latestTitle" | "blog.featuredTitle" | "blog.trendingTitle" | "comingSoon.categoriesTitle" | "comingSoon.categoriesDescription" | "comingSoon.contactTitle" | "comingSoon.contactDescription" | "comingSoon.submitTitle" | "comingSoon.submitDescription" | "footer.tagline" | "newsletter.title" | "newsletter.text" | "meta.home" | "meta.tools" | "meta.blog" | "meta.categories" | "meta.contact" | "meta.submit" | "seo.description.home" | "seo.description.tools" | "seo.description.blog" | "seo.description.categories" | "seo.description.contact" | "seo.description.submit";
+        SiteContent: {
+            /** @enum {string} */
+            locale: "vi" | "en";
+            /** @description Chỉ chứa khoá ĐÃ ĐẶT. Khoá vắng mặt = web dùng chữ mặc định trong code. */
+            values: {
+                [key: string]: string;
+            };
+        };
+        AdminContentSlot: {
+            key: components["schemas"]["ContentSlotKey"];
+            values: components["schemas"]["LocalizedText"];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UpdateContentSlotRequest: {
+            values: components["schemas"]["LocalizedText"];
             reason: string;
         };
         /**
@@ -3590,6 +3694,78 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateSiteSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã lưu. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getSiteContent: {
+        parameters: {
+            query: {
+                locale: "vi" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Các khe đã đặt cho ngôn ngữ này. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteContent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+        };
+    };
+    adminListSiteContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Toàn bộ khe đã đặt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminContentSlot"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminUpdateSiteContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slotKey: components["schemas"]["ContentSlotKey"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateContentSlotRequest"];
             };
         };
         responses: {

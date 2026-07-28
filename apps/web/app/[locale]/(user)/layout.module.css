@@ -218,7 +218,9 @@
 }
 
 /* ── Footer ───────────────────────────────────────────────────────────────────
- * SECTION TỐI theo bảng màu (2026-07-23): nền là Gradient Dark Blue.
+ * SECTION TỐI theo bảng màu (2026-07-28): nền là Background Dark — màu PHẲNG.
+ * Bảng cũ (xanh dương) dùng gradient tối; bảng xanh lá không định nghĩa gradient
+ * tối nào, nên footer về màu phẳng thay vì tự suy một gradient không có trong chuẩn.
  *
  * Nền tối nên chữ phải sáng. Bảng màu có `--color-text-inverse` (#fff) cho chữ chính,
  * nhưng KHÔNG có token "chữ phụ trên nền tối". Thay vì bịa một hex mới, ta suy biến bằng
@@ -226,7 +228,7 @@
  * Nếu sau này bảng màu bổ sung token muted-light thì thay các color-mix này bằng nó.
  */
 .footer {
-  background: var(--gradient-dark-blue);
+  background-color: var(--color-bg-dark);
   padding-block: var(--space-16);
   margin-top: var(--space-20);
   /* Chữ chính (tiêu đề cột, tên thương hiệu) kế thừa màu này → trắng. */
