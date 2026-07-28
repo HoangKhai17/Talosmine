@@ -152,9 +152,20 @@ Khi khai báo TẮC, phải nêu đủ: **đang tắc ở đâu**, **đã thử 
 
 ## 5. Quy ước
 
-> Sẽ được điền sau khi chốt stack.
+### BẮT BUỘC đọc trước khi sửa file đầu tiên của một task
 
-Các quy tắc đã có hiệu lực ngay, bất kể stack nào:
+| File | Nội dung | Khi nào |
+|---|---|---|
+| [`docs/coding-conventions.md`](docs/coding-conventions.md) | 12 luật chống code thừa, code chết, hardcode, trừu tượng hoá sai chỗ, test giả an toàn | **Mọi task viết code** |
+| [`docs/frontend-css-rules.md`](docs/frontend-css-rules.md) | Token, thang spacing, đặt tên class, ba luật của lưới | Task đụng CSS |
+| [`docs/modular.md`](docs/modular.md) | Ranh giới module, luật phụ thuộc | Task thêm/sửa module |
+| [`docs/build-plan/decision-register.md`](docs/build-plan/decision-register.md) | Tool, version, quyết định đã chốt | Trước khi hỏi về tool/version |
+
+`coding-conventions.md` không phải danh sách "clean code" chung chung — nó ghi **những kiểu
+sai đã thật sự xảy ra trong repo này**, mỗi kiểu kèm sự cố cụ thể và cách kiểm trong 30 giây.
+Mục 11 là danh sách kiểm bắt buộc chạy trước khi báo "xong".
+
+### Các quy tắc có hiệu lực ngay, bất kể stack nào
 
 - **Ở đúng phần việc của mình.** Chỉ động vào file thuộc vai trò của bạn. Nếu cần thay đổi
   ngoài phạm vi, báo về orchestrator thay vì tự thò tay sang khu vực của agent khác.
