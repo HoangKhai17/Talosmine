@@ -3,7 +3,6 @@ import type { Locale } from '../../../../i18n/locale';
 import { format, type Messages } from '../../../../i18n/messages';
 import { localeAlternates, type PageLocaleParams, resolvePageI18n } from '../../../../i18n/params';
 import { Breadcrumb } from '../breadcrumb';
-import { DraftBanner } from '../draft-banner';
 import { ChevronIcon, ImageIcon, SearchIcon } from '../icons';
 import { Newsletter } from '../newsletter';
 import styles from './page.module.css';
@@ -52,8 +51,6 @@ export default async function ToolsPage({ params }: PageLocaleParams) {
 
   return (
     <>
-      <DraftBanner>{t.draft.tools}</DraftBanner>
-
       <BrowseHeader locale={locale} t={t} />
       <BrowseBody t={t} />
       <Newsletter locale={locale} />

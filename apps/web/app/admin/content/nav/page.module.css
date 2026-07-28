@@ -163,3 +163,15 @@
   color: var(--color-text-tertiary);
   cursor: not-allowed;
 }
+
+/*
+ * Xem trước logo. Cùng cách khoá kích thước với header của site: cao cố định, rộng tự co —
+ * để người biên tập thấy đúng tỉ lệ mà logo sẽ hiển thị thật.
+ */
+.logoPreview {
+  display: block;
+  height: var(--space-10);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}

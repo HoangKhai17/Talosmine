@@ -4,7 +4,6 @@ import { format, type Messages } from '../../../../../i18n/messages';
 import { localeAlternates, resolvePageI18n } from '../../../../../i18n/params';
 import { ArticleCard } from '../../article-card';
 import { Breadcrumb } from '../../breadcrumb';
-import { DraftBanner } from '../../draft-banner';
 import { ImageIcon } from '../../icons';
 import { Newsletter } from '../../newsletter';
 import styles from './page.module.css';
@@ -98,8 +97,6 @@ export default async function BlogDetailPage({ params }: PostParams) {
 
   return (
     <>
-      <DraftBanner>{t.draft.blogPost}</DraftBanner>
-
       <ArticleHeader locale={locale} t={t} />
       <ArticleBody t={t} />
       <RelatedPosts locale={locale} t={t} />

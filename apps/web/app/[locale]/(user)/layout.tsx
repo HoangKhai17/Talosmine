@@ -5,8 +5,9 @@ import type { ReactNode } from 'react';
 import { isLocale, type Locale, localeHref } from '../../../i18n/locale';
 import { format, getMessages, type Messages } from '../../../i18n/messages';
 import { getSiteNav, type NavItem, type SiteNav } from '../../../server/site-nav';
+import { getSiteSettings } from '../../../server/site-settings';
+import { HeaderNav } from './header-nav';
 import styles from './layout.module.css';
-import { LogoutButton } from './logout-button';
 
 /**
  * Shell của route group `(user)` — header + footer theo wireframe Figma.
@@ -50,8 +51,9 @@ export default async function UserLayout({
   const cookieStore = await cookies();
   const signedIn = cookieStore.has('__Host-talos_session');
 
-  // Cache 60 giây ở tiến trình web, có fallback — xem `server/site-nav.ts`.
-  const { nav } = await getSiteNav(locale);
+  // SONG SONG: hai lời gọi mạng độc lập nhau, nên chúng chỉ tốn độ trễ của một lời gọi.
+  // Cả hai đều cache 60 giây và đều có đường lui — xem `server/site-nav.ts`.
+  const [{ nav }, settings] = await Promise.all([getSiteNav(locale), getSiteSettings()]);
 
   /** Rút gọn: mọi link nội bộ trong shell đều phải mang locale. */
   const href = (path: string) => localeHref(locale, path);
@@ -60,69 +62,37 @@ export default async function UserLayout({
     <>
       <header className={styles.header}>
         <div className={`container ${styles.bar}`}>
-          {/* Tên thương hiệu KHÔNG dịch — nó là danh từ riêng, không phải chuỗi giao diện. */}
-          <Link className={`typeCardTitle ${styles.brand}`} href={href('/')}>
-            Talosmine
+          <Link className={styles.brand} href={href('/')}>
+            <Logo url={settings.logoUrl} />
           </Link>
 
-          <nav aria-label={t.a11y.primaryNav} className={styles.primaryNav}>
-            <ul className={styles.navList}>
-              {nav['header.primary'].map((item) => (
-                <li key={item.id}>
-                  <Link className={`typeBodySmall ${styles.navLink}`} href={href(item.href)}>
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
           {/*
-            Khu tài khoản. Tách khỏi nav chính vì đây là hành động của người dùng, không
-            phải điều hướng nội dung — trình đọc màn hình cần phân biệt hai nhóm này.
+            Phần cần state (nút ba gạch ở mobile) nằm ở client component. Chữ và href dựng
+            sẵn tại đây để nó không phải đọc message catalog — xem `header-nav.tsx`.
           */}
-          <div className={styles.accountArea}>
-            {signedIn ? (
-              <>
-                <Link className={`typeBodySmall ${styles.navLink}`} href={href('/account')}>
-                  {t.header.account}
-                </Link>
-                <LogoutButton
-                  className={`typeBodySmall ${styles.navLink}`}
-                  labels={{
-                    signOut: t.header.signOut,
-                    signingOut: t.header.signingOut,
-                    failed: t.header.signOutFailed,
-                  }}
-                />
-              </>
-            ) : (
-              /*
-                `/auth` nằm ngoài vùng locale nên `href()` trả nguyên văn — xem localeHref.
-
-                `prefetch={false}` là BẮT BUỘC, không phải tinh chỉnh hiệu năng.
-
-                `/auth` không phải một trang: proxy chuyển nó sang `/auth/login`, và route đó
-                sinh `state`/`nonce`/PKCE rồi redirect sang IdP. Để Next prefetch nghĩa là mỗi
-                lần link này lọt vào viewport, hệ thống lại chạy trọn luồng đó — tạo một
-                transaction OIDC không ai dùng, và kết thúc bằng một request xuyên origin bị
-                `connect-src 'self'` chặn (vi phạm CSP thấy được trong console).
-
-                Prefetch một redirect ra ngoài site không mang lại gì: đích đến không phải RSC
-                payload để Next cache.
-              */
-              <Link
-                className={`typeBodySmall ${styles.navLink}`}
-                href={href('/auth')}
-                prefetch={false}
-              >
-                {t.header.signIn}
-              </Link>
-            )}
-            <Link className={`typeBodySmall ${styles.submitButton}`} href={href('/submit')}>
-              {t.header.submitTool}
-            </Link>
-          </div>
+          <HeaderNav
+            items={nav['header.primary'].map((item) => ({
+              id: item.id,
+              label: item.label,
+              href: href(item.href),
+            }))}
+            signedIn={signedIn}
+            accountHref={href('/account')}
+            // `/auth` nằm ngoài vùng locale nên `href()` trả nguyên văn — xem localeHref.
+            signInHref={href('/auth')}
+            submitHref={href('/submit')}
+            labels={{
+              primaryNav: t.a11y.primaryNav,
+              openMenu: t.a11y.openMenu,
+              closeMenu: t.a11y.closeMenu,
+              account: t.header.account,
+              signIn: t.header.signIn,
+              signOut: t.header.signOut,
+              signingOut: t.header.signingOut,
+              signOutFailed: t.header.signOutFailed,
+              submitTool: t.header.submitTool,
+            }}
+          />
         </div>
       </header>
 
@@ -133,6 +103,30 @@ export default async function UserLayout({
       <SiteFooter locale={locale} t={t} nav={nav} />
     </>
   );
+}
+
+/**
+ * Logo — ảnh nếu quản trị viên đã đặt, chữ nếu chưa.
+ *
+ * DÙNG `<img>` THƯỜNG, KHÔNG dùng `next/image`. `next/image` đòi khai trước từng host trong
+ * `images.remotePatterns` lúc build; mà đây là URL do quản trị viên nhập lúc chạy, nên host
+ * không biết trước. Khai sẵn một wildcard để `next/image` chạy được sẽ mở đúng cái allowlist
+ * mà `checkNavHref` sinh ra để khoá.
+ *
+ * `alt` là tên thương hiệu, KHÔNG dịch: đây là danh từ riêng. Không để `alt=""` vì logo ở đây
+ * là link về trang chủ — một link không có nhãn thì trình đọc màn hình chỉ đọc được URL.
+ *
+ * CSP: `img-src` chỉ cho `'self'`, `data:` và các host trong `CATALOG_ALLOWED_HOSTS`
+ * (xem `proxy.ts`). Logo trỏ ra host chưa khai sẽ bị trình duyệt chặn dù server thấy hợp lệ.
+ */
+function Logo({ url }: { url: string | null }) {
+  if (url === null) {
+    return <span className="typeCardTitle">Talosmine</span>;
+  }
+
+  // Chiều cao cố định bằng token, bề ngang tự co theo tỉ lệ ảnh — xem `.logoImage`.
+  // biome-ignore lint/performance/noImgElement: URL do admin nhập lúc chạy, next/image cần host khai trước.
+  return <img className={styles.logoImage} src={url} alt="Talosmine" />;
 }
 
 /**

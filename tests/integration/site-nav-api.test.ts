@@ -186,6 +186,100 @@ describe('/v1/site/nav + /v1/admin/site/nav', () => {
     });
   });
 
+  /**
+   * Cài đặt site (logo) — migration 0011.
+   *
+   * Dùng lại `checkNavHref` nên các ca escape đã được phủ ở `tests/unit/nav-href.test.ts`.
+   * Ở đây chỉ kiểm những gì chỉ integration mới thấy: quyền, đường đọc công khai, và việc
+   * bộ kiểm URL THỰC SỰ được gọi ở đường ghi chứ không chỉ tồn tại như một hàm rời.
+   */
+  describe('cài đặt site (logo)', () => {
+    beforeEach(async () => {
+      // Trả hàng seed về trạng thái chưa đặt. KHÔNG truncate: hàng do migration tạo và
+      // runtime cố ý không có quyền INSERT để tạo lại.
+      await client.sql`UPDATE control_plane.site_settings SET value = NULL WHERE key = 'logo.url'`;
+    });
+
+    async function setLogo(headers: Record<string, string>, logoUrl: string | null) {
+      return app.inject({
+        method: 'PATCH',
+        url: '/v1/admin/site/settings',
+        headers,
+        payload: { logoUrl, reason: 'test' },
+      });
+    }
+
+    it('đường công khai KHÔNG cần phiên và trả null khi chưa đặt', async () => {
+      const res = await app.inject({ method: 'GET', url: '/v1/site/settings' });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ logoUrl: null });
+    });
+
+    it('lưu được URL trong allowlist và trả dạng chuẩn hoá', async () => {
+      const admin = await createUser('logo-set', FULL);
+      expect((await setLogo(admin.headers, 'HTTPS://App.Example.COM/logo.svg')).statusCode).toBe(
+        204,
+      );
+
+      const res = await app.inject({ method: 'GET', url: '/v1/site/settings' });
+      expect(res.json().logoUrl).toBe('https://app.example.com/logo.svg');
+    });
+
+    it('lưu được đường dẫn nội bộ', async () => {
+      const admin = await createUser('logo-internal', FULL);
+      expect((await setLogo(admin.headers, '/brand/logo.svg')).statusCode).toBe(204);
+      expect((await app.inject({ method: 'GET', url: '/v1/site/settings' })).json().logoUrl).toBe(
+        '/brand/logo.svg',
+      );
+    });
+
+    it('TỪ CHỐI host ngoài allowlist và scheme nguy hiểm', async () => {
+      const admin = await createUser('logo-bad', FULL);
+      for (const bad of ['https://evil.com/x.png', 'javascript:alert(1)', '//evil.com/x.png']) {
+        expect((await setLogo(admin.headers, bad)).statusCode, bad).toBe(400);
+      }
+    });
+
+    it('`logoUrl: null` xoá logo', async () => {
+      const admin = await createUser('logo-clear', FULL);
+      await setLogo(admin.headers, '/brand/logo.svg');
+      expect((await setLogo(admin.headers, null)).statusCode).toBe(204);
+      expect((await app.inject({ method: 'GET', url: '/v1/site/settings' })).json().logoUrl).toBe(
+        null,
+      );
+    });
+
+    it('thiếu permission → 403', async () => {
+      const reader = await createUser('logo-reader', ['content:read']);
+      expect((await setLogo(reader.headers, '/x.svg')).statusCode).toBe(403);
+    });
+
+    it('BẮT BUỘC kèm lý do', async () => {
+      const admin = await createUser('logo-reason', FULL);
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/v1/admin/site/settings',
+        headers: admin.headers,
+        payload: { logoUrl: '/x.svg' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    /**
+     * Runtime CHỈ được UPDATE. Không INSERT/DELETE nghĩa là một lỗi lập trình cũng không làm
+     * mất hàng cài đặt do migration seed. Xem mục 7 của `docs/coding-conventions.md`.
+     */
+    it('role runtime có UPDATE nhưng KHÔNG có DELETE trên site_settings', async () => {
+      const rows = await client.sql<{ upd: boolean; del: boolean }[]>`
+        SELECT
+          has_table_privilege('talosmine_runtime', 'control_plane.site_settings', 'UPDATE') AS upd,
+          has_table_privilege('talosmine_runtime', 'control_plane.site_settings', 'DELETE') AS del
+      `;
+      expect(rows[0]?.upd).toBe(true);
+      expect(rows[0]?.del).toBe(false);
+    });
+  });
+
   describe('đường công khai', () => {
     it('KHÔNG cần phiên đăng nhập', async () => {
       // Header/footer render cho cả khách vãng lai. Bắt buộc phiên ở đây làm trang chủ

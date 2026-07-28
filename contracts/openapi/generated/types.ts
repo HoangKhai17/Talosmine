@@ -901,6 +901,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/site/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cài đặt chung của site (logo)
+         * @description CÔNG KHAI — không cần phiên, cùng lý do với `/v1/site/nav`: logo nằm trên header của
+         *     mọi trang, kể cả với khách chưa đăng nhập.
+         *
+         *     KHÔNG phụ thuộc ngôn ngữ, nên không có tham số `locale`.
+         *
+         *     BFF cache 60 giây (DEC-T26).
+         */
+        get: operations["getSiteSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/site/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cài đặt site (quản trị)
+         * @description Yêu cầu `content:read`. Cùng hình dạng với đường công khai.
+         */
+        get: operations["adminGetSiteSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Đổi cài đặt site
+         * @description Yêu cầu `content:manage`.
+         *
+         *     `logoUrl` phải là URL `https://` có host nằm trong allowlist, hoặc đường dẫn nội bộ
+         *     bắt đầu bằng `/`. Cùng bộ kiểm với `href` của mục điều hướng — xem `docs/url-policy.md`.
+         *
+         *     `logoUrl: null` XOÁ logo; header quay về hiển thị tên thương hiệu bằng chữ.
+         *
+         *     KHÔNG có upload file ở đây: object storage chưa được dựng (DEC-T12). Quản trị viên
+         *     dán URL của ảnh đã host sẵn. Khi có storage, nút upload sẽ ghi vào đúng trường này.
+         */
+        patch: operations["adminUpdateSiteSettings"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -910,6 +967,18 @@ export interface components {
          *     và là thứ khiến bản ghi audit có giá trị điều tra sau này.
          */
         AdminReason: {
+            reason: string;
+        };
+        SiteSettings: {
+            /**
+             * @description URL ảnh logo, hoặc `null` khi chưa đặt. Đã qua chính sách URL và đã chuẩn hoá —
+             *     frontend dùng NGUYÊN chuỗi này, không tự ghép host.
+             */
+            logoUrl: string | null;
+        };
+        /** @description Trường vắng mặt = không đổi. `logoUrl` bằng `null` = xoá logo. */
+        UpdateSiteSettingsRequest: {
+            logoUrl?: string | null;
             reason: string;
         };
         /**
@@ -2975,6 +3044,73 @@ export interface operations {
         };
         responses: {
             /** @description Đã sắp xếp lại. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getSiteSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cài đặt hiện tại. Giá trị `null` nghĩa là chưa đặt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSettings"];
+                };
+            };
+        };
+    };
+    adminGetSiteSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cài đặt hiện tại. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminUpdateSiteSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSiteSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã lưu. */
             204: {
                 headers: {
                     [name: string]: unknown;

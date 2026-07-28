@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { type AdminNavItemView, ApiError, api } from '../../../../lib/api-client';
+import { LogoSection } from './logo-section';
 import styles from './page.module.css';
 
 /**
@@ -109,6 +110,8 @@ export default function AdminNavPage() {
           </div>
         ) : null}
       </div>
+
+      <LogoSection pending={pending} mutate={mutate} />
 
       {!loading
         ? MENUS.map((menu) => (

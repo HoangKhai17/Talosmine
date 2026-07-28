@@ -14,14 +14,18 @@ import './globals.css';
  */
 const montserrat = Montserrat({
   subsets: ['latin', 'vietnamese'],
-  weight: ['400', '500', '600'],
+  // 700 dùng cho menu header (yêu cầu chủ dự án 2026-07-28). PHẢI nạp ở đây: thiếu weight
+  // này thì trình duyệt tự bôi đậm nét chữ 600 (synthetic bold) — nét méo và khác Figma.
+  weight: ['400', '500', '600', '700'],
   variable: '--font-montserrat',
   display: 'swap',
 });
 
 const inter = Inter({
   subsets: ['latin', 'vietnamese'],
-  weight: ['400', '500', '600'],
+  // 700 dùng cho menu header (yêu cầu chủ dự án 2026-07-28). PHẢI nạp ở đây: thiếu weight
+  // này thì trình duyệt tự bôi đậm nét chữ 600 (synthetic bold) — nét méo và khác Figma.
+  weight: ['400', '500', '600', '700'],
   variable: '--font-inter',
   display: 'swap',
 });

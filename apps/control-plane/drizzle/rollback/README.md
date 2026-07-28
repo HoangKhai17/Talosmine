@@ -2,7 +2,7 @@
 
 ## Đây là gì
 
-Bốn file `.down.sql` gỡ đúng những gì migration `0007`–`0010` đã tạo, **theo thứ tự ngược**.
+Năm file `.down.sql` gỡ đúng những gì migration `0007`–`0011` đã tạo, **theo thứ tự ngược**.
 
 Yêu cầu gốc đến từ [phase-3 §8 và §17](../../../../docs/build-plan/phase-3-application-catalog.md):
 rollback phải bỏ khoá ngoại service của audit và **phục hồi ràng buộc actor của P2 trước**,
@@ -11,6 +11,7 @@ rồi mới bỏ bảng service identity và các bảng catalog.
 ## Thứ tự bắt buộc
 
 ```
+0011_site_settings.down.sql        ← bỏ bảng cài đặt site
 0010_site_nav.down.sql              ← thu hẹp permission content, rồi bỏ 3 bảng nav
 0009_catalog_permissions.down.sql   ← thu hẹp permission catalog
 0008_service_identities.down.sql    ← bỏ FK + phục hồi actor check P2, rồi bỏ bảng

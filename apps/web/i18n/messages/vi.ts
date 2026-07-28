@@ -29,6 +29,8 @@ export const vi = {
     prevCategory: 'Danh mục trước',
     nextCategory: 'Danh mục sau',
     actions: 'Hành động',
+    openMenu: 'Mở menu',
+    closeMenu: 'Đóng menu',
   },
 
   /** Dùng lại ở nhiều trang. Sửa ở đây là sửa mọi nơi — đó là điểm của nhóm này. */
@@ -92,14 +94,6 @@ export const vi = {
     errorTitle: 'Đã xảy ra lỗi',
     errorBody: 'Không hiển thị được nội dung này. Bạn có thể thử lại.',
     errorReference: 'Mã tham chiếu:',
-  },
-
-  /** Dải cảnh báo "đây là bản dựng bố cục". Xoá cả nhóm khi dữ liệu thật đã nối. */
-  draft: {
-    home: 'Bản dựng bố cục — nội dung trong các lưới là dữ liệu mẫu, chưa nối danh mục thật.',
-    tools: 'Bản dựng bố cục — bộ lọc và danh sách công cụ là dữ liệu mẫu, chưa nối danh mục thật.',
-    blog: 'Bản dựng bố cục — bài viết là dữ liệu mẫu. Hệ thống blog chưa nằm trong phase nào.',
-    blogPost: 'Bản dựng bố cục — toàn bộ nội dung bài viết là văn bản mẫu.',
   },
 
   /** `<title>` của từng trang. Đọc bởi `generateMetadata`. */

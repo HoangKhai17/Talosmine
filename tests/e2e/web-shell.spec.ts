@@ -65,6 +65,53 @@ test.describe('(user) shell', () => {
   });
 });
 
+/**
+ * Header — nút ba gạch ở mobile.
+ *
+ * Ba bài dưới đây khoá đúng ba thứ dễ hỏng khi ai đó sửa CSS header: nút phải BIẾN MẤT ở
+ * desktop, menu phải KHÔNG nằm trong luồng Tab khi đang đóng, và `aria-expanded` phải nói
+ * đúng trạng thái.
+ */
+test.describe('header responsive', () => {
+  const toggle = (page: import('@playwright/test').Page) =>
+    page.getByRole('button', { name: /mở menu|open menu|đóng menu|close menu/i });
+
+  test('nút ba gạch chỉ hiện ở mobile', async ({ page }, testInfo) => {
+    await page.goto('/vi');
+
+    if (testInfo.project.name === 'mobile') {
+      await expect(toggle(page)).toBeVisible();
+    } else {
+      await expect(toggle(page)).toBeHidden();
+    }
+  });
+
+  test('menu đóng thì KHÔNG nằm trong luồng Tab', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', 'chỉ mobile mới có trạng thái đóng');
+    await page.goto('/vi');
+
+    // `display: none` chứ không phải ẩn bằng màu/độ mờ: link ẩn mà vẫn Tab tới được là bẫy
+    // kinh điển cho người dùng bàn phím — họ focus vào thứ không nhìn thấy.
+    await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeHidden();
+  });
+
+  test('bấm nút thì menu hiện ra và aria-expanded đổi theo', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'mobile', 'chỉ mobile mới có nút');
+    await page.goto('/vi');
+
+    const button = toggle(page);
+    await expect(button).toHaveAttribute('aria-expanded', 'false');
+
+    await button.click();
+    await expect(button).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeVisible();
+
+    // Esc là đường thoát chuẩn của mọi lớp phủ.
+    await page.keyboard.press('Escape');
+    await expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+});
+
 test.describe('admin bị deny tại server', () => {
   test('khách chưa đăng nhập bị đưa về trang chủ NGAY TẠI SERVER', async ({ request }) => {
     // Dùng `request` (HTTP thuần, không chạy JS) để chứng minh việc chặn xảy ra ở

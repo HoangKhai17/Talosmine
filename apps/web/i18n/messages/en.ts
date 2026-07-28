@@ -22,6 +22,8 @@ export const en = {
     prevCategory: 'Previous categories',
     nextCategory: 'Next categories',
     actions: 'Actions',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
   },
 
   common: {
@@ -79,13 +81,6 @@ export const en = {
     errorTitle: 'Something went wrong',
     errorBody: 'This content could not be displayed. You can try again.',
     errorReference: 'Reference code:',
-  },
-
-  draft: {
-    home: 'Layout preview — the content in these grids is sample data, not the real catalogue.',
-    tools: 'Layout preview — filters and tool listings are sample data, not the real catalogue.',
-    blog: 'Layout preview — articles are sample data. The blog system is not part of any phase yet.',
-    blogPost: 'Layout preview — the entire article body is sample text.',
   },
 
   meta: {

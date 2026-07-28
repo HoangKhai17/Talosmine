@@ -87,3 +87,27 @@ export const navItemTranslations = controlPlane.table(
 );
 
 export type NavItemTranslationRow = typeof navItemTranslations.$inferSelect;
+
+/**
+ * Cài đặt chung của site. Khớp migration 0011.
+ *
+ * Danh mục khoá ĐÓNG (CHECK ở migration): thêm một cài đặt là migration mới, không phải việc
+ * code tự làm được. Nhờ vậy bảng key–value này không trượt thành sọt chứa mọi thứ.
+ */
+export const SITE_SETTING_KEYS = ['logo.url'] as const;
+export type SiteSettingKey = (typeof SITE_SETTING_KEYS)[number];
+
+export const siteSettings = controlPlane.table(
+  'site_settings',
+  {
+    id: uuid('id').primaryKey(),
+    key: text('key').notNull(),
+    /** NULL = chưa đặt. Trạng thái hợp lệ, không phải lỗi. */
+    value: text('value'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('site_settings_key_key').on(table.key)],
+);
+
+export type SiteSettingRow = typeof siteSettings.$inferSelect;

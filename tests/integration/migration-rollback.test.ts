@@ -66,6 +66,7 @@ describe('diễn tập rollback về trạng thái cuối P2', () => {
       'features',
       'usage_metrics',
       'service_identities',
+      'site_settings',
       // Migration 0010 — điều hướng site. Có mặt ở đây để bài diễn tập không lặng lẽ bỏ qua
       // file `.down.sql` mới nhất.
       'nav_menus',
@@ -93,6 +94,7 @@ describe('diễn tập rollback về trạng thái cuối P2', () => {
       'features',
       'usage_metrics',
       'service_identities',
+      'site_settings',
       'nav_menus',
       'nav_items',
       'nav_item_translations',

@@ -13,8 +13,14 @@
 }
 
 /*
- * Mobile: xếp thành hai hàng (thương hiệu + tài khoản ở trên, nav cuộn ngang ở dưới).
- * Từ 768px trở lên mới xếp một hàng — dưới ngưỡng đó nhồi hết vào một hàng sẽ vỡ.
+ * MOBILE: chỉ logo + nút ba gạch trên một hàng. Menu và khu tài khoản nằm trong `.panel`,
+ * mặc định ẩn, mở ra thành một khối dọc bên dưới.
+ *
+ * DESKTOP (≥768px): nút ba gạch biến mất, `.panel` thành một hàng ngang — nav căn giữa,
+ * khu tài khoản đẩy sang phải.
+ *
+ * MỘT CÂY DOM cho cả hai, không render hai bản rồi ẩn một bản: hai bản nghĩa là trình đọc
+ * màn hình gặp mọi link hai lần và mọi `id` bị trùng.
  */
 .bar {
   display: flex;
@@ -27,59 +33,116 @@
 
 /* Không đặt letter-spacing — quy chuẩn không định nghĩa tracking. Xem globals.css. */
 .brand {
+  display: inline-flex;
+  align-items: center;
   font-weight: var(--weight-heading);
+  color: var(--color-text-primary);
   text-decoration: none;
   margin-right: auto;
 }
 
-.primaryNav {
-  order: 3;
-  width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
+/*
+ * Logo ảnh: CAO cố định, RỘNG tự co theo tỉ lệ.
+ *
+ * Khoá chiều cao chứ không khoá chiều rộng vì header có chiều cao cố định — ảnh nào cũng
+ * phải vừa hàng đó, còn bề ngang thì tuỳ tỉ lệ từng logo. `max-width` chặn một ảnh siêu
+ * ngang đẩy nút ba gạch ra khỏi màn hình.
+ */
+.logoImage {
+  display: block;
+  height: var(--space-10);
+  width: auto;
+  max-width: 60vw;
+  object-fit: contain;
 }
 
-.primaryNav::-webkit-scrollbar {
+/* Nút ba gạch — CHỈ mobile. Desktop ẩn hoàn toàn ở media query cuối khối này. */
+.menuToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 40px: đủ lớn cho ngón tay. Nút nhỏ hơn là lỗi accessibility trên cảm ứng. */
+  width: var(--space-10);
+  height: var(--space-10);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background: none;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.menuToggle:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+/*
+ * Mobile: chiếm trọn hàng thứ hai, chỉ hiện khi `data-open`.
+ * `display: none` thay vì `height: 0` — nội dung đang ẩn không được nằm trong luồng Tab.
+ */
+.panel {
   display: none;
+  order: 3;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+}
+
+.panel[data-open] {
+  display: flex;
+}
+
+.primaryNav {
+  width: 100%;
 }
 
 .navList {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: max-content;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
 }
 
 .navLink {
-  display: inline-block;
+  display: block;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-button);
   border: none;
   background: none;
-  color: var(--color-text-secondary);
+  /* Màu và độ đậm theo yêu cầu chủ dự án 2026-07-28. Weight 700 nằm NGOÀI thang typography
+     (thang dừng ở 600) nên phải khai ở đây; font 700 đã được nạp ở app/layout.tsx. */
+  color: var(--color-text-primary);
+  font-weight: 700;
+  text-align: left;
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .navLink:hover {
-  color: var(--color-text-primary);
   background-color: var(--color-bg-secondary);
 }
 
 .accountArea {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: var(--space-2);
 }
 
-/* Nút hành động chính của header — viền thay vì nền đặc, khớp wireframe. */
+/*
+ * Nút hành động chính của header — viền thay vì nền đặc, khớp wireframe.
+ * Cùng cỡ chữ và độ đậm với `.navLink` để hàng header không lệch hai thang chữ.
+ */
 .submitButton {
-  display: inline-block;
+  display: block;
   padding: var(--space-2) var(--space-4);
   border: var(--border-default);
   border-radius: var(--radius-button);
   color: var(--color-text-primary);
+  font-weight: 700;
+  text-align: center;
   text-decoration: none;
   white-space: nowrap;
 }
@@ -90,20 +153,63 @@
 }
 
 @media (min-width: 768px) {
-  .bar {
-    flex-wrap: nowrap;
-  }
-
-  /* Nav về giữa: thương hiệu đẩy trái, khu tài khoản đẩy phải. */
+  /*
+   * CỐ Ý GIỮ `flex-wrap: wrap` — không khoá thành `nowrap`.
+   *
+   * Nhãn menu giờ do người biên tập nhập trong `/admin`, nên độ dài KHÔNG đoán trước được:
+   * thêm một mục hoặc đổi sang một ngôn ngữ dài hơn là hàng header vỡ. Đo thật ở 768px với
+   * nhãn tiếng Việt: cần 815px, tràn 47px.
+   *
+   * Cho xuống dòng thì trường hợp xấu nhất là header cao thêm một hàng — xấu nhưng dùng
+   * được. `nowrap` thì trường hợp xấu nhất là tràn ngang toàn trang, thứ mà bộ e2e bắt
+   * được nhưng người dùng mới là người chịu.
+   */
   .brand {
     margin-right: 0;
   }
 
-  .primaryNav {
+  .menuToggle {
+    display: none;
+  }
+
+  /* Panel thành một hàng ngang, chiếm phần còn lại của bar. */
+  .panel {
+    display: flex;
     order: 0;
+    flex: 1;
     width: auto;
-    overflow-x: visible;
+    flex-direction: row;
+    align-items: center;
+    padding-block: 0;
+  }
+
+  /* Nav về giữa: thương hiệu đẩy trái, khu tài khoản đẩy phải. */
+  .primaryNav {
+    width: auto;
     margin-inline: auto;
+  }
+
+  /* Cùng lý do với `.bar`: nhãn dài thì xuống dòng, không đẩy tràn hàng. */
+  .navList {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .navLink {
+    display: inline-block;
+  }
+
+  .accountArea {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .submitButton {
+    display: inline-block;
   }
 }
 

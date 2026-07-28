@@ -5,7 +5,6 @@ import { format, type Messages } from '../../../../i18n/messages';
 import { localeAlternates, type PageLocaleParams, resolvePageI18n } from '../../../../i18n/params';
 import { ArticleCard } from '../article-card';
 import { Breadcrumb } from '../breadcrumb';
-import { DraftBanner } from '../draft-banner';
 import { SearchIcon } from '../icons';
 import { Newsletter } from '../newsletter';
 import styles from './page.module.css';
@@ -55,8 +54,6 @@ export default async function BlogPage({ params }: PageLocaleParams) {
 
   return (
     <>
-      <DraftBanner>{t.draft.blog}</DraftBanner>
-
       <BlogHeader locale={locale} t={t} />
 
       <ArticleSection

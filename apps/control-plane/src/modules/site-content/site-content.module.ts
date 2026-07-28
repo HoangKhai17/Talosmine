@@ -4,9 +4,12 @@ import { IdentityModule } from '../identity/identity.module.js';
 import { SiteNavController } from './site-nav.controller.js';
 import { SiteNavService } from './site-nav.service.js';
 import { SiteNavAdminController } from './site-nav-admin.controller.js';
+import { SiteSettingsAdminController, SiteSettingsController } from './site-settings.controller.js';
+import { SiteSettingsService } from './site-settings.service.js';
 
 /**
- * Module Site Content — sở hữu `nav_menus`, `nav_items`, `nav_item_translations`.
+ * Module Site Content — sở hữu `nav_menus`, `nav_items`, `nav_item_translations`,
+ * `site_settings`.
  *
  * Import IdentityModule để dùng `WebSessionGuard` và AdminModule để dùng
  * `AdminPermissionGuard`. Cả hai là capability của module khác; module này chỉ tiêu thụ
@@ -22,7 +25,12 @@ import { SiteNavAdminController } from './site-nav-admin.controller.js';
  */
 @Module({
   imports: [IdentityModule, AdminModule],
-  controllers: [SiteNavController, SiteNavAdminController],
-  providers: [SiteNavService],
+  controllers: [
+    SiteNavController,
+    SiteNavAdminController,
+    SiteSettingsController,
+    SiteSettingsAdminController,
+  ],
+  providers: [SiteNavService, SiteSettingsService],
 })
 export class SiteContentModule {}

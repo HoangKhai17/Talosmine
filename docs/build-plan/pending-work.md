@@ -415,7 +415,9 @@ của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T
 | Dịch toàn bộ nhánh `(user)` + `loading`/`not-found`/`error` | Xong |
 | Migration `0010_site_nav` + rollback + diễn tập | Xong |
 | API `/v1/site/nav` (công khai) + `/v1/admin/site/nav` | Xong, trong OpenAPI |
-| Trang `/admin/content/nav` | Xong |
+| Trang `/admin/content/nav` | Xong (gồm cả ô đặt logo) |
+| Logo quản trị được (`site_settings`, migration 0011) | Xong — **chỉ nhận URL** |
+| Header mobile: logo + nút ba gạch | Xong |
 | Đọc nav ở web: cache 60s + fallback | Xong |
 
 **Chưa làm — việc kế tiếp của hướng này:**
@@ -425,9 +427,14 @@ của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T
 2. **Vô hiệu hoá cache xuyên tiến trình.** DEC-T26 chấp nhận độ trễ 60 giây và cache theo
    từng tiến trình web. Khi chạy nhiều instance, hai người dùng có thể thấy hai phiên bản
    menu trong vòng một phút. Cần pub/sub khi việc đó thành vấn đề thật.
-3. **Icon mạng xã hội ở footer** vẫn là `<span>` không link — chưa có tài khoản thật, và
+3. **UPLOAD FILE LOGO — chặn ở hạ tầng.** Object storage chưa được dựng (compose chỉ có db,
+   supavisor, logto, mailpit). DEC-T12 chốt ảnh nằm trên Supabase Storage nhưng chưa triển
+   khai. Hiện quản trị viên phải dán URL của ảnh đã host sẵn, và host đó phải nằm trong
+   `CATALOG_ALLOWED_HOSTS` — biến này đang **rỗng**, nghĩa là chưa khai thì chỉ nhận được
+   đường dẫn nội bộ. Dựng storage là một lượt làm việc riêng và cần một DEC.
+4. **Icon mạng xã hội ở footer** vẫn là `<span>` không link — chưa có tài khoản thật, và
    mô hình `nav_items` bắt buộc mọi mục phải có `href` nên chúng chưa vào CMS được.
-4. **Mục `footerPending`** (Giới thiệu, Chính sách riêng tư, Hướng dẫn, Bản tin, FAQ) vẫn
+5. **Mục `footerPending`** (Giới thiệu, Chính sách riêng tư, Hướng dẫn, Bản tin, FAQ) vẫn
    hardcode: chúng cố ý không có đích đến. Khi trang tương ứng ra đời thì xoá khỏi code và
    thêm vào CMS.
 

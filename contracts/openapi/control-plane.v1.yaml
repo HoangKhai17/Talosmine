@@ -1768,6 +1768,77 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /v1/site/settings:
+    get:
+      tags: [site-content]
+      operationId: getSiteSettings
+      summary: Cài đặt chung của site (logo)
+      description: |
+        CÔNG KHAI — không cần phiên, cùng lý do với `/v1/site/nav`: logo nằm trên header của
+        mọi trang, kể cả với khách chưa đăng nhập.
+
+        KHÔNG phụ thuộc ngôn ngữ, nên không có tham số `locale`.
+
+        BFF cache 60 giây (DEC-T26).
+      responses:
+        '200':
+          description: Cài đặt hiện tại. Giá trị `null` nghĩa là chưa đặt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSettings'
+
+  /v1/admin/site/settings:
+    get:
+      tags: [admin]
+      operationId: adminGetSiteSettings
+      summary: Cài đặt site (quản trị)
+      description: Yêu cầu `content:read`. Cùng hình dạng với đường công khai.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Cài đặt hiện tại.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      tags: [admin]
+      operationId: adminUpdateSiteSettings
+      summary: Đổi cài đặt site
+      description: |
+        Yêu cầu `content:manage`.
+
+        `logoUrl` phải là URL `https://` có host nằm trong allowlist, hoặc đường dẫn nội bộ
+        bắt đầu bằng `/`. Cùng bộ kiểm với `href` của mục điều hướng — xem `docs/url-policy.md`.
+
+        `logoUrl: null` XOÁ logo; header quay về hiển thị tên thương hiệu bằng chữ.
+
+        KHÔNG có upload file ở đây: object storage chưa được dựng (DEC-T12). Quản trị viên
+        dán URL của ảnh đã host sẵn. Khi có storage, nút upload sẽ ghi vào đúng trường này.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSiteSettingsRequest'
+      responses:
+        '204':
+          description: Đã lưu.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
   responses:
     BadRequest:
@@ -1835,6 +1906,27 @@ components:
           type: string
           minLength: 1
     # ── Site content ───────────────────────────────────────────────────────────
+
+    SiteSettings:
+      type: object
+      required: [logoUrl]
+      additionalProperties: false
+      properties:
+        logoUrl:
+          type: [string, 'null']
+          description: |
+            URL ảnh logo, hoặc `null` khi chưa đặt. Đã qua chính sách URL và đã chuẩn hoá —
+            frontend dùng NGUYÊN chuỗi này, không tự ghép host.
+
+    UpdateSiteSettingsRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      description: >-
+        Trường vắng mặt = không đổi. `logoUrl` bằng `null` = xoá logo.
+      properties:
+        logoUrl: { type: [string, 'null'] }
+        reason: { type: string, minLength: 1 }
 
     NavMenuKey:
       type: string

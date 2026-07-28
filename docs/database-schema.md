@@ -35,7 +35,7 @@ Hồ sơ account trong MVP dùng các cột typed `display_name`, `email`, `emai
 | Service Identity | `service_identities`, `service_identity_scopes` |
 | Quota | `usage_buckets`, `usage_reservations`, `usage_events`, `idempotency_records` |
 | Audit/Admin | `admin_roles`, `admin_role_permissions`, `admin_role_assignments`, `audit_events` |
-| Site Content | `nav_menus`, `nav_items`, `nav_item_translations` |
+| Site Content | `nav_menus`, `nav_items`, `nav_item_translations`, `site_settings` |
 | Reconciliation | Không sở hữu bảng và không truy cập bảng trực tiếp; chỉ gọi `QuotaReconciliationPort` |
 
 Thiết kế gồm **25 domain tables**. Billing, outbox, provider-specific data và `reconciliation_runs` được hoãn, không tạo trong MVP.
@@ -719,7 +719,25 @@ mà không deploy (DEC-T25, DEC-T26). Ranh giới: **code giữ bố cục, dữ
 - **CASCADE là ngoại lệ có chủ đích** so với `RESTRICT` của catalog: bản dịch không có nghĩa
   độc lập với mục menu, và không bảng lịch sử nào tham chiếu nó.
 
-### 10b.4. Quyền của role runtime
+### 10b.4. `site_settings`
+
+Migration `0011_site_settings`. Cài đặt chung của site — hiện chỉ có logo.
+
+- **Cột:** `id uuid PK`, `key text`, `value text` (nullable), `created_at`, `updated_at`.
+- **Check:** `key IN ('logo.url')` — danh mục ĐÓNG; `value` non-empty khi khác NULL.
+- **Unique:** `site_settings_key_key (key)`.
+- **`value = NULL` là trạng thái hợp lệ**, nghĩa là chưa đặt. Web rơi về logo chữ.
+- **CHỈ LƯU URL, không lưu binary** (DEC-T12), giống `applications.image_url`. Object storage
+  chưa dựng ở thời điểm migration này nên quản trị viên dán URL của ảnh đã host sẵn.
+- **Vì sao key–value:** loại cài đặt này xuất hiện lẻ tẻ theo thời gian (favicon, ảnh OG…) và
+  mỗi lần thêm một cột là một migration đổi cấu trúc bảng. Danh mục khoá vẫn đóng bằng CHECK
+  nên nó không trượt thành sọt chứa mọi thứ.
+- **Quyền runtime:** chỉ `UPDATE`. Hàng do migration seed và không bao giờ bị xoá — không cấp
+  `DELETE` nghĩa là một lỗi lập trình cũng không làm mất hàng cài đặt.
+- **Kiểm URL** dùng lại `checkNavHref` của `nav_items`: cùng bề mặt tấn công (giá trị vào
+  thuộc tính `src`/`href` trên mọi trang), nên hai bộ kiểm riêng sẽ có ngày lệch nhau.
+
+### 10b.5. Quyền của role runtime
 
 Migration cấp **tường minh** `UPDATE, DELETE` cho `talosmine_runtime` trên `nav_items` và
 `nav_item_translations`. `ALTER DEFAULT PRIVILEGES` ở migration 0000 chỉ cho `SELECT, INSERT`,

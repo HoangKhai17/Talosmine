@@ -56,6 +56,49 @@ export function ImageIcon({ className }: IconProps) {
  * Mũi tên chỉ xuống. Xoay bằng CSS (`transform`) ở chỗ dùng, không bằng inline style —
  * inline style vi phạm CSP `style-src` và sẽ không có tác dụng trên production.
  */
+/**
+ * Ba gạch ngang — nút mở menu ở mobile.
+ *
+ * `aria-hidden` vì nút bọc ngoài đã mang nhãn văn bản; nếu icon cũng được đọc thì trình đọc
+ * màn hình loan báo hai lần cho một điều khiển.
+ */
+export function MenuIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+/** Dấu X — cùng nút, trạng thái đang mở. */
+export function CloseIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
 export function ChevronIcon({ className }: IconProps) {
   return (
     <svg

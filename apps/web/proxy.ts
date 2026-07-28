@@ -18,6 +18,34 @@ function createNonce(): string {
 }
 
 /**
+ * Host được phép làm nguồn ẢNH, đọc từ cùng biến mà Control Plane dùng để duyệt URL admin nhập.
+ *
+ * VÌ SAO CẦN: logo do quản trị viên đặt được lưu dưới dạng URL. Nếu URL đó trỏ ra host ngoài
+ * mà `img-src` chỉ có `'self'`, trình duyệt chặn ảnh và header hiện một ô vỡ — trong khi mọi
+ * phép kiểm phía server đều báo hợp lệ. Đó là kiểu hỏng khó lần nhất: đúng ở server, chết ở
+ * trình duyệt.
+ *
+ * DÙNG CHUNG `CATALOG_ALLOWED_HOSTS` với Control Plane là có chủ đích: một danh sách, một
+ * nguồn sự thật. Hai danh sách riêng thì sớm muộn URL qua được cửa ghi nhưng không hiển thị
+ * được.
+ *
+ * Hậu tố `!internal` (xem `docs/url-policy.md` mục 7) bị cắt bỏ — nó là cờ dành cho lớp kiểm
+ * SSRF phía server, không phải một phần của tên host.
+ */
+function allowedImageHosts(): string[] {
+  return (process.env.CATALOG_ALLOWED_HOSTS ?? '')
+    .split(',')
+    .map((entry) =>
+      entry
+        .trim()
+        .replace(/!internal$/, '')
+        .trim(),
+    )
+    .filter((host) => host !== '')
+    .map((host) => `https://${host}`);
+}
+
+/**
  * CSP theo DEC-T12. Baseline bắt buộc: `default-src 'self'`, `img-src 'self' data:`,
  * `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`.
  *
@@ -31,6 +59,8 @@ function buildContentSecurityPolicy(nonce: string): string {
   const scriptSrc = [`'self'`, `'nonce-${nonce}'`, `'strict-dynamic'`];
   const styleSrc = [`'self'`];
   const connectSrc = [`'self'`];
+  // `'self'` và `data:` luôn đứng trước — bộ test CSP kiểm baseline bằng chuỗi con.
+  const imgSrc = [`'self'`, 'data:', ...allowedImageHosts()];
 
   if (!isProduction) {
     // Chỉ dev: React Refresh cần eval, style của dev server là inline, HMR dùng websocket.
@@ -44,7 +74,7 @@ function buildContentSecurityPolicy(nonce: string): string {
     `default-src 'self'`,
     `script-src ${scriptSrc.join(' ')}`,
     `style-src ${styleSrc.join(' ')}`,
-    `img-src 'self' data:`,
+    `img-src ${imgSrc.join(' ')}`,
     `font-src 'self'`,
     `connect-src ${connectSrc.join(' ')}`,
     `frame-ancestors 'none'`,

@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { type Locale, localeHref } from '../../../i18n/locale';
 import { format, type Messages } from '../../../i18n/messages';
 import { localeAlternates, type PageLocaleParams, resolvePageI18n } from '../../../i18n/params';
-import { DraftBanner } from './draft-banner';
 import { ChevronIcon, ImageIcon, SearchIcon } from './icons';
 import { Newsletter } from './newsletter';
 import styles from './page.module.css';
@@ -54,8 +53,6 @@ export default async function UserHomePage({ params }: PageLocaleParams) {
 
   return (
     <>
-      <DraftBanner>{t.draft.home}</DraftBanner>
-
       <Hero t={t} />
       <PartnerMarquee t={t} />
       <ToolsSection t={t} />
