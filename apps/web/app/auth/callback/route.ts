@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as client from 'openid-client';
+import { localeHref, negotiateLocale } from '../../../i18n/locale';
 import { requireOidcConfig } from '../../../server/env';
 import {
   getOidcConfiguration,
@@ -7,6 +8,7 @@ import {
   TRANSACTION_COOKIE,
   type Transaction,
 } from '../../../server/oidc';
+import { readOnboarding } from '../../../server/onboarding';
 import { exchangeIdTokenForSession, setSessionCookies } from '../../../server/session';
 
 /**
@@ -60,16 +62,57 @@ export async function GET(request: Request): Promise<Response> {
     return failure(cfg.appBaseUrl, 'Không tạo được phiên đăng nhập. Vui lòng thử lại.');
   }
 
-  const response = NextResponse.redirect(
-    new URL(safeReturnTo(transaction.returnTo, cfg.appBaseUrl), cfg.appBaseUrl).toString(),
-    { headers: { 'Cache-Control': 'no-store' } },
-  );
+  const target = await resolveDestination(request, session, transaction, cfg.appBaseUrl);
+
+  const response = NextResponse.redirect(new URL(target, cfg.appBaseUrl).toString(), {
+    headers: { 'Cache-Control': 'no-store' },
+  });
 
   // Transaction cookie đã dùng xong — xoá ngay để code_verifier không nằm lại trên máy.
   response.cookies.delete(TRANSACTION_COOKIE);
   setSessionCookies(response, session);
 
   return response;
+}
+
+/**
+ * Đích sau khi đăng nhập: khảo sát onboarding, hoặc nơi người dùng định tới.
+ *
+ * VÌ SAO HỎI CONTROL PLANE thay vì chỉ dựa vào cờ `session.created`: `created` chỉ đúng ở
+ * lần đăng nhập ĐẦU TIÊN. Ai đóng tab giữa chừng sẽ không bao giờ được hỏi lại — và đó là
+ * trường hợp phổ biến, không phải ngoại lệ. Một lời gọi thêm mỗi lần ĐĂNG NHẬP (không phải
+ * mỗi trang) là cái giá chấp nhận được để không mất dữ liệu.
+ *
+ * Người đã trả lời hoặc đã bỏ qua thì `required` là `false` và đường đi không đổi.
+ *
+ * FAIL-OPEN: `readOnboarding` nuốt mọi lỗi và trả `required: false`. Khảo sát là màn hình
+ * thu thập dữ liệu tuỳ chọn — chặn đường đăng nhập vì nó không đọc được là đổi một lỗi nhỏ
+ * lấy một sự cố lớn.
+ */
+async function resolveDestination(
+  request: Request,
+  session: { sessionToken: string },
+  transaction: Transaction,
+  appBaseUrl: string,
+): Promise<string> {
+  const returnTo = safeReturnTo(transaction.returnTo, appBaseUrl);
+
+  // Cùng thứ tự ưu tiên với proxy (DEC-T25): cookie → Accept-Language → mặc định. Dùng lại
+  // hàm chung để hai chỗ không lệch luật.
+  const locale = negotiateLocale({
+    cookieHeader: request.headers.get('cookie'),
+    acceptLanguage: request.headers.get('accept-language'),
+  });
+
+  const survey = await readOnboarding(session.sessionToken, locale);
+  if (!survey.required) return returnTo;
+
+  // Giữ `returnTo` để sau khi xong khảo sát người dùng về đúng chỗ họ định tới. `safeReturnTo`
+  // đã chuẩn hoá nó về đường dẫn nội bộ nên ghép vào query là an toàn.
+  const onboarding = new URL(localeHref(locale, '/onboarding'), appBaseUrl);
+  if (returnTo !== '/') onboarding.searchParams.set('returnTo', returnTo);
+
+  return onboarding.pathname + onboarding.search;
 }
 
 function getCookie(request: Request, name: string): string | undefined {

@@ -160,7 +160,7 @@ export class CatalogAdminController {
     @Body() body: StatusBody,
   ): Promise<void> {
     // Chỉ nhận `active` và `inactive`: `draft` không phải đích hợp lệ của bất kỳ chuyển
-    // tiếp nào (xem `isValidTransition`).
+    // tiếp nào (xem `isValidContentTransition`).
     const status = body.status;
     if (status !== 'active' && status !== 'inactive') {
       throw new BadRequestException('`status` phải là `active` hoặc `inactive`.');

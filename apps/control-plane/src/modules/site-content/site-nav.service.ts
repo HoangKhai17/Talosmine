@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
+import { isValidContentTransition } from '../../shared/content-status.js';
 import type { DatabaseClient } from '../../shared/database.js';
 import { DATABASE_CLIENT } from '../../shared/database.module.js';
 import { loadEnv } from '../../shared/env.js';
@@ -338,7 +339,7 @@ export class SiteNavService {
       const row = rows[0];
       if (!row) throw new SiteNavError('NOT_FOUND', 'Không tìm thấy mục điều hướng.');
 
-      if (!isValidNavTransition(row.status, next)) {
+      if (!isValidContentTransition(row.status, next)) {
         throw new SiteNavError(
           'INVALID_STATUS_TRANSITION',
           `Không thể chuyển từ \`${row.status}\` sang \`${next}\`.`,
@@ -462,19 +463,6 @@ async function nextSortOrder(tx: Tx, menuKey: string): Promise<number> {
 
   const max = rows[0]?.max;
   return max === null || max === undefined ? 0 : Number(max) + 1;
-}
-
-/**
- * Máy trạng thái. Tách hàm riêng để test được mà không cần database — cùng lý do với
- * `isValidTransition` của catalog.
- */
-export function isValidNavTransition(from: string, to: string): boolean {
-  if (from === to) return false; // đổi sang chính nó là lệnh vô nghĩa, không phải no-op
-  if (to === 'draft') return false;
-  if (from === 'draft') return to === 'active';
-  if (from === 'active') return to === 'inactive';
-  if (from === 'inactive') return to === 'active';
-  return false;
 }
 
 /** Bỏ nhãn rỗng/khoảng trắng; giữ lại đúng những ngôn ngữ thật sự có chữ. */

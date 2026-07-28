@@ -79,6 +79,29 @@ dự án kiểm soát** (như `docs/index.md` mô tả), **hay là thư mục c�
 ngoài gửi lên** (như wireframe Figma mô tả với "10.000+ công cụ", "Submit a Tool")? Hai thứ
 này cần hai lược đồ dữ liệu khác nhau. Xem thêm A8.
 
+### A10. Thời hạn lưu dữ liệu khảo sát — DEC-B11
+
+`survey_responses` và `survey_answers` (migration 0012) là **loại dữ liệu cá nhân MỚI**, gắn
+với `account_id`. `AGENTS.md` liệt kê **retention** vào nhóm chỉ chủ dự án chốt được, và
+DEC-B11 đang `open`.
+
+Ba câu cần trả lời **trước khi phát hành ra người dùng thật**:
+
+1. Giữ bao lâu? Có ẩn danh hoá sau một thời hạn không?
+2. Người dùng có được xem/xoá câu trả lời của chính mình không? (hiện **chưa** có màn hình đó)
+3. Xoá account thì câu trả lời đi theo hay giữ lại dạng ẩn danh?
+
+Câu 3 là thứ duy nhất **đổi schema**: hiện `survey_responses.account_id` dùng
+`ON DELETE RESTRICT` — lựa chọn an toàn nhất, buộc phải xử lý tường minh thay vì âm thầm mất
+dữ liệu. Đổi sang `SET NULL` (giữ ẩn danh) hay `CASCADE` (xoá theo) đều cần migration.
+
+Code cố ý **không ghi thời hạn nào**.
+
+**Từ 2026-07-28 câu hỏi này không còn là giả thuyết:** `/admin/survey/responses` đã tồn tại và
+trả `accountId`, nên dữ liệu này đã đọc được qua giao diện. Nó nằm sau `survey_response:read`
+— permission riêng, không phải `content:*` — nhưng phân quyền không thay thế được chính sách
+lưu trữ.
+
 ### A5. DEC-B05 — đơn vị đo của `usage_metrics`
 
 `open`. **Chặn toàn bộ endpoint chỉ số sử dụng của P3.**
@@ -418,23 +441,35 @@ của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T
 | Trang `/admin/content/nav` | Xong (gồm cả ô đặt logo) |
 | Logo quản trị được (`site_settings`, migration 0011) | Xong — **chỉ nhận URL** |
 | Header mobile: logo + nút ba gạch | Xong |
+| Khảo sát onboarding — luồng người dùng (migration 0012) | Xong |
+| Khảo sát — quản trị nội dung (`/admin/content/survey`) | Xong, có test |
+| Khảo sát — báo cáo kết quả (`/admin/survey/responses`) | Xong, có test |
 | Đọc nav ở web: cache 60s + fallback | Xong |
 
 **Chưa làm — việc kế tiếp của hướng này:**
 
-1. **Content slot + SEO theo route** (bước 3 của plan gốc): tiêu đề/mô tả từng section và
+1. **KHẢO SÁT — còn một blocker duy nhất: thời hạn lưu (DEC-B11).** Quản trị nội dung và báo
+   cáo kết quả đã xong. Nhưng `survey_responses`/`survey_answers` là dữ liệu cá nhân gắn
+   `account_id`, và chưa có chính sách lưu trữ nào. Xem mục A10 — blocker trước khi phát hành
+   ra người dùng thật, và câu hỏi về `ON DELETE` là thứ duy nhất còn đổi được schema.
+
+   Hai việc nhỏ đi kèm, chưa làm vì chưa cần:
+   - **Người dùng chưa xem/xoá được câu trả lời của chính mình.** Phụ thuộc câu 2 của DEC-B11.
+   - **Chưa có xuất CSV.** Báo cáo hiện chỉ đọc trên màn hình; xuất file là một bề mặt rò dữ
+     liệu mới nên chờ chính sách lưu trữ trước.
+2. **Content slot + SEO theo route** (bước 3 của plan gốc): tiêu đề/mô tả từng section và
    `title`/`description`/OG theo route. Hiện vẫn nằm trong message catalog của code.
-2. **Vô hiệu hoá cache xuyên tiến trình.** DEC-T26 chấp nhận độ trễ 60 giây và cache theo
+3. **Vô hiệu hoá cache xuyên tiến trình.** DEC-T26 chấp nhận độ trễ 60 giây và cache theo
    từng tiến trình web. Khi chạy nhiều instance, hai người dùng có thể thấy hai phiên bản
    menu trong vòng một phút. Cần pub/sub khi việc đó thành vấn đề thật.
-3. **UPLOAD FILE LOGO — chặn ở hạ tầng.** Object storage chưa được dựng (compose chỉ có db,
+4. **UPLOAD FILE LOGO — chặn ở hạ tầng.** Object storage chưa được dựng (compose chỉ có db,
    supavisor, logto, mailpit). DEC-T12 chốt ảnh nằm trên Supabase Storage nhưng chưa triển
    khai. Hiện quản trị viên phải dán URL của ảnh đã host sẵn, và host đó phải nằm trong
    `CATALOG_ALLOWED_HOSTS` — biến này đang **rỗng**, nghĩa là chưa khai thì chỉ nhận được
    đường dẫn nội bộ. Dựng storage là một lượt làm việc riêng và cần một DEC.
-4. **Icon mạng xã hội ở footer** vẫn là `<span>` không link — chưa có tài khoản thật, và
+5. **Icon mạng xã hội ở footer** vẫn là `<span>` không link — chưa có tài khoản thật, và
    mô hình `nav_items` bắt buộc mọi mục phải có `href` nên chúng chưa vào CMS được.
-5. **Mục `footerPending`** (Giới thiệu, Chính sách riêng tư, Hướng dẫn, Bản tin, FAQ) vẫn
+6. **Mục `footerPending`** (Giới thiệu, Chính sách riêng tư, Hướng dẫn, Bản tin, FAQ) vẫn
    hardcode: chúng cố ý không có đích đến. Khi trang tương ứng ra đời thì xoá khỏi code và
    thêm vào CMS.
 

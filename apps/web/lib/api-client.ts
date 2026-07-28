@@ -103,6 +103,74 @@ export interface AdminNavItemView {
   updatedAt: string;
 }
 
+/* ── Khảo sát onboarding ──────────────────────────────────────────────────────
+ * Khớp view của `apps/control-plane/src/modules/survey/survey-admin.service.ts`. */
+
+/** Văn bản theo ngôn ngữ. Thiếu khoá = chưa có bản dịch cho ngôn ngữ đó. */
+export interface LocalizedTextView {
+  vi?: string | null;
+  en?: string | null;
+}
+
+export interface AdminSurveyOptionView {
+  id: string;
+  key: string;
+  icon: string | null;
+  sortOrder: number;
+  status: 'draft' | 'active' | 'inactive';
+  labels: LocalizedTextView;
+  descriptions: LocalizedTextView;
+  updatedAt: string;
+}
+
+/**
+ * Câu hỏi nhìn từ phía quản trị: MỌI trạng thái, MỌI ngôn ngữ.
+ *
+ * `key` và `kind` có mặt để hiển thị nhưng KHÔNG sửa được — code render theo `key`, và đổi
+ * `kind` làm dữ liệu đã thu thập mâu thuẫn với ràng buộc mới.
+ */
+export interface AdminSurveyQuestionView {
+  id: string;
+  key: string;
+  kind: 'single' | 'multi';
+  minSelect: number;
+  sortOrder: number;
+  status: 'active' | 'inactive';
+  titles: LocalizedTextView;
+  descriptions: LocalizedTextView;
+  options: AdminSurveyOptionView[];
+  updatedAt: string;
+}
+
+export interface SurveySummaryView {
+  totalResponses: number;
+  completedCount: number;
+  skippedCount: number;
+  questions: {
+    key: string;
+    title: string | null;
+    /** Số NGƯỜI trả lời câu này — khác tổng `count` ở câu multi vì một người chọn nhiều ô. */
+    respondentCount: number;
+    options: {
+      key: string;
+      label: string | null;
+      icon: string | null;
+      status: string;
+      count: number;
+    }[];
+  }[];
+}
+
+/** Một lượt trả lời. DỮ LIỆU CÁ NHÂN — chỉ hiện sau `survey_response:read`. */
+export interface SurveyResponseRecordView {
+  id: string;
+  accountId: string;
+  status: 'completed' | 'skipped';
+  locale: string;
+  createdAt: string;
+  answers: { questionKey: string; optionKeys: string[] }[];
+}
+
 /** Khớp `OwnAccountView` của Control Plane (apps/control-plane/.../account.service.ts). */
 export interface AccountView {
   id: string;

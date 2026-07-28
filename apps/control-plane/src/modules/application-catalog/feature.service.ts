@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
+import { isValidContentTransition } from '../../shared/content-status.js';
 import type { DatabaseClient } from '../../shared/database.js';
 import { DATABASE_CLIENT } from '../../shared/database.module.js';
 import type { AdminMutationContext } from '../admin/admin.service.js';
 import { appendAuditEvent } from '../audit/audit.js';
-import { CatalogError, isValidTransition } from './catalog.service.js';
+import { CatalogError } from './catalog.service.js';
 import { applications, type CatalogStatus, features } from './schema.js';
 
 export interface FeatureView {
@@ -24,7 +25,7 @@ export interface FeatureView {
  * Đây là thứ mà **entitlement ở P4 sẽ cấp quyền lên**: plan không cấp "toàn bộ app A" mà
  * cấp từng feature. Vì vậy `key` của feature cũng bất biến, cùng lý do với `key` của app.
  *
- * Feature dùng chung máy trạng thái với application (`isValidTransition`): `draft` →
+ * Feature dùng chung máy trạng thái với application (`isValidContentTransition`): `draft` →
  * `active` ⇄ `inactive`, không quay lại `draft`.
  */
 @Injectable()
@@ -127,8 +128,8 @@ export class FeatureService {
   /**
    * Đổi trạng thái feature.
    *
-   * Dùng CHUNG `isValidTransition` với application — hai thực thể có cùng vòng đời, và
-   * viết hai máy trạng thái song song là cách chắc chắn để chúng lệch nhau về sau.
+   * Dùng CHUNG `isValidContentTransition` với application — hai thực thể có cùng vòng đời,
+   * và viết hai máy trạng thái song song là cách chắc chắn để chúng lệch nhau về sau.
    */
   async changeStatus(
     applicationId: string,
@@ -146,7 +147,7 @@ export class FeatureService {
       const row = current[0];
       if (!row) throw new CatalogError('NOT_FOUND', 'Không tìm thấy feature.');
 
-      if (!isValidTransition(row.status, next)) {
+      if (!isValidContentTransition(row.status, next)) {
         throw new CatalogError(
           'INVALID_STATUS_TRANSITION',
           `Không thể chuyển từ \`${row.status}\` sang \`${next}\`.`,

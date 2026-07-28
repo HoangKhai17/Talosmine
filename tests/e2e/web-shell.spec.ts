@@ -112,6 +112,26 @@ test.describe('header responsive', () => {
   });
 });
 
+/**
+ * Khảo sát onboarding.
+ *
+ * KHÔNG tự động hoá được chặng "đăng ký thật rồi bị chuyển sang khảo sát" — nó cần đăng nhập
+ * qua Logto, thứ chặn automation (xem pending-work A9). Bù lại, bài dưới đây khoá tính chất
+ * QUAN TRỌNG NHẤT của màn hình này: **không ai bị kẹt ở đó.**
+ *
+ * Khách vãng lai không có phiên → `readOnboarding` trả `required: false` → chuyển về trang
+ * chủ. Cùng đường đi với người đã trả lời, đã bỏ qua, và với trường hợp Control Plane không
+ * phản hồi (fail-open có chủ đích).
+ */
+test.describe('onboarding', () => {
+  for (const locale of LOCALES) {
+    test(`/${locale}/onboarding chuyển về trang chủ khi không có phiên`, async ({ page }) => {
+      await page.goto(`/${locale}/onboarding`);
+      await expect(page).toHaveURL(new RegExp(`/${locale}$`));
+    });
+  }
+});
+
 test.describe('admin bị deny tại server', () => {
   test('khách chưa đăng nhập bị đưa về trang chủ NGAY TẠI SERVER', async ({ request }) => {
     // Dùng `request` (HTTP thuần, không chạy JS) để chứng minh việc chặn xảy ra ở

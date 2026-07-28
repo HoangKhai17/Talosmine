@@ -379,6 +379,97 @@ Plane không có đường lui sẽ biến lỗi cục bộ thành sự cố to�
 - `href` dạng `//host`, `javascript:`, host ngoài allowlist đều bị từ chối.
 - Control Plane không phản hồi → trang vẫn render bằng menu dự phòng.
 
+## 5c. Survey — khảo sát onboarding
+
+> Module ngoài P0–P9, đến từ yêu cầu trực tiếp của chủ dự án (2026-07-28).
+
+### 5c.1. Mục tiêu, trách nhiệm và ngoài phạm vi
+
+Thu thập nhu cầu người dùng ngay sau khi đăng ký, bằng một màn hình ngắn **bỏ qua được**.
+
+Ngoài phạm vi: không chặn đường vào sản phẩm (luôn có nút bỏ qua, và mọi lỗi đều fail-open);
+không dùng câu trả lời để phân quyền hay quyết định entitlement; không tự tạo câu hỏi mới từ
+giao diện (cấu trúc cố định, chỉ nội dung mở).
+
+### 5c.2. Tính năng
+
+Đọc bộ câu hỏi theo ngôn ngữ; nộp câu trả lời hoặc bỏ qua; suy ra trạng thái "đã onboard".
+
+### 5c.3. Command và query chính
+
+`SurveyService` — bề mặt người dùng cuối, chỉ thấy những gì `active`:
+
+- `getForAccount(accountId, locale)` — trả `required` + bộ câu hỏi. Đã trả lời thì không dựng
+  câu hỏi, tiết kiệm ba truy vấn trên đường đăng nhập của mọi người dùng cũ.
+- `submit(accountId, { status, locale, answers })`.
+
+`SurveyAdminService` — bề mặt quản trị, thấy mọi trạng thái và mọi ngôn ngữ:
+
+- `listQuestions()` · `updateQuestion(id, input, ctx)`
+- `create` / `update` / `changeStatus` / `reorder` / `remove` cho lựa chọn
+- `summary(locale)` · `listResponses({ limit, cursor })`
+
+**Hai service tách nhau là có chủ đích.** Gộp lại thì mỗi truy vấn phải mang thêm một cờ
+"đang là admin hay không", và cờ đó chính là chỗ để một hàng `draft` rò ra người dùng.
+
+### 5c.4. Invariant và authorization
+
+- **Một account trả lời đúng MỘT lần** (`UNIQUE (account_id)`); lần hai trả 409.
+- **`skipped` cũng tạo bản ghi** — thiếu nó thì hệ thống hỏi lại mãi.
+- Server kiểm lại TOÀN BỘ câu trả lời (`validateAnswers`): lựa chọn thuộc đúng câu, đang
+  `active`, đủ `minSelect`, không trùng, không thiếu câu. Endpoint mở với bất kỳ ai có phiên
+  nên ràng buộc chỉ nằm ở giao diện thì không phải ràng buộc.
+- Ghi trong MỘT transaction: câu trả lời lỗi thì bản ghi khảo sát cũng rollback. Một
+  `completed` không có câu trả lời nào sẽ làm mọi thống kê sai mà không ai phát hiện.
+- Quyền đọc dữ liệu trả lời (`survey_response:read`) **tách khỏi** quyền sửa câu hỏi
+  (`content:*`): biên tập nội dung khác với truy cập dữ liệu cá nhân của mọi người dùng.
+  Ranh giới này hiện thực bằng HAI controller riêng — `@RequirePermission` gõ nhầm trong một
+  lớp gộp sẽ mở dữ liệu cá nhân cho người biên tập, còn tách lớp thì đọc được từ tên file.
+- **`minSelect` không bao giờ vượt số lựa chọn `active`.** Chặn ở CẢ HAI đường: nâng
+  `minSelect` lên, và gỡ một lựa chọn xuống. Mỗi thao tác nhìn riêng đều hợp lệ, nhưng đến
+  ngưỡng thì không ai nộp nổi khảo sát — và không có gì báo cho tới khi người dùng thật kẹt.
+- **`survey_options.key` bất biến.** Câu trả lời trỏ `option_id`, nhưng báo cáo và phân tích
+  ngoài hệ thống đọc theo `key`.
+- **Lựa chọn đã có người trả lời thì không xoá được** — `ON DELETE RESTRICT` chặn ở database,
+  API dịch thành 409 kèm lời khuyên dùng `inactive`.
+
+### 5c.5. Dependency và port được phép
+
+Tiêu thụ `WebSessionGuard` (Identity) và `AdminPermissionGuard` (Admin). **Đọc** `accounts.id`
+qua khoá ngoại nhưng KHÔNG ghi vào bảng đó — trạng thái onboarding suy ra từ
+`survey_responses` của chính mình. Không export gì: chưa module nào cần đọc dữ liệu khảo sát.
+
+Dùng `shared/content-status.ts` cho vòng đời `draft → active ⇄ inactive` — chung với catalog
+và site-content. Đây là hằng số miền, không phải bảng, nên chia sẻ không phạm luật 1.2.
+
+### 5c.6. Domain event / integration effect
+
+Không phát event. BFF gọi `GET /v1/me/onboarding` ở `/auth/callback` để quyết định chuyển hướng.
+
+### 5c.7. Dữ liệu sở hữu
+
+Sáu bảng `survey_*` (database-schema mục 10c).
+
+### 5c.8. Giai đoạn
+
+Đã hiện thực: luồng người dùng (đọc câu hỏi, nộp, bỏ qua), seed ba câu hỏi, quản trị nội dung
+(`/admin/content/survey`) và báo cáo kết quả (`/admin/survey/responses`).
+
+**Chưa chốt:** thời hạn lưu câu trả lời (DEC-B11) — blocker trước khi phát hành ra người dùng
+thật, xem pending-work A10.
+
+### 5c.9. Acceptance criteria
+
+- Người mới đăng ký được chuyển sang khảo sát; đã trả lời hoặc đã bỏ qua thì không.
+- Không ai bị kẹt: mọi trường hợp không đọc được trạng thái đều dẫn về trang chủ (fail-open,
+  ngược với authorization vốn fail-closed).
+- Gọi thẳng API với câu trả lời sai bị từ chối và KHÔNG để lại bản ghi nào.
+- Runtime không có `UPDATE`/`DELETE` trên bảng câu trả lời.
+- Vai trò chỉ có `content:*` KHÔNG đọc được câu trả lời; vai trò chỉ có `survey_response:read`
+  KHÔNG sửa được câu hỏi.
+- Không thao tác quản trị nào đưa khảo sát về trạng thái không nộp được.
+- Báo cáo giữ số đếm của lựa chọn đã gỡ, kèm trạng thái để giải thích con số đó.
+
 ## 6. Plan / Plan Version
 
 ### 6.1. Mục tiêu, trách nhiệm và ngoài phạm vi

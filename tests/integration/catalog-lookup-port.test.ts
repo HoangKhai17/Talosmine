@@ -77,6 +77,7 @@ describe('CatalogLookupPort', () => {
       VALUES (gen_random_uuid(), ${applicationId}, 'bao-cao', 'Báo cáo', 'draft')
       RETURNING id
     `;
+    const featureId = feature?.id as string;
 
     // `unit` ở đây là fixture của test trong container tạm, KHÔNG phải seed dữ liệu sản
     // phẩm — DEC-B05 chặn việc tạo metric thật khi đơn vị chưa được duyệt, không chặn test
@@ -85,7 +86,7 @@ describe('CatalogLookupPort', () => {
       INSERT INTO control_plane.usage_metrics
         (id, application_id, feature_id, key, display_name, unit, status)
       VALUES (
-        gen_random_uuid(), ${applicationId}, ${feature?.id}, 'so-luot', 'Số lượt',
+        gen_random_uuid(), ${applicationId}, ${featureId}, 'so-luot', 'Số lượt',
         'test-unit', 'draft'
       )
     `;

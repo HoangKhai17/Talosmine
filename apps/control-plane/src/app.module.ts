@@ -5,6 +5,7 @@ import { CatalogModule } from './modules/application-catalog/catalog.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { SiteContentModule } from './modules/site-content/site-content.module.js';
+import { SurveyModule } from './modules/survey/survey.module.js';
 import { DatabaseModule } from './shared/database.module.js';
 
 /**
@@ -31,6 +32,7 @@ import { DatabaseModule } from './shared/database.module.js';
     AdminModule,
     CatalogModule,
     SiteContentModule,
+    SurveyModule,
   ],
 })
 export class AppModule {}

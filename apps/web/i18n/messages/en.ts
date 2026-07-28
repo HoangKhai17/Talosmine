@@ -83,6 +83,18 @@ export const en = {
     errorReference: 'Reference code:',
   },
 
+  onboarding: {
+    title: "Let's Set Up Your AI Hub",
+    lead: 'Complete these quick questions to personalize your experience and help us recommend the right AI tools for you.',
+    duration: 'It only takes about a minute.',
+    needHelp: 'Need help?',
+    complete: 'Complete Setup',
+    submitting: 'Saving…',
+    skip: 'Skip for now',
+    submitFailed: 'Could not save your answers. Please try again.',
+    needMore: 'Select {count} more',
+  },
+
   meta: {
     home: 'Talosmine — Discover tools to build and grow',
     tools: 'Talosmine — Browse tools by category',

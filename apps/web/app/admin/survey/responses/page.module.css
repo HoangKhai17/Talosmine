@@ -1,0 +1,107 @@
+/*
+ * Báo cáo kết quả khảo sát. Chỉ dùng token từ globals.css — không có màu/px thô.
+ */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+}
+
+/* Ba con số tổng: tự xuống dòng ở màn hình hẹp thay vì bóp nhau. */
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.optionRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.optionHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.optionName {
+  /* Chiếm phần còn lại và ĐƯỢC PHÉP co lại — không có `min-width: 0` thì nhãn dài đẩy số
+     đếm ra khỏi khung thay vì tự xuống dòng. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Thanh tỉ lệ. Đây là lớp thông tin THỨ HAI — con số bên cạnh mới là dữ liệu thật, nên thanh
+ * này để `aria-hidden` và không cần role progressbar.
+ */
+.bar {
+  height: var(--space-2);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  background-color: var(--color-text-secondary);
+}
+
+/*
+ * Bảng chi tiết. Bọc trong khối cuộn ngang riêng: bảng có nhiều cột và không được phép làm
+ * cả trang cuộn ngang.
+ */
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  /* Đáy tính bằng đơn vị chữ để bảng không bị bóp tới mức không đọc được. */
+  min-width: 60ch;
+}
+
+.table th,
+.table td {
+  text-align: start;
+  vertical-align: top;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-default);
+}
+
+.table th {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.mono {
+  overflow-wrap: anywhere;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}

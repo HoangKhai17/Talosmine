@@ -1,7 +1,9 @@
 'use client';
 
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { type AdminNavItemView, ApiError, api } from '../../../../lib/api-client';
+import { type FormEvent, useState } from 'react';
+import { type AdminNavItemView, api } from '../../../../lib/api-client';
+import forms from '../../admin-forms.module.css';
+import { type AdminMutate, useAdminScreen } from '../../use-admin-screen';
 import { LogoSection } from './logo-section';
 import styles from './page.module.css';
 
@@ -40,54 +42,11 @@ const STATUS_LABEL: Record<AdminNavItemView['status'], string> = {
 };
 
 export default function AdminNavPage() {
-  const [items, setItems] = useState<AdminNavItemView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  const noticeRef = useRef<HTMLDivElement>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setItems(await api.get<AdminNavItemView[]>('/admin/site/nav'));
-    } catch (err) {
-      if (err instanceof ApiError && err.isUnauthenticated) {
-        window.location.href = '/auth?returnTo=%2Fadmin%2Fcontent%2Fnav';
-        return;
-      }
-      setError(err instanceof Error ? err.message : 'Không tải được menu.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  /** Bọc mọi mutation: khoá nút, xoá thông báo cũ, tải lại, đưa focus về vùng thông báo. */
-  async function mutate(action: () => Promise<void>, success: string) {
-    setPending(true);
-    setError(null);
-    setNotice(null);
-    try {
-      await action();
-      await load();
-      setNotice(success);
-      noticeRef.current?.focus();
-    } catch (err) {
-      if (err instanceof ApiError && err.isUnauthenticated) {
-        window.location.href = '/auth?returnTo=%2Fadmin%2Fcontent%2Fnav';
-        return;
-      }
-      setError(err instanceof Error ? err.message : 'Không thực hiện được.');
-    } finally {
-      setPending(false);
-    }
-  }
+  const screen = useAdminScreen<AdminNavItemView[]>({
+    path: '/admin/site/nav',
+    returnTo: '/admin/content/nav',
+    initial: [],
+  });
 
   return (
     <div className="stack">
@@ -98,30 +57,30 @@ export default function AdminNavPage() {
         <strong>trong vòng 60 giây</strong> — trang công khai giữ bản cũ trong thời gian đó.
       </p>
 
-      <div aria-live="polite" tabIndex={-1} ref={noticeRef}>
-        {loading ? <p className="typeBody textSecondary">Đang tải…</p> : null}
-        {notice ? <p className="typeBody">{notice}</p> : null}
-        {error ? (
+      <div aria-live="polite" tabIndex={-1} ref={screen.noticeRef}>
+        {screen.loading ? <p className="typeBody textSecondary">Đang tải…</p> : null}
+        {screen.notice ? <p className="typeBody">{screen.notice}</p> : null}
+        {screen.error ? (
           <div className="notice" role="alert">
-            <p className="typeBody">{error}</p>
-            <button type="button" className="typeBody" onClick={() => void load()}>
+            <p className="typeBody">{screen.error}</p>
+            <button type="button" className="typeBody" onClick={() => void screen.reload()}>
               Thử lại
             </button>
           </div>
         ) : null}
       </div>
 
-      <LogoSection pending={pending} mutate={mutate} />
+      <LogoSection pending={screen.pending} mutate={screen.mutate} />
 
-      {!loading
+      {!screen.loading
         ? MENUS.map((menu) => (
             <MenuSection
               key={menu.key}
               menuKey={menu.key}
               label={menu.label}
-              items={items.filter((i) => i.menuKey === menu.key)}
-              pending={pending}
-              mutate={mutate}
+              items={screen.data.filter((i) => i.menuKey === menu.key)}
+              pending={screen.pending}
+              mutate={screen.mutate}
             />
           ))
         : null}
@@ -140,7 +99,7 @@ function MenuSection({
   label: string;
   items: AdminNavItemView[];
   pending: boolean;
-  mutate: (action: () => Promise<void>, success: string) => Promise<void>;
+  mutate: AdminMutate;
 }) {
   const [reason, setReason] = useState('');
   const [href, setHref] = useState('');
@@ -223,11 +182,11 @@ function MenuSection({
       <form className={styles.createForm} onSubmit={(e) => void create(e)}>
         <p className="typeBodySmall">Thêm mục mới</p>
 
-        <div className={styles.createGrid}>
+        <div className={forms.fieldRow}>
           <label className="typeBodySmall">
             Nhãn tiếng Việt
             <input
-              className={`typeBodySmall ${styles.input}`}
+              className={`typeBodySmall ${forms.input}`}
               value={labelVi}
               onChange={(e) => setLabelVi(e.target.value)}
               maxLength={120}
@@ -237,7 +196,7 @@ function MenuSection({
           <label className="typeBodySmall">
             Nhãn tiếng Anh
             <input
-              className={`typeBodySmall ${styles.input}`}
+              className={`typeBodySmall ${forms.input}`}
               value={labelEn}
               onChange={(e) => setLabelEn(e.target.value)}
               maxLength={120}
@@ -248,7 +207,7 @@ function MenuSection({
             Đường dẫn
             {/* Placeholder là VÍ DỤ về định dạng, không phải gợi ý nội dung. */}
             <input
-              className={`typeBodySmall ${styles.input}`}
+              className={`typeBodySmall ${forms.input}`}
               value={href}
               onChange={(e) => setHref(e.target.value)}
               placeholder="/tools"
@@ -259,7 +218,7 @@ function MenuSection({
           <label className="typeBodySmall">
             Lý do
             <input
-              className={`typeBodySmall ${styles.input}`}
+              className={`typeBodySmall ${forms.input}`}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={500}
@@ -274,7 +233,7 @@ function MenuSection({
 
         <button
           type="submit"
-          className={`typeBodySmall ${styles.button}`}
+          className={`typeBodySmall ${forms.button}`}
           disabled={!canCreate || pending}
         >
           Thêm mục
@@ -296,7 +255,7 @@ function NavItemRow({
   first: boolean;
   last: boolean;
   pending: boolean;
-  mutate: (action: () => Promise<void>, success: string) => Promise<void>;
+  mutate: AdminMutate;
   onMove: (direction: -1 | 1) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -355,7 +314,7 @@ function NavItemRow({
           </span>
         </div>
 
-        <span className={`typeCaption ${styles.badge} ${styles[item.status]}`}>
+        <span className={`typeCaption ${forms.badge} ${forms[item.status]}`}>
           {STATUS_LABEL[item.status]}
         </span>
 
@@ -363,7 +322,7 @@ function NavItemRow({
           {/* Nút mũi tên có nhãn văn bản ẩn — biểu tượng một mình không đủ cho trình đọc màn hình. */}
           <button
             type="button"
-            className={styles.iconButton}
+            className={forms.iconButton}
             onClick={() => onMove(-1)}
             disabled={first || pending}
             aria-label="Chuyển lên trên"
@@ -372,7 +331,7 @@ function NavItemRow({
           </button>
           <button
             type="button"
-            className={styles.iconButton}
+            className={forms.iconButton}
             onClick={() => onMove(1)}
             disabled={last || pending}
             aria-label="Chuyển xuống dưới"
@@ -381,7 +340,7 @@ function NavItemRow({
           </button>
           <button
             type="button"
-            className={`typeCaption ${styles.linkButton}`}
+            className={`typeCaption ${forms.linkButton}`}
             onClick={() => setEditing((v) => !v)}
             disabled={pending}
           >
@@ -389,7 +348,7 @@ function NavItemRow({
           </button>
           <button
             type="button"
-            className={`typeCaption ${styles.linkButton}`}
+            className={`typeCaption ${forms.linkButton}`}
             onClick={() => void toggleStatus()}
             disabled={pending}
           >
@@ -397,7 +356,7 @@ function NavItemRow({
           </button>
           <button
             type="button"
-            className={`typeCaption ${styles.linkButton}`}
+            className={`typeCaption ${forms.linkButton}`}
             onClick={() => void remove()}
             disabled={pending}
           >
@@ -407,11 +366,11 @@ function NavItemRow({
       </div>
 
       {editing ? (
-        <div className={styles.editRow}>
+        <div className={`${forms.fieldRow} ${forms.editRow}`}>
           <label className="typeCaption">
             Nhãn vi
             <input
-              className={`typeBodySmall ${styles.input}`}
+              className={`typeBodySmall ${forms.input}`}
               value={labelVi}
               onChange={(e) => setLabelVi(e.target.value)}
               maxLength={120}
@@ -420,7 +379,7 @@ function NavItemRow({
           <label className="typeCaption">
             Nhãn en
             <input
-              className={`typeBodySmall ${styles.input}`}
+              className={`typeBodySmall ${forms.input}`}
               value={labelEn}
               onChange={(e) => setLabelEn(e.target.value)}
               maxLength={120}
@@ -429,7 +388,7 @@ function NavItemRow({
           <label className="typeCaption">
             Đường dẫn
             <input
-              className={`typeBodySmall ${styles.input}`}
+              className={`typeBodySmall ${forms.input}`}
               value={href}
               onChange={(e) => setHref(e.target.value)}
               maxLength={2048}
@@ -438,7 +397,7 @@ function NavItemRow({
           <label className="typeCaption">
             Lý do
             <input
-              className={`typeBodySmall ${styles.input}`}
+              className={`typeBodySmall ${forms.input}`}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={500}
@@ -446,7 +405,7 @@ function NavItemRow({
           </label>
           <button
             type="button"
-            className={`typeBodySmall ${styles.button}`}
+            className={`typeBodySmall ${forms.button}`}
             onClick={() => void save()}
             disabled={!canSave || pending}
           >

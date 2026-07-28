@@ -7,10 +7,15 @@ import { accounts, controlPlane } from '../account/schema.js';
  */
 
 /**
- * Permission catalog — PHẢI khớp CHECK trong migration 0005.
+ * Permission catalog — PHẢI khớp CHECK `admin_role_permissions_permission_check`, lần cuối
+ * mở rộng ở migration 0012.
  *
  * Đây là bản sao ở tầng type để code không gõ sai; nguồn sự thật thực thi vẫn là CHECK
  * trong DB. Thêm permission = migration mới + cập nhật danh sách này.
+ *
+ * Danh sách này KHÔNG chỉ để gõ đúng: `grant-admin.ts` duyệt nó để cấp toàn quyền, và
+ * `rbac.service.ts` trả nó ra làm catalog cho màn hình phân quyền. Bỏ sót một khoá nghĩa là
+ * permission tồn tại trong database nhưng không ai cấp được qua giao diện.
  */
 export const ADMIN_PERMISSIONS = [
   // P2 — identity, account, phiên, phân quyền, audit
@@ -30,6 +35,10 @@ export const ADMIN_PERMISSIONS = [
   'content:read',
   'content:manage',
   'content:publish',
+  // Khảo sát onboarding (migration 0012). TÁCH KHỎI `content:*` là có chủ đích: sửa câu hỏi
+  // là việc biên tập, còn đọc câu trả lời là truy cập DỮ LIỆU CÁ NHÂN của người dùng. Gộp
+  // chung nghĩa là ai sửa được chữ cũng đọc được dữ liệu của mọi người.
+  'survey_response:read',
 ] as const;
 
 export type AdminPermission = (typeof ADMIN_PERMISSIONS)[number];

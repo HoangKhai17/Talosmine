@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
+import { isValidContentTransition } from '../../shared/content-status.js';
 import type { DatabaseClient } from '../../shared/database.js';
 import { DATABASE_CLIENT } from '../../shared/database.module.js';
 import { loadEnv } from '../../shared/env.js';
@@ -290,7 +291,7 @@ export class CatalogService {
       const row = current[0];
       if (!row) throw new CatalogError('NOT_FOUND', 'Không tìm thấy ứng dụng.');
 
-      if (!isValidTransition(row.status, next)) {
+      if (!isValidContentTransition(row.status, next)) {
         throw new CatalogError(
           'INVALID_STATUS_TRANSITION',
           `Không thể chuyển từ \`${row.status}\` sang \`${next}\`.`,
@@ -314,20 +315,6 @@ export class CatalogService {
       });
     });
   }
-}
-
-/**
- * Máy trạng thái vòng đời. Tách hàm riêng để test được mà không cần database.
- *
- * KHÔNG có đường về `draft` — xem ghi chú ở `changeStatus`.
- */
-export function isValidTransition(from: string, to: string): boolean {
-  if (from === to) return false; // đổi sang chính nó là lệnh vô nghĩa, không phải no-op
-  if (to === 'draft') return false;
-  if (from === 'draft') return to === 'active';
-  if (from === 'active') return to === 'inactive';
-  if (from === 'inactive') return to === 'active';
-  return false;
 }
 
 const UNIQUE_VIOLATION = '23505';

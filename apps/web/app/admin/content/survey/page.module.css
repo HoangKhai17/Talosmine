@@ -1,0 +1,117 @@
+/*
+ * Bố cục riêng của màn hình quản trị khảo sát onboarding.
+ *
+ * Ô nhập, nút, badge trạng thái và hàng field nằm ở `admin-forms.module.css` — dùng chung với
+ * màn hình quản trị menu. Chỉ dùng token từ globals.css, không có màu/px thô.
+ */
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+}
+
+/* Tiêu đề câu hỏi và khoá máy đứng cùng hàng; khoá xuống dòng khi hẹp thay vì đẩy tràn. */
+.questionHeader {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.optionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.option {
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+}
+
+.optionMain {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.optionInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* Chiếm phần còn lại và ĐƯỢC PHÉP co lại: không có `min-width: 0` thì nhãn dài sẽ đẩy
+     nhóm nút ra khỏi khung thay vì tự xuống dòng. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.optionText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* Icon giữ nguyên kích thước khi hàng bị bóp — `flex-shrink: 0` là điểm khác biệt duy nhất
+   so với việc render nó trong ô khảo sát thật. */
+.optionIcon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.optionActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.createForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: var(--border-default);
+}
+
+/*
+ * Ô chọn icon: hình bên trái, tên khoá bên phải, xếp thành lưới tự co.
+ * Dùng `auto-fill` với đáy tính bằng đơn vị chữ để không phải khoá số cột theo breakpoint.
+ */
+.iconGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12ch, 1fr));
+  gap: var(--space-2);
+}
+
+.iconChoice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: start;
+}
+
+.iconChoice:hover:not(:disabled) {
+  color: var(--color-text-primary);
+}
+
+/* Ô đang chọn phân biệt bằng CẢ viền lẫn chữ đậm — chỉ đổi màu viền là không đủ tương phản
+   cho người không phân biệt được màu. */
+.iconChoiceSelected {
+  border-color: var(--color-border-focus);
+  color: var(--color-text-primary);
+  font-weight: 700;
+}

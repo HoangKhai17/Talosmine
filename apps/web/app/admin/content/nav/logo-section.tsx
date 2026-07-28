@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../../lib/api-client';
+import forms from '../../admin-forms.module.css';
+import type { AdminMutate } from '../../use-admin-screen';
 import styles from './page.module.css';
 
 /**
@@ -16,13 +18,7 @@ import styles from './page.module.css';
  *   2. Host cũng phải có trong `img-src` của CSP — nếu không, server lưu được nhưng trình
  *      duyệt chặn ảnh. Hai danh sách này dùng CHUNG một biến môi trường nên chúng không lệch.
  */
-export function LogoSection({
-  pending,
-  mutate,
-}: {
-  pending: boolean;
-  mutate: (action: () => Promise<void>, success: string) => Promise<void>;
-}) {
+export function LogoSection({ pending, mutate }: { pending: boolean; mutate: AdminMutate }) {
   const [current, setCurrent] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [reason, setReason] = useState('');
@@ -72,11 +68,11 @@ export function LogoSection({
             <img className={styles.logoPreview} src={current} alt="Logo hiện tại" />
           )}
 
-          <div className={styles.createGrid}>
+          <div className={forms.fieldRow}>
             <label className="typeBodySmall">
               URL ảnh logo
               <input
-                className={`typeBodySmall ${styles.input}`}
+                className={`typeBodySmall ${forms.input}`}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="https://…"
@@ -87,7 +83,7 @@ export function LogoSection({
             <label className="typeBodySmall">
               Lý do
               <input
-                className={`typeBodySmall ${styles.input}`}
+                className={`typeBodySmall ${forms.input}`}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 maxLength={500}
@@ -104,7 +100,7 @@ export function LogoSection({
           <div className={styles.itemActions}>
             <button
               type="button"
-              className={`typeBodySmall ${styles.button}`}
+              className={`typeBodySmall ${forms.button}`}
               onClick={() => void save(draft.trim(), 'Đã lưu logo.')}
               disabled={!canSave || pending}
             >
@@ -114,7 +110,7 @@ export function LogoSection({
             {current !== null ? (
               <button
                 type="button"
-                className={`typeCaption ${styles.linkButton}`}
+                className={`typeCaption ${forms.linkButton}`}
                 onClick={() => void save(null, 'Đã gỡ logo.')}
                 disabled={reason.trim() === '' || pending}
               >

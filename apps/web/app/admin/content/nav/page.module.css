@@ -1,4 +1,9 @@
-/* Quản trị menu website. Chỉ dùng token từ globals.css — không có màu/px thô. */
+/*
+ * Bố cục riêng của màn hình quản trị menu website.
+ *
+ * Ô nhập, nút, badge trạng thái và hàng sửa nằm ở `admin-forms.module.css` — dùng chung với
+ * màn hình quản trị khảo sát. Chỉ dùng token từ globals.css, không có màu/px thô.
+ */
 
 .menu {
   display: flex;
@@ -50,118 +55,12 @@
   flex-wrap: wrap;
 }
 
-.badge {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-button);
-  border: var(--border-default);
-  white-space: nowrap;
-}
-
-/* Ba trạng thái phải phân biệt được KHÔNG CHỈ bằng màu — chữ trong badge đã nói rõ, nên
-   màu ở đây chỉ là lớp thông tin thứ hai. */
-.draft {
-  color: var(--color-text-secondary);
-}
-
-.active {
-  border-color: var(--color-border-focus);
-  color: var(--color-text-primary);
-}
-
-.inactive {
-  color: var(--color-text-tertiary);
-}
-
-.iconButton {
-  min-width: var(--space-8);
-  min-height: var(--space-8);
-  border: var(--border-default);
-  border-radius: var(--radius-button);
-  background: none;
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.iconButton:disabled {
-  color: var(--color-text-tertiary);
-  cursor: not-allowed;
-}
-
-.linkButton {
-  border: none;
-  background: none;
-  padding: var(--space-1) var(--space-2);
-  color: var(--color-text-secondary);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.linkButton:hover:not(:disabled) {
-  color: var(--color-text-primary);
-}
-
-.linkButton:disabled {
-  color: var(--color-text-tertiary);
-  cursor: not-allowed;
-}
-
-.editRow,
-.createGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: flex-end;
-}
-
-.editRow {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: var(--border-default);
-}
-
-.editRow label,
-.createGrid label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  /* Giới hạn theo ĐƠN VỊ CHỮ, không phải px — ngoại lệ được ghi trong luật lưới. */
-  flex: 1 1 22ch;
-}
-
-.input {
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-default);
-  border-radius: var(--radius-button);
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  width: 100%;
-}
-
 .createForm {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding-top: var(--space-4);
   border-top: var(--border-default);
-}
-
-.button {
-  align-self: flex-start;
-  padding: var(--space-2) var(--space-5);
-  border: var(--border-default);
-  border-radius: var(--radius-button);
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.button:hover:not(:disabled) {
-  background-color: var(--color-bg-secondary);
-}
-
-.button:disabled {
-  color: var(--color-text-tertiary);
-  cursor: not-allowed;
 }
 
 /*

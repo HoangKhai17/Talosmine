@@ -129,6 +129,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Khảo sát onboarding — cần trả lời hay chưa, và nội dung câu hỏi
+         * @description Cần phiên đăng nhập: khảo sát gắn với một account cụ thể.
+         *
+         *     `required = false` khi account này đã hoàn tất HOẶC đã bỏ qua. BFF gọi endpoint này
+         *     ngay sau khi đổi được phiên ở `/auth/callback` để quyết định có chuyển hướng sang
+         *     màn hình khảo sát hay không.
+         *
+         *     Chỉ trả câu hỏi `active` và lựa chọn `active`, kèm nhãn theo `locale` yêu cầu. Lựa
+         *     chọn thiếu bản dịch cho ngôn ngữ đó bị BỎ QUA — cùng quy tắc với điều hướng site.
+         */
+        get: operations["getOwnOnboarding"];
+        put?: never;
+        /**
+         * Nộp hoặc bỏ qua khảo sát
+         * @description Cần phiên đăng nhập. Một account nộp ĐÚNG MỘT LẦN — gọi lần hai trả 409.
+         *
+         *     `status = 'skipped'` cũng tạo bản ghi và KHÔNG kèm câu trả lời. Ghi lại việc bỏ qua
+         *     là có chủ đích: thiếu nó thì hệ thống không phân biệt được "chưa từng hỏi" với "đã
+         *     hỏi và họ từ chối", nên sẽ hỏi lại mãi.
+         *
+         *     SERVER KIỂM LẠI TOÀN BỘ, không tin client — màn hình có thể bị bỏ qua bằng cách gọi
+         *     thẳng endpoint này:
+         *       - mọi `optionKey` phải thuộc đúng `questionKey` và đang `active`;
+         *       - câu `single` chỉ nhận một lựa chọn;
+         *       - câu `multi` phải đủ `minSelect`.
+         */
+        post: operations["submitOwnOnboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/account": {
         parameters: {
             query?: never;
@@ -958,6 +999,202 @@ export interface paths {
         patch: operations["adminUpdateSiteSettings"];
         trace?: never;
     };
+    "/v1/admin/survey/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Câu hỏi khảo sát (quản trị)
+         * @description Yêu cầu `content:read`. Trả MỌI trạng thái và MỌI ngôn ngữ — màn hình quản trị cần
+         *     thấy cả những gì người dùng chưa thấy, và sửa được cả hai bản dịch cạnh nhau.
+         *
+         *     KHÔNG có endpoint tạo/xoá câu hỏi: cấu trúc ba câu là cố định, seed bằng migration
+         *     vì code phải có chỗ render tương ứng. Chỉ nội dung và danh sách lựa chọn là mở.
+         */
+        get: operations["adminListSurveyQuestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/survey/questions/{questionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Sửa nội dung một câu hỏi
+         * @description Yêu cầu `content:manage`. Sửa được `minSelect` và bản dịch.
+         *
+         *     KHÔNG sửa được `key` (code tham chiếu nó để render đúng layout) và `kind` (đổi
+         *     `multi` thành `single` sẽ làm dữ liệu đã thu thập mâu thuẫn với ràng buộc mới).
+         */
+        patch: operations["adminUpdateSurveyQuestion"];
+        trace?: never;
+    };
+    "/v1/admin/survey/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Thêm một lựa chọn
+         * @description Yêu cầu `content:manage`. Lựa chọn mới LUÔN ở `draft` — đưa ra trước người dùng là
+         *     hành động riêng cần `content:publish`.
+         *
+         *     `sortOrder` bỏ trống thì xếp cuối. `icon` phải thuộc danh mục đóng.
+         */
+        post: operations["adminCreateSurveyOption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/survey/options/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sắp xếp lại lựa chọn trong một câu hỏi
+         * @description Yêu cầu `content:manage`. Nhận TOÀN BỘ id của câu hỏi theo thứ tự mới — cùng lý do
+         *     với `/v1/admin/site/nav/reorder`: kết quả không phụ thuộc thứ tự request tới.
+         */
+        post: operations["adminReorderSurveyOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/survey/options/{optionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Xoá một lựa chọn
+         * @description Yêu cầu `content:manage`.
+         *
+         *     Lựa chọn ĐÃ CÓ NGƯỜI TRẢ LỜI thì KHÔNG xoá được — khoá ngoại `ON DELETE RESTRICT` ở
+         *     `survey_answers` chặn, và API trả 409. Đó là hành vi đúng: xoá nó sẽ làm mọi số liệu
+         *     lịch sử trỏ vào hư không. Muốn gỡ khỏi giao diện thì đổi trạng thái sang `inactive`.
+         */
+        delete: operations["adminDeleteSurveyOption"];
+        options?: never;
+        head?: never;
+        /**
+         * Sửa icon và nhãn của một lựa chọn
+         * @description Yêu cầu `content:manage`. KHÔNG sửa được `key` — câu trả lời đã thu thập tham chiếu
+         *     lựa chọn này, và đổi khoá sẽ làm mọi số liệu lịch sử trỏ sai đối tượng.
+         */
+        patch: operations["adminUpdateSurveyOption"];
+        trace?: never;
+    };
+    "/v1/admin/survey/options/{optionId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Đưa lựa chọn ra hoặc gỡ khỏi khảo sát
+         * @description Yêu cầu `content:publish` — permission RIÊNG, không phải `content:manage`. Cùng lập
+         *     luận với điều hướng site: đưa một lựa chọn sang `active` là đặt nó trước mặt mọi
+         *     người dùng mới đăng ký.
+         *
+         *     Chỉ nhận `active` và `inactive`; `draft` không phải đích hợp lệ của chuyển tiếp nào.
+         */
+        post: operations["adminChangeSurveyOptionStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/survey/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tổng hợp kết quả khảo sát
+         * @description Yêu cầu **`survey_response:read`** — permission riêng, KHÔNG phải `content:*`. Sửa
+         *     câu hỏi là việc biên tập; đọc kết quả là truy cập dữ liệu người dùng.
+         *
+         *     Đây là thứ trả lời đúng mục đích "thu thập thông tin": mỗi lựa chọn được chọn bao
+         *     nhiêu lần. Danh sách thô chỉ hữu ích khi điều tra một trường hợp cụ thể.
+         *
+         *     Không trả `accountId` — tổng hợp không cần biết ai trả lời gì.
+         */
+        get: operations["adminGetSurveySummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/survey/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Danh sách lượt trả lời (chi tiết)
+         * @description Yêu cầu **`survey_response:read`**.
+         *
+         *     Trả `accountId` để đối chiếu với màn hình quản trị account khi điều tra một trường
+         *     hợp cụ thể. **Đây là dữ liệu cá nhân** — thời hạn lưu thuộc DEC-B11, chưa chốt.
+         *
+         *     Phân trang bằng cursor theo `createdAt`, mới nhất trước — cùng khuôn với
+         *     `/v1/admin/audit`.
+         */
+        get: operations["adminListSurveyResponses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -968,6 +1205,190 @@ export interface components {
          */
         AdminReason: {
             reason: string;
+        };
+        /**
+         * @description Khoá máy ỔN ĐỊNH. Danh mục ĐÓNG — cấu trúc khảo sát cố định vì code phải có chỗ
+         *     render tương ứng; chỉ nội dung và danh sách lựa chọn sửa được trong `/admin`.
+         * @enum {string}
+         */
+        SurveyQuestionKey: "categories" | "primary_use" | "discover_first";
+        /**
+         * @description Khoá icon thuộc danh mục ĐÓNG; code render SVG tương ứng. Không phải URL và không
+         *     phải SVG — CSP theo nonce (DEC-T20) sẽ chặn markup tự nhập, và nới CSP để chiều một
+         *     ô nhập icon 20px là đánh đổi tệ nhất trong kiến trúc này.
+         *
+         *     Danh sách này phải khớp CHECK ở migration `0012_survey` VÀ `survey-icons.tsx`.
+         * @enum {string}
+         */
+        SurveyIconKey: "writing" | "design" | "code" | "video" | "image" | "automation" | "research" | "business" | "chart" | "chat" | "cloud" | "shield" | "sparkle" | "rocket" | "book";
+        OnboardingSurvey: {
+            /** @description `false` khi account đã hoàn tất HOẶC đã bỏ qua. */
+            required: boolean;
+            questions: components["schemas"]["SurveyQuestion"][];
+        };
+        SurveyQuestion: {
+            key: components["schemas"]["SurveyQuestionKey"];
+            /**
+             * @description `multi` render checkbox, `single` render radio.
+             * @enum {string}
+             */
+            kind: "single" | "multi";
+            /** @description Số lựa chọn tối thiểu. Server kiểm lại, không tin client. */
+            minSelect: number;
+            title: string;
+            description: string | null;
+            options: components["schemas"]["SurveyOption"][];
+        };
+        SurveyOption: {
+            /** @description Ổn định trong phạm vi câu hỏi. Đây là thứ client gửi lại khi nộp. */
+            key: string;
+            label: string;
+            /** @description Câu 1 không có; câu 2 và 3 có một dòng mô tả trong ô. */
+            description: string | null;
+            icon: components["schemas"]["SurveyIconKey"] | null;
+        };
+        SubmitOnboardingRequest: {
+            /** @enum {string} */
+            status: "completed" | "skipped";
+            /**
+             * @description Ngôn ngữ lúc trả lời — lưu lại vì nhãn lựa chọn có thể đổi về sau.
+             * @enum {string}
+             */
+            locale: "vi" | "en";
+            /** @description Bắt buộc khi `status = completed`; bị bỏ qua khi `skipped`. */
+            answers?: {
+                questionKey: components["schemas"]["SurveyQuestionKey"];
+                optionKeys: string[];
+            }[];
+        };
+        /**
+         * @description Khác `SurveyQuestion` ở hai chỗ: trả CẢ HAI ngôn ngữ cùng lúc (màn hình quản trị sửa
+         *     song song), và trả cả lựa chọn `draft`/`inactive` mà người dùng không thấy.
+         */
+        AdminSurveyQuestion: {
+            /** Format: uuid */
+            id: string;
+            key: components["schemas"]["SurveyQuestionKey"];
+            /** @enum {string} */
+            kind: "single" | "multi";
+            minSelect: number;
+            sortOrder: number;
+            /** @enum {string} */
+            status: "active" | "inactive";
+            titles: components["schemas"]["LocalizedText"];
+            descriptions: components["schemas"]["LocalizedText"];
+            /** @description Đã sắp theo `sortOrder`, gồm MỌI trạng thái. */
+            options: components["schemas"]["AdminSurveyOption"][];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminSurveyOption: {
+            /** Format: uuid */
+            id: string;
+            /** @description Ổn định trong phạm vi câu hỏi. Không sửa được sau khi tạo. */
+            key: string;
+            icon: components["schemas"]["SurveyIconKey"] | null;
+            sortOrder: number;
+            /** @enum {string} */
+            status: "draft" | "active" | "inactive";
+            labels: components["schemas"]["LocalizedText"];
+            descriptions: components["schemas"]["LocalizedText"];
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /**
+         * @description Trường vắng mặt = không đổi. `titles.vi = null` là XOÁ bản dịch tiếng Việt, khác với
+         *     việc không gửi `titles` (giữ nguyên).
+         */
+        UpdateSurveyQuestionRequest: {
+            /**
+             * @description Chỉ có nghĩa với câu `multi`. Đặt lớn hơn số lựa chọn `active` hiện có sẽ bị từ
+             *     chối — nếu không, không ai nộp nổi khảo sát.
+             */
+            minSelect?: number;
+            titles?: components["schemas"]["LocalizedText"];
+            descriptions?: components["schemas"]["LocalizedText"];
+            reason: string;
+        };
+        CreateSurveyOptionRequest: {
+            questionKey: components["schemas"]["SurveyQuestionKey"];
+            /**
+             * @description Chữ thường, số và gạch dưới. Ràng buộc hình dạng vì đây là khoá máy đi vào dữ
+             *     liệu lịch sử và báo cáo, không phải chữ hiển thị.
+             */
+            key: string;
+            icon?: components["schemas"]["SurveyIconKey"] | null;
+            labels: components["schemas"]["LocalizedText"];
+            descriptions?: components["schemas"]["LocalizedText"];
+            /** @description Bỏ trống thì xếp cuối câu hỏi. */
+            sortOrder?: number;
+            reason: string;
+        };
+        /** @description Trường vắng mặt = không đổi. `key` KHÔNG sửa được — xem mô tả endpoint. */
+        UpdateSurveyOptionRequest: {
+            icon?: components["schemas"]["SurveyIconKey"] | null;
+            labels?: components["schemas"]["LocalizedText"];
+            descriptions?: components["schemas"]["LocalizedText"];
+            reason: string;
+        };
+        ReorderSurveyOptionsRequest: {
+            questionKey: components["schemas"]["SurveyQuestionKey"];
+            /** @description TOÀN BỘ id của câu hỏi, theo thứ tự mới. Thiếu hoặc thừa đều bị từ chối. */
+            optionIds: string[];
+            reason: string;
+        };
+        SurveySummary: {
+            /** @description Tổng số lượt, gồm cả bỏ qua. */
+            totalResponses: number;
+            completedCount: number;
+            /** @description Có giá trị riêng: tỉ lệ bỏ qua cao nghĩa là khảo sát đang cản đường vào sản phẩm. */
+            skippedCount: number;
+            questions: {
+                key: components["schemas"]["SurveyQuestionKey"];
+                title: string | null;
+                /**
+                 * @description Số NGƯỜI đã trả lời câu này — khác tổng `count` của các lựa chọn ở câu
+                 *     `multi`, vì một người chọn nhiều ô. Thiếu số này thì phần trăm tính sai.
+                 */
+                respondentCount: number;
+                options: {
+                    key: string;
+                    label: string | null;
+                    icon: components["schemas"]["SurveyIconKey"] | null;
+                    /**
+                     * @description Trả cả trạng thái vì một lựa chọn đã `inactive` vẫn còn số đếm lịch
+                     *     sử. Không hiển thị nó thì con số biến mất; không ghi trạng thái thì
+                     *     người đọc tưởng báo cáo hỏng.
+                     * @enum {string}
+                     */
+                    status: "draft" | "active" | "inactive";
+                    count: number;
+                }[];
+            }[];
+        };
+        SurveyResponseRecord: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Để đối chiếu với màn hình quản trị account khi điều tra một trường hợp.
+             */
+            accountId: string;
+            /** @enum {string} */
+            status: "completed" | "skipped";
+            /** @enum {string} */
+            locale: "vi" | "en";
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Rỗng khi `status = skipped`. */
+            answers: {
+                questionKey: components["schemas"]["SurveyQuestionKey"];
+                /**
+                 * @description KHOÁ chứ không phải nhãn — danh sách thô phải đọc được như nhau bất kể bản
+                 *     dịch hiện tại là gì.
+                 */
+                optionKeys: string[];
+            }[];
         };
         SiteSettings: {
             /**
@@ -1018,24 +1439,27 @@ export interface components {
             href: string;
             /** @enum {string} */
             status: "draft" | "active" | "inactive";
-            labels: components["schemas"]["NavLabels"];
+            labels: components["schemas"]["LocalizedText"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
         };
         /**
-         * @description Nhãn theo từng ngôn ngữ. Thiếu một ngôn ngữ là hợp lệ ở trạng thái `draft` — nhưng
-         *     mục đó sẽ bị BỎ QUA ở đường công khai của ngôn ngữ còn thiếu.
+         * @description Một đoạn văn bản theo từng ngôn ngữ. Dùng chung cho điều hướng site và khảo sát —
+         *     cùng một hình dạng, cùng một quy tắc, nên không tách làm hai.
+         *
+         *     Thiếu một ngôn ngữ là hợp lệ ở trạng thái `draft` — nhưng mục đó sẽ bị BỎ QUA ở
+         *     đường công khai của ngôn ngữ còn thiếu (join INNER, không fallback).
          */
-        NavLabels: {
+        LocalizedText: {
             vi?: string | null;
             en?: string | null;
         };
         CreateNavItemRequest: {
             menuKey: components["schemas"]["NavMenuKey"];
             href: string;
-            labels: components["schemas"]["NavLabels"];
+            labels: components["schemas"]["LocalizedText"];
             /** @description Bỏ trống thì xếp cuối menu. */
             sortOrder?: number;
             reason: string;
@@ -1046,10 +1470,10 @@ export interface components {
          */
         UpdateNavItemRequest: {
             href?: string;
-            labels?: components["schemas"]["NavLabels"];
+            labels?: components["schemas"]["LocalizedText"];
             reason: string;
         };
-        ChangeNavItemStatusRequest: {
+        ChangeContentStatusRequest: {
             /**
              * @description `draft` không phải đích hợp lệ — xem mô tả endpoint.
              * @enum {string}
@@ -1293,6 +1717,8 @@ export interface components {
     };
     parameters: {
         NavItemId: string;
+        SurveyQuestionId: string;
+        SurveyOptionId: string;
         FeatureId: string;
         ApplicationId: string;
         AccountId: string;
@@ -1506,6 +1932,63 @@ export interface operations {
             };
             /** @description Thiếu phiên hoặc phiên không hợp lệ. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getOwnOnboarding: {
+        parameters: {
+            query: {
+                locale: "vi" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trạng thái onboarding và bộ câu hỏi. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingSurvey"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    submitOwnOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitOnboardingRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã ghi nhận. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Account này đã trả lời khảo sát rồi. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3013,7 +3496,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ChangeNavItemStatusRequest"];
+                "application/json": components["schemas"]["ChangeContentStatusRequest"];
             };
         };
         responses: {
@@ -3116,6 +3599,269 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminListSurveyQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sách câu hỏi, sắp theo `sortOrder`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSurveyQuestion"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminUpdateSurveyQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: components["parameters"]["SurveyQuestionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSurveyQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã lưu. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminCreateSurveyOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSurveyOptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã tạo. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description `key` đã tồn tại trong câu hỏi này. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminReorderSurveyOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReorderSurveyOptionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã sắp xếp lại. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminDeleteSurveyOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                optionId: components["parameters"]["SurveyOptionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReason"];
+            };
+        };
+        responses: {
+            /** @description Đã xoá. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Lựa chọn đã có người trả lời — dùng `inactive` thay vì xoá. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminUpdateSurveyOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                optionId: components["parameters"]["SurveyOptionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSurveyOptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã lưu. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminChangeSurveyOptionStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                optionId: components["parameters"]["SurveyOptionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeContentStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã đổi trạng thái. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    adminGetSurveySummary: {
+        parameters: {
+            query: {
+                /** @description Ngôn ngữ của nhãn hiển thị trong báo cáo. */
+                locale: "vi" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Số liệu tổng hợp. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SurveySummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminListSurveyResponses: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Danh sách lượt trả lời, mới nhất trước. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["SurveyResponseRecord"][];
+                        /** Format: date-time */
+                        nextCursor: string | null;
+                    };
+                };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];

@@ -66,6 +66,17 @@ tags:
       API quản trị. DENY-BY-DEFAULT: cần phiên hợp lệ **và** permission tương ứng qua
       RBAC (role còn `active`, assignment còn hiệu lực và chưa thu hồi). Mọi mutation
       bắt buộc có `reason` và ghi audit đồng bộ trong cùng transaction.
+  - name: survey
+    description: |
+      Khảo sát onboarding hiển thị sau khi đăng ký. Người dùng hoàn tất hoặc bỏ qua; cả hai
+      đều được ghi lại, vì thiếu bản ghi "đã bỏ qua" thì hệ thống sẽ hỏi lại mãi.
+
+      Cấu trúc câu hỏi CỐ ĐỊNH (seed bằng migration, code biết trước để render đúng layout);
+      nội dung và danh sách lựa chọn sửa được trong `/admin`.
+
+      **Câu trả lời là dữ liệu cá nhân.** Quyền đọc chúng (`survey_response:read`) tách khỏi
+      quyền sửa câu hỏi (`content:*`) — biên tập nội dung khác với truy cập dữ liệu người dùng.
+      Thời hạn lưu thuộc DEC-B11, chưa chốt.
   - name: site-content
     description: |
       Nội dung điều hướng (header/footer) do quản trị viên sửa, thay cho chữ hardcode
@@ -271,6 +282,78 @@ paths:
                       type: string
         '401':
           description: Thiếu phiên hoặc phiên không hợp lệ.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/me/onboarding:
+    get:
+      tags: [survey]
+      operationId: getOwnOnboarding
+      summary: Khảo sát onboarding — cần trả lời hay chưa, và nội dung câu hỏi
+      description: |
+        Cần phiên đăng nhập: khảo sát gắn với một account cụ thể.
+
+        `required = false` khi account này đã hoàn tất HOẶC đã bỏ qua. BFF gọi endpoint này
+        ngay sau khi đổi được phiên ở `/auth/callback` để quyết định có chuyển hướng sang
+        màn hình khảo sát hay không.
+
+        Chỉ trả câu hỏi `active` và lựa chọn `active`, kèm nhãn theo `locale` yêu cầu. Lựa
+        chọn thiếu bản dịch cho ngôn ngữ đó bị BỎ QUA — cùng quy tắc với điều hướng site.
+      security:
+        - webSession: []
+      parameters:
+        - name: locale
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [vi, en]
+      responses:
+        '200':
+          description: Trạng thái onboarding và bộ câu hỏi.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingSurvey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [survey]
+      operationId: submitOwnOnboarding
+      summary: Nộp hoặc bỏ qua khảo sát
+      description: |
+        Cần phiên đăng nhập. Một account nộp ĐÚNG MỘT LẦN — gọi lần hai trả 409.
+
+        `status = 'skipped'` cũng tạo bản ghi và KHÔNG kèm câu trả lời. Ghi lại việc bỏ qua
+        là có chủ đích: thiếu nó thì hệ thống không phân biệt được "chưa từng hỏi" với "đã
+        hỏi và họ từ chối", nên sẽ hỏi lại mãi.
+
+        SERVER KIỂM LẠI TOÀN BỘ, không tin client — màn hình có thể bị bỏ qua bằng cách gọi
+        thẳng endpoint này:
+          - mọi `optionKey` phải thuộc đúng `questionKey` và đang `active`;
+          - câu `single` chỉ nhận một lựa chọn;
+          - câu `multi` phải đủ `minSelect`.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitOnboardingRequest'
+      responses:
+        '204':
+          description: Đã ghi nhận.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Account này đã trả lời khảo sát rồi.
           content:
             application/json:
               schema:
@@ -1724,7 +1807,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ChangeNavItemStatusRequest'
+              $ref: '#/components/schemas/ChangeContentStatusRequest'
       responses:
         '204':
           description: Đã đổi trạng thái.
@@ -1839,6 +1922,320 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  # ── Survey: quản trị ───────────────────────────────────────────────────────
+
+  /v1/admin/survey/questions:
+    get:
+      tags: [admin]
+      operationId: adminListSurveyQuestions
+      summary: Câu hỏi khảo sát (quản trị)
+      description: |
+        Yêu cầu `content:read`. Trả MỌI trạng thái và MỌI ngôn ngữ — màn hình quản trị cần
+        thấy cả những gì người dùng chưa thấy, và sửa được cả hai bản dịch cạnh nhau.
+
+        KHÔNG có endpoint tạo/xoá câu hỏi: cấu trúc ba câu là cố định, seed bằng migration
+        vì code phải có chỗ render tương ứng. Chỉ nội dung và danh sách lựa chọn là mở.
+      security:
+        - webSession: []
+      responses:
+        '200':
+          description: Danh sách câu hỏi, sắp theo `sortOrder`.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminSurveyQuestion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/survey/questions/{questionId}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateSurveyQuestion
+      summary: Sửa nội dung một câu hỏi
+      description: |
+        Yêu cầu `content:manage`. Sửa được `minSelect` và bản dịch.
+
+        KHÔNG sửa được `key` (code tham chiếu nó để render đúng layout) và `kind` (đổi
+        `multi` thành `single` sẽ làm dữ liệu đã thu thập mâu thuẫn với ràng buộc mới).
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/SurveyQuestionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSurveyQuestionRequest'
+      responses:
+        '204':
+          description: Đã lưu.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/admin/survey/options:
+    post:
+      tags: [admin]
+      operationId: adminCreateSurveyOption
+      summary: Thêm một lựa chọn
+      description: |
+        Yêu cầu `content:manage`. Lựa chọn mới LUÔN ở `draft` — đưa ra trước người dùng là
+        hành động riêng cần `content:publish`.
+
+        `sortOrder` bỏ trống thì xếp cuối. `icon` phải thuộc danh mục đóng.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSurveyOptionRequest'
+      responses:
+        '201':
+          description: Đã tạo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id]
+                additionalProperties: false
+                properties:
+                  id: { type: string, format: uuid }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: '`key` đã tồn tại trong câu hỏi này.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/survey/options/reorder:
+    post:
+      tags: [admin]
+      operationId: adminReorderSurveyOptions
+      summary: Sắp xếp lại lựa chọn trong một câu hỏi
+      description: |
+        Yêu cầu `content:manage`. Nhận TOÀN BỘ id của câu hỏi theo thứ tự mới — cùng lý do
+        với `/v1/admin/site/nav/reorder`: kết quả không phụ thuộc thứ tự request tới.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderSurveyOptionsRequest'
+      responses:
+        '204':
+          description: Đã sắp xếp lại.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/survey/options/{optionId}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateSurveyOption
+      summary: Sửa icon và nhãn của một lựa chọn
+      description: |
+        Yêu cầu `content:manage`. KHÔNG sửa được `key` — câu trả lời đã thu thập tham chiếu
+        lựa chọn này, và đổi khoá sẽ làm mọi số liệu lịch sử trỏ sai đối tượng.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/SurveyOptionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSurveyOptionRequest'
+      responses:
+        '204':
+          description: Đã lưu.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [admin]
+      operationId: adminDeleteSurveyOption
+      summary: Xoá một lựa chọn
+      description: |
+        Yêu cầu `content:manage`.
+
+        Lựa chọn ĐÃ CÓ NGƯỜI TRẢ LỜI thì KHÔNG xoá được — khoá ngoại `ON DELETE RESTRICT` ở
+        `survey_answers` chặn, và API trả 409. Đó là hành vi đúng: xoá nó sẽ làm mọi số liệu
+        lịch sử trỏ vào hư không. Muốn gỡ khỏi giao diện thì đổi trạng thái sang `inactive`.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/SurveyOptionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminReason'
+      responses:
+        '204':
+          description: Đã xoá.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Lựa chọn đã có người trả lời — dùng `inactive` thay vì xoá.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/survey/options/{optionId}/status:
+    post:
+      tags: [admin]
+      operationId: adminChangeSurveyOptionStatus
+      summary: Đưa lựa chọn ra hoặc gỡ khỏi khảo sát
+      description: |
+        Yêu cầu `content:publish` — permission RIÊNG, không phải `content:manage`. Cùng lập
+        luận với điều hướng site: đưa một lựa chọn sang `active` là đặt nó trước mặt mọi
+        người dùng mới đăng ký.
+
+        Chỉ nhận `active` và `inactive`; `draft` không phải đích hợp lệ của chuyển tiếp nào.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/SurveyOptionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeContentStatusRequest'
+      responses:
+        '204':
+          description: Đã đổi trạng thái.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/admin/survey/summary:
+    get:
+      tags: [admin]
+      operationId: adminGetSurveySummary
+      summary: Tổng hợp kết quả khảo sát
+      description: |
+        Yêu cầu **`survey_response:read`** — permission riêng, KHÔNG phải `content:*`. Sửa
+        câu hỏi là việc biên tập; đọc kết quả là truy cập dữ liệu người dùng.
+
+        Đây là thứ trả lời đúng mục đích "thu thập thông tin": mỗi lựa chọn được chọn bao
+        nhiêu lần. Danh sách thô chỉ hữu ích khi điều tra một trường hợp cụ thể.
+
+        Không trả `accountId` — tổng hợp không cần biết ai trả lời gì.
+      security:
+        - webSession: []
+      parameters:
+        - name: locale
+          in: query
+          required: true
+          description: Ngôn ngữ của nhãn hiển thị trong báo cáo.
+          schema:
+            type: string
+            enum: [vi, en]
+      responses:
+        '200':
+          description: Số liệu tổng hợp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SurveySummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /v1/admin/survey/responses:
+    get:
+      tags: [admin]
+      operationId: adminListSurveyResponses
+      summary: Danh sách lượt trả lời (chi tiết)
+      description: |
+        Yêu cầu **`survey_response:read`**.
+
+        Trả `accountId` để đối chiếu với màn hình quản trị account khi điều tra một trường
+        hợp cụ thể. **Đây là dữ liệu cá nhân** — thời hạn lưu thuộc DEC-B11, chưa chốt.
+
+        Phân trang bằng cursor theo `createdAt`, mới nhất trước — cùng khuôn với
+        `/v1/admin/audit`.
+      security:
+        - webSession: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: cursor
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Danh sách lượt trả lời, mới nhất trước.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                additionalProperties: false
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SurveyResponseRecord'
+                  nextCursor:
+                    type: [string, 'null']
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
 components:
   responses:
     BadRequest:
@@ -1905,6 +2302,330 @@ components:
         reason:
           type: string
           minLength: 1
+    # ── Survey (onboarding) ────────────────────────────────────────────────────
+
+    SurveyQuestionKey:
+      type: string
+      enum: [categories, primary_use, discover_first]
+      description: |
+        Khoá máy ỔN ĐỊNH. Danh mục ĐÓNG — cấu trúc khảo sát cố định vì code phải có chỗ
+        render tương ứng; chỉ nội dung và danh sách lựa chọn sửa được trong `/admin`.
+
+    SurveyIconKey:
+      type: string
+      description: |
+        Khoá icon thuộc danh mục ĐÓNG; code render SVG tương ứng. Không phải URL và không
+        phải SVG — CSP theo nonce (DEC-T20) sẽ chặn markup tự nhập, và nới CSP để chiều một
+        ô nhập icon 20px là đánh đổi tệ nhất trong kiến trúc này.
+
+        Danh sách này phải khớp CHECK ở migration `0012_survey` VÀ `survey-icons.tsx`.
+      enum:
+        [
+          writing,
+          design,
+          code,
+          video,
+          image,
+          automation,
+          research,
+          business,
+          chart,
+          chat,
+          cloud,
+          shield,
+          sparkle,
+          rocket,
+          book,
+        ]
+
+    OnboardingSurvey:
+      type: object
+      required: [required, questions]
+      additionalProperties: false
+      properties:
+        required:
+          type: boolean
+          description: '`false` khi account đã hoàn tất HOẶC đã bỏ qua.'
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurveyQuestion'
+
+    SurveyQuestion:
+      type: object
+      required: [key, kind, minSelect, title, description, options]
+      additionalProperties: false
+      properties:
+        key:
+          $ref: '#/components/schemas/SurveyQuestionKey'
+        kind:
+          type: string
+          enum: [single, multi]
+          description: '`multi` render checkbox, `single` render radio.'
+        minSelect:
+          type: integer
+          minimum: 1
+          description: Số lựa chọn tối thiểu. Server kiểm lại, không tin client.
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/SurveyOption'
+
+    SurveyOption:
+      type: object
+      required: [key, label, description, icon]
+      additionalProperties: false
+      properties:
+        key:
+          type: string
+          description: Ổn định trong phạm vi câu hỏi. Đây là thứ client gửi lại khi nộp.
+        label: { type: string }
+        description:
+          type: [string, 'null']
+          description: Câu 1 không có; câu 2 và 3 có một dòng mô tả trong ô.
+        icon:
+          oneOf:
+            - $ref: '#/components/schemas/SurveyIconKey'
+            - type: 'null'
+
+    SubmitOnboardingRequest:
+      type: object
+      required: [status, locale]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [completed, skipped]
+        locale:
+          type: string
+          enum: [vi, en]
+          description: Ngôn ngữ lúc trả lời — lưu lại vì nhãn lựa chọn có thể đổi về sau.
+        answers:
+          type: array
+          description: Bắt buộc khi `status = completed`; bị bỏ qua khi `skipped`.
+          items:
+            type: object
+            required: [questionKey, optionKeys]
+            additionalProperties: false
+            properties:
+              questionKey:
+                $ref: '#/components/schemas/SurveyQuestionKey'
+              optionKeys:
+                type: array
+                minItems: 1
+                items: { type: string }
+
+    # ── Survey: quản trị ───────────────────────────────────────────────────────
+
+    AdminSurveyQuestion:
+      type: object
+      required:
+        [id, key, kind, minSelect, sortOrder, status, titles, descriptions, options, updatedAt]
+      additionalProperties: false
+      description: |
+        Khác `SurveyQuestion` ở hai chỗ: trả CẢ HAI ngôn ngữ cùng lúc (màn hình quản trị sửa
+        song song), và trả cả lựa chọn `draft`/`inactive` mà người dùng không thấy.
+      properties:
+        id: { type: string, format: uuid }
+        key:
+          $ref: '#/components/schemas/SurveyQuestionKey'
+        kind: { type: string, enum: [single, multi] }
+        minSelect: { type: integer, minimum: 1 }
+        sortOrder: { type: integer, minimum: 0 }
+        status: { type: string, enum: [active, inactive] }
+        titles:
+          $ref: '#/components/schemas/LocalizedText'
+        descriptions:
+          $ref: '#/components/schemas/LocalizedText'
+        options:
+          type: array
+          description: Đã sắp theo `sortOrder`, gồm MỌI trạng thái.
+          items:
+            $ref: '#/components/schemas/AdminSurveyOption'
+        updatedAt: { type: string, format: date-time }
+
+    AdminSurveyOption:
+      type: object
+      required: [id, key, icon, sortOrder, status, labels, descriptions, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        key:
+          type: string
+          description: Ổn định trong phạm vi câu hỏi. Không sửa được sau khi tạo.
+        icon:
+          oneOf:
+            - $ref: '#/components/schemas/SurveyIconKey'
+            - type: 'null'
+        sortOrder: { type: integer, minimum: 0 }
+        status: { type: string, enum: [draft, active, inactive] }
+        labels:
+          $ref: '#/components/schemas/LocalizedText'
+        descriptions:
+          $ref: '#/components/schemas/LocalizedText'
+        updatedAt: { type: string, format: date-time }
+
+    UpdateSurveyQuestionRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      description: |
+        Trường vắng mặt = không đổi. `titles.vi = null` là XOÁ bản dịch tiếng Việt, khác với
+        việc không gửi `titles` (giữ nguyên).
+      properties:
+        minSelect:
+          type: integer
+          minimum: 1
+          description: |
+            Chỉ có nghĩa với câu `multi`. Đặt lớn hơn số lựa chọn `active` hiện có sẽ bị từ
+            chối — nếu không, không ai nộp nổi khảo sát.
+        titles:
+          $ref: '#/components/schemas/LocalizedText'
+        descriptions:
+          $ref: '#/components/schemas/LocalizedText'
+        reason: { type: string, minLength: 1 }
+
+    CreateSurveyOptionRequest:
+      type: object
+      required: [questionKey, key, labels, reason]
+      additionalProperties: false
+      properties:
+        questionKey:
+          $ref: '#/components/schemas/SurveyQuestionKey'
+        key:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-z0-9_]+$'
+          description: |
+            Chữ thường, số và gạch dưới. Ràng buộc hình dạng vì đây là khoá máy đi vào dữ
+            liệu lịch sử và báo cáo, không phải chữ hiển thị.
+        icon:
+          oneOf:
+            - $ref: '#/components/schemas/SurveyIconKey'
+            - type: 'null'
+        labels:
+          $ref: '#/components/schemas/LocalizedText'
+        descriptions:
+          $ref: '#/components/schemas/LocalizedText'
+        sortOrder:
+          type: integer
+          minimum: 0
+          description: Bỏ trống thì xếp cuối câu hỏi.
+        reason: { type: string, minLength: 1 }
+
+    UpdateSurveyOptionRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      description: 'Trường vắng mặt = không đổi. `key` KHÔNG sửa được — xem mô tả endpoint.'
+      properties:
+        icon:
+          oneOf:
+            - $ref: '#/components/schemas/SurveyIconKey'
+            - type: 'null'
+        labels:
+          $ref: '#/components/schemas/LocalizedText'
+        descriptions:
+          $ref: '#/components/schemas/LocalizedText'
+        reason: { type: string, minLength: 1 }
+
+    ReorderSurveyOptionsRequest:
+      type: object
+      required: [questionKey, optionIds, reason]
+      additionalProperties: false
+      properties:
+        questionKey:
+          $ref: '#/components/schemas/SurveyQuestionKey'
+        optionIds:
+          type: array
+          minItems: 1
+          description: TOÀN BỘ id của câu hỏi, theo thứ tự mới. Thiếu hoặc thừa đều bị từ chối.
+          items: { type: string, format: uuid }
+        reason: { type: string, minLength: 1 }
+
+    SurveySummary:
+      type: object
+      required: [totalResponses, completedCount, skippedCount, questions]
+      additionalProperties: false
+      properties:
+        totalResponses:
+          type: integer
+          description: Tổng số lượt, gồm cả bỏ qua.
+        completedCount: { type: integer }
+        skippedCount:
+          type: integer
+          description: |
+            Có giá trị riêng: tỉ lệ bỏ qua cao nghĩa là khảo sát đang cản đường vào sản phẩm.
+        questions:
+          type: array
+          items:
+            type: object
+            required: [key, title, respondentCount, options]
+            additionalProperties: false
+            properties:
+              key:
+                $ref: '#/components/schemas/SurveyQuestionKey'
+              title: { type: [string, 'null'] }
+              respondentCount:
+                type: integer
+                description: |
+                  Số NGƯỜI đã trả lời câu này — khác tổng `count` của các lựa chọn ở câu
+                  `multi`, vì một người chọn nhiều ô. Thiếu số này thì phần trăm tính sai.
+              options:
+                type: array
+                items:
+                  type: object
+                  required: [key, label, icon, status, count]
+                  additionalProperties: false
+                  properties:
+                    key: { type: string }
+                    label: { type: [string, 'null'] }
+                    icon:
+                      oneOf:
+                        - $ref: '#/components/schemas/SurveyIconKey'
+                        - type: 'null'
+                    status:
+                      type: string
+                      enum: [draft, active, inactive]
+                      description: |
+                        Trả cả trạng thái vì một lựa chọn đã `inactive` vẫn còn số đếm lịch
+                        sử. Không hiển thị nó thì con số biến mất; không ghi trạng thái thì
+                        người đọc tưởng báo cáo hỏng.
+                    count: { type: integer }
+
+    SurveyResponseRecord:
+      type: object
+      required: [id, accountId, status, locale, createdAt, answers]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        accountId:
+          type: string
+          format: uuid
+          description: Để đối chiếu với màn hình quản trị account khi điều tra một trường hợp.
+        status: { type: string, enum: [completed, skipped] }
+        locale: { type: string, enum: [vi, en] }
+        createdAt: { type: string, format: date-time }
+        answers:
+          type: array
+          description: Rỗng khi `status = skipped`.
+          items:
+            type: object
+            required: [questionKey, optionKeys]
+            additionalProperties: false
+            properties:
+              questionKey:
+                $ref: '#/components/schemas/SurveyQuestionKey'
+              optionKeys:
+                type: array
+                description: |
+                  KHOÁ chứ không phải nhãn — danh sách thô phải đọc được như nhau bất kể bản
+                  dịch hiện tại là gì.
+                items: { type: string }
+
     # ── Site content ───────────────────────────────────────────────────────────
 
     SiteSettings:
@@ -1988,15 +2709,18 @@ components:
         href: { type: string }
         status: { type: string, enum: [draft, active, inactive] }
         labels:
-          $ref: '#/components/schemas/NavLabels'
+          $ref: '#/components/schemas/LocalizedText'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
-    NavLabels:
+    LocalizedText:
       type: object
       description: |
-        Nhãn theo từng ngôn ngữ. Thiếu một ngôn ngữ là hợp lệ ở trạng thái `draft` — nhưng
-        mục đó sẽ bị BỎ QUA ở đường công khai của ngôn ngữ còn thiếu.
+        Một đoạn văn bản theo từng ngôn ngữ. Dùng chung cho điều hướng site và khảo sát —
+        cùng một hình dạng, cùng một quy tắc, nên không tách làm hai.
+
+        Thiếu một ngôn ngữ là hợp lệ ở trạng thái `draft` — nhưng mục đó sẽ bị BỎ QUA ở
+        đường công khai của ngôn ngữ còn thiếu (join INNER, không fallback).
       additionalProperties: false
       properties:
         vi: { type: [string, 'null'] }
@@ -2011,7 +2735,7 @@ components:
           $ref: '#/components/schemas/NavMenuKey'
         href: { type: string, minLength: 1 }
         labels:
-          $ref: '#/components/schemas/NavLabels'
+          $ref: '#/components/schemas/LocalizedText'
         sortOrder:
           type: integer
           minimum: 0
@@ -2028,10 +2752,10 @@ components:
       properties:
         href: { type: string, minLength: 1 }
         labels:
-          $ref: '#/components/schemas/NavLabels'
+          $ref: '#/components/schemas/LocalizedText'
         reason: { type: string, minLength: 1 }
 
-    ChangeNavItemStatusRequest:
+    ChangeContentStatusRequest:
       type: object
       required: [status, reason]
       additionalProperties: false
@@ -2281,6 +3005,18 @@ components:
   parameters:
     NavItemId:
       name: navItemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+    SurveyQuestionId:
+      name: questionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+    SurveyOptionId:
+      name: optionId
       in: path
       required: true
       schema: { type: string, format: uuid }

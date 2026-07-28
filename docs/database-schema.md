@@ -36,6 +36,7 @@ Hồ sơ account trong MVP dùng các cột typed `display_name`, `email`, `emai
 | Quota | `usage_buckets`, `usage_reservations`, `usage_events`, `idempotency_records` |
 | Audit/Admin | `admin_roles`, `admin_role_permissions`, `admin_role_assignments`, `audit_events` |
 | Site Content | `nav_menus`, `nav_items`, `nav_item_translations`, `site_settings` |
+| Survey | `survey_questions`, `survey_question_translations`, `survey_options`, `survey_option_translations`, `survey_responses`, `survey_answers` |
 | Reconciliation | Không sở hữu bảng và không truy cập bảng trực tiếp; chỉ gọi `QuotaReconciliationPort` |
 
 Thiết kế gồm **25 domain tables**. Billing, outbox, provider-specific data và `reconciliation_runs` được hoãn, không tạo trong MVP.
@@ -743,6 +744,72 @@ Migration cấp **tường minh** `UPDATE, DELETE` cho `talosmine_runtime` trên
 `nav_item_translations`. `ALTER DEFAULT PRIVILEGES` ở migration 0000 chỉ cho `SELECT, INSERT`,
 nên thiếu bước này thì mọi đường ghi chạy được ở test (testcontainers nối bằng superuser)
 nhưng chết ở dev/production với `permission denied`.
+
+## 10c. Survey — khảo sát onboarding
+
+Migration `0012_survey`. Hiển thị sau khi đăng ký, bỏ qua được. Cấu trúc câu hỏi CỐ ĐỊNH
+(seed bằng migration, code biết trước để render đúng layout); nội dung sửa được trong `/admin`.
+
+### 10c.1. Bảng nội dung
+
+| Bảng | Vai trò | Ghi chú |
+|---|---|---|
+| `survey_questions` | Ba câu hỏi | `key` CHECK đóng: `categories`, `primary_use`, `discover_first`. `kind ∈ (single, multi)`, `min_select`, `sort_order` |
+| `survey_question_translations` | Tiêu đề + mô tả theo ngôn ngữ | `UNIQUE (question_id, locale)`, CASCADE |
+| `survey_options` | Lựa chọn | `UNIQUE (question_id, key)`; `UNIQUE (question_id, sort_order)` **DEFERRABLE** |
+| `survey_option_translations` | Nhãn + mô tả theo ngôn ngữ | `UNIQUE (option_id, locale)`, CASCADE |
+
+**Hai khác biệt có chủ đích so với `nav_items`:**
+
+- `survey_questions.status` chỉ có `active`/`inactive`, **không có `draft`** — hàng do
+  migration seed, không ai tạo mới, nên `draft` là trạng thái không bao giờ đạt tới.
+  `survey_options` thì CÓ `draft` vì quản trị viên tạo lựa chọn mới được.
+- `icon` là **danh mục ĐÓNG bằng CHECK** (15 khoá). Code render SVG theo khoá. Không nhận
+  SVG/URL tự nhập: markup tự nhập vướng CSP theo nonce, còn URL ảnh vướng đúng hai ràng buộc
+  của logo (allowlist + `img-src`) — cái giá đó không đáng cho một icon 20px.
+
+`UNIQUE (question_id, sort_order)` phải **DEFERRABLE** vì lý do y hệt `nav_items`: sắp xếp
+lại là nhiều câu `UPDATE`, và giữa chúng hai hàng tạm trùng chỉ số dù trạng thái cuối
+transaction hợp lệ. `CREATE UNIQUE INDEX` không hoãn được.
+
+### 10c.2. Bảng dữ liệu trả lời
+
+| Bảng | Vai trò |
+|---|---|
+| `survey_responses` | Một hàng cho mỗi account. `status ∈ (completed, skipped)`, `locale`, `UNIQUE (account_id)` |
+| `survey_answers` | `(response_id, question_id, option_id)`, UNIQUE bộ ba |
+
+**`UNIQUE (account_id)` chính là cờ "đã onboard".** Cố ý KHÔNG thêm cột `onboarded_at` vào
+`accounts`: module Survey ghi vào bảng của module Account sẽ vi phạm luật ranh giới ở
+`modular.md` mục 1.2.
+
+**`skipped` là dữ liệu thật, không phải "không có gì".** Thiếu bản ghi này thì hệ thống không
+phân biệt được "chưa từng hỏi" với "đã hỏi và họ từ chối", nên sẽ hỏi lại mỗi lần đăng nhập.
+Tỉ lệ bỏ qua cũng là số liệu.
+
+**Câu trả lời trỏ `option_id`, không lưu chữ.** Đổi nhãn hiển thị về sau không làm hỏng dữ
+liệu lịch sử — cùng lý do `applications.key` bất biến.
+
+`account_id` dùng `ON DELETE RESTRICT`: xoá account mà cuốn theo dữ liệu khảo sát là một
+quyết định về quyền riêng tư chưa được chốt (DEC-B11). RESTRICT buộc phải xử lý tường minh
+thay vì âm thầm mất dữ liệu.
+
+### 10c.3. Quyền của role runtime
+
+| Bảng | Quyền |
+|---|---|
+| Bảng nội dung | `SELECT, INSERT` (mặc định) + `UPDATE`, và `DELETE` cho `survey_options`/bản dịch |
+| `survey_responses`, `survey_answers` | **CHỈ `SELECT, INSERT`** |
+
+Không cấp `UPDATE`/`DELETE` trên bảng trả lời là có chủ đích: câu trả lời đã nộp là dữ liệu
+lịch sử, ứng dụng không có đường sửa. Một lỗi lập trình cũng không làm hỏng được dữ liệu
+thu thập.
+
+### 10c.4. Dữ liệu cá nhân — chưa có chính sách lưu trữ
+
+`survey_responses` và `survey_answers` gắn với `account_id`, tức là **dữ liệu cá nhân**.
+Thời hạn lưu, ẩn danh hoá và quyền của người dùng với dữ liệu của chính họ thuộc **DEC-B11**
+(đang `open`). Schema cố ý KHÔNG ghi thời hạn nào.
 
 ## 11. State machines
 

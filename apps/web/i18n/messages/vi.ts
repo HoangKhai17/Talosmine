@@ -97,6 +97,23 @@ export const vi = {
   },
 
   /** `<title>` của từng trang. Đọc bởi `generateMetadata`. */
+  /**
+   * Màn hình khảo sát onboarding. NỘI DUNG CÂU HỎI không nằm ở đây — nó đến từ database và
+   * sửa được trong `/admin`. Chỉ khung màn hình (tiêu đề, nút) là chuỗi sản phẩm.
+   */
+  onboarding: {
+    title: 'Thiết lập Talosmine của bạn',
+    lead: 'Trả lời vài câu hỏi ngắn để chúng tôi cá nhân hoá trải nghiệm và gợi ý đúng công cụ AI cho bạn.',
+    duration: 'Chỉ mất khoảng một phút.',
+    needHelp: 'Cần trợ giúp?',
+    complete: 'Hoàn tất thiết lập',
+    submitting: 'Đang lưu…',
+    skip: 'Bỏ qua bước này',
+    submitFailed: 'Không lưu được khảo sát. Vui lòng thử lại.',
+    /** `{count}` là số lựa chọn tối thiểu còn thiếu. */
+    needMore: 'Chọn thêm {count} mục nữa',
+  },
+
   meta: {
     home: 'Talosmine — Khám phá công cụ để xây dựng và phát triển',
     tools: 'Talosmine — Duyệt công cụ theo danh mục',
