@@ -192,6 +192,7 @@ export function fallbackNav(locale: Locale): SiteNav {
     'footer.about': [
       { id: 'fallback-footer-blog', label: t.footer.blog, href: '/blog' },
       { id: 'fallback-footer-contact', label: t.footer.contact, href: '/contact' },
+      { id: 'fallback-footer-privacy', label: t.footer.privacy, href: '/privacy' },
     ],
     // Cột "Tài nguyên" chưa có trang nào — xem `footerPending` trong layout.
     'footer.resources': [],

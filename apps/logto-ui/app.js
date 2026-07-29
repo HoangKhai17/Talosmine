@@ -613,10 +613,42 @@ const BENEFITS = [
 ];
 
 /** Cột trái. Giống hệt ở cả hai màn hình, nên dựng một lần. */
+/**
+ * Logo thương hiệu — ẢNH từ CMS khi có, CHỮ "Talosmine" khi không.
+ *
+ * Ảnh lấy qua `GET {APP_URL}/api/brand/logo` của web app: route đó đọc đúng cài đặt logo mà
+ * quản trị viên đặt trong `/admin` (menu website → logo), nên một nguồn sự thật cho cả hai
+ * origin. Thẻ `<img>` không vướng CORS.
+ *
+ * FAIL-OPEN — giữ nguyên tắc ở đầu `globals.css`: trang đăng nhập không được phụ thuộc một
+ * máy chủ khác. Chưa cấu hình APP_URL, chưa đặt logo (404), web app chết, hay CSP chặn ảnh
+ * — mọi đường lỗi đều rơi về logo chữ qua sự kiện `error`.
+ */
+function brandMark(className) {
+  const mark = el('p', { class: 'typeCardTitle ' + className, text: 'Talosmine' });
+
+  const appUrl = window.TALOSMINE_APP_URL;
+  if (!appUrl) return mark;
+
+  const img = el('img', {
+    class: 'brandLogoImage',
+    src: appUrl + '/api/brand/logo',
+    alt: 'Talosmine',
+  });
+  img.addEventListener('error', () => {
+    img.remove();
+    mark.textContent = 'Talosmine';
+  });
+
+  mark.textContent = '';
+  mark.append(img);
+  return mark;
+}
+
 function brandPanel() {
   return el('aside', { class: 'brandPanel', 'aria-label': 'Giới thiệu' }, [
     el('div', { class: 'brandContent' }, [
-      el('p', { class: 'typeCardTitle brandLogo', text: 'Talosmine' }),
+      brandMark('brandLogo'),
       /*
         `<h2>` THẬT, không phải `<p>` mang cỡ chữ H2.
         Trước đây chỗ này là `<p>` vì tôi lập luận "mỗi màn hình chỉ nên có một tiêu đề".
@@ -782,10 +814,31 @@ function backLink() {
  * chứ không phải hai.
  */
 function formTopRow() {
-  return el('div', { class: 'formTop' }, [
-    el('p', { class: 'typeCardTitle topLogo', text: 'Talosmine' }),
-    backLink(),
-  ]);
+  return el('div', { class: 'formTop' }, [brandMark('topLogo'), backLink()]);
+}
+
+/**
+ * Link tới văn bản pháp lý trên web app (`/terms`, `/privacy` — nội dung soạn trong
+ * `/admin/content/pages`).
+ *
+ * MỞ TAB MỚI có chủ đích: người dùng đang điền dở form đăng ký; điều hướng cùng tab sẽ xoá
+ * những gì họ vừa gõ. `rel="noopener"` để trang mở ra không cầm được `window.opener` của
+ * trang đăng nhập.
+ *
+ * Chưa cấu hình APP_URL thì rơi về chữ nhấn không bấm được — một link 404 ngay chỗ người
+ * dùng đang cam kết điều gì đó thì tệ hơn hẳn một dòng chữ.
+ */
+function legalLink(label, path) {
+  const appUrl = window.TALOSMINE_APP_URL;
+  if (!appUrl) return el('span', { class: 'accent', text: label });
+
+  return el('a', {
+    class: 'accent legalLink',
+    href: appUrl + path,
+    target: '_blank',
+    rel: 'noopener',
+    text: label,
+  });
 }
 
 /** Ô mật khẩu có nút hiện/ẩn. Nút làm thật — một nút không làm gì là nói dối người dùng. */
@@ -1014,11 +1067,13 @@ function authScreen(config) {
   const errorBox = el('div', { class: 'error', role: 'alert', tabindex: '-1' }, []);
   errorBox.hidden = true;
 
+  // KHÔNG placeholder ở Tên/Họ/Email (chủ dự án yêu cầu 2026-07-28): tên riêng làm ví dụ
+  // trông như form đã điền sẵn, và nhãn đã nói đủ ô này nhận gì.
   const givenName = isRegister
-    ? textField('given-name', 'Tên', 'Khải', undefined, 'given-name', false)
+    ? textField('given-name', 'Tên', undefined, undefined, 'given-name', false)
     : null;
   const familyName = isRegister
-    ? textField('family-name', 'Họ', 'Nguyễn', undefined, 'family-name', false)
+    ? textField('family-name', 'Họ', undefined, undefined, 'family-name', false)
     : null;
 
   /*
@@ -1038,7 +1093,7 @@ function authScreen(config) {
     ? textField(
         'email',
         'Địa chỉ thư điện tử',
-        'ban@vidu.com',
+        undefined,
         'Chúng tôi sẽ gửi mã xác minh tới địa chỉ này.',
         'email',
         true,
@@ -1074,11 +1129,9 @@ function authScreen(config) {
         consentInput,
         el('span', {}, [
           document.createTextNode('Tôi đồng ý với '),
-          // KHÔNG phải link: hai văn bản này chưa được soạn. Một link dẫn tới 404 ngay chỗ
-          // người dùng đang cam kết điều gì đó thì tệ hơn hẳn một dòng chữ.
-          el('span', { class: 'accent', text: 'Điều khoản dịch vụ' }),
+          legalLink('Điều khoản dịch vụ', '/terms'),
           document.createTextNode(' và '),
-          el('span', { class: 'accent', text: 'Chính sách riêng tư' }),
+          legalLink('Chính sách riêng tư', '/privacy'),
         ]),
       ])
     : null;

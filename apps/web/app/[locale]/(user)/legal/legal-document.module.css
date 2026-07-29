@@ -1,0 +1,11 @@
+/* Trang văn bản pháp lý. Chỉ dùng token từ globals.css. */
+
+/*
+ * `pre-line` giữ cách xuống dòng của người soạn trong CMS: dòng trống thành khoảng cách
+ * đoạn, không cần markup nào. Giới hạn theo ĐƠN VỊ CHỮ — ngoại lệ hợp lệ của luật
+ * "không max-width px": đây là độ dài dòng đọc được của văn bản dài.
+ */
+.body {
+  white-space: pre-line;
+  max-width: 75ch;
+}

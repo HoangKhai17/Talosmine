@@ -27,8 +27,16 @@ import { CONTENT_SLOT_KEYS, type ContentSlotKey, NAV_LOCALES, type NavLocale } f
 /**
  * Giới hạn độ dài một giá trị khe. Dài nhất trong thực tế là đoạn dẫn hero (~200 ký tự);
  * 2000 đủ rộng cho mô tả SEO mà vẫn chặn được việc nhồi cả một bài viết vào một tiêu đề.
+ *
+ * NGOẠI LỆ `legal.*`: Điều khoản và Chính sách là VĂN BẢN dài nhiều đoạn — 50k ký tự đủ cho
+ * một bộ điều khoản thực tế mà vẫn là một cái trần thật.
  */
 const MAX_VALUE = 2000;
+const MAX_VALUE_LEGAL = 50_000;
+
+function maxValueFor(key: ContentSlotKey): number {
+  return key.startsWith('legal.') ? MAX_VALUE_LEGAL : MAX_VALUE;
+}
 
 interface UpdateBody {
   values?: unknown;
@@ -83,7 +91,7 @@ export class SiteContentAdminController {
     @Body() body: UpdateBody,
   ): Promise<void> {
     const key = requireSlotKey(slotKey);
-    const values = requireValues(body.values);
+    const values = requireValues(body.values, maxValueFor(key));
 
     await this.slots.set(key, values, this.context(request, body));
   }
@@ -125,7 +133,7 @@ function requireSlotKey(value: string): ContentSlotKey {
  * Bắt buộc ĐỤNG ÍT NHẤT MỘT ngôn ngữ: một PATCH không đổi gì là lệnh vô nghĩa, và nó vẫn
  * ghi audit — tạo dấu vết "đã sửa" cho một lần không sửa gì.
  */
-function requireValues(value: unknown): SlotValuesInput {
+function requireValues(value: unknown, maxLength: number): SlotValuesInput {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new BadRequestException('`values` phải là object dạng `{ vi, en }`.');
   }
@@ -144,8 +152,8 @@ function requireValues(value: unknown): SlotValuesInput {
     if (typeof raw !== 'string') {
       throw new BadRequestException(`\`values.${locale}\` phải là chuỗi hoặc null.`);
     }
-    if (raw.trim().length > MAX_VALUE) {
-      throw new BadRequestException(`\`values.${locale}\` vượt quá ${MAX_VALUE} ký tự.`);
+    if (raw.trim().length > maxLength) {
+      throw new BadRequestException(`\`values.${locale}\` vượt quá ${maxLength} ký tự.`);
     }
     out[locale] = raw;
   }

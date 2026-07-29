@@ -235,7 +235,8 @@
   padding: var(--space-4) var(--space-8);
   border: none;
   border-radius: var(--radius-button);
-  background: var(--gradient-green-primary);
+  /* CTA cuối trang → Green Strong theo bảng gradient của chủ dự án. */
+  background: var(--gradient-green-strong);
   color: var(--color-text-inverse);
   font-weight: var(--weight-heading);
   cursor: pointer;

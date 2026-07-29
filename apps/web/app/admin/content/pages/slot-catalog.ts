@@ -17,6 +17,8 @@ export interface SlotDef {
   label: string;
   /** Đoạn dẫn/mô tả dài dùng textarea; tiêu đề dùng input một dòng. */
   multiline?: boolean;
+  /** Trần ký tự khác 2000 — hiện chỉ nhóm `legal.*` (50k, khớp backend). */
+  maxLength?: number;
 }
 
 export interface SlotGroup {
@@ -105,6 +107,23 @@ export const SLOT_GROUPS: SlotGroup[] = [
       { key: 'footer.tagline', label: 'Footer — câu giới thiệu', multiline: true },
       { key: 'newsletter.title', label: 'Khối bản tin — tiêu đề' },
       { key: 'newsletter.text', label: 'Khối bản tin — mô tả', multiline: true },
+    ],
+  },
+  {
+    title: 'Văn bản pháp lý',
+    slots: [
+      {
+        key: 'legal.terms',
+        label: 'Điều khoản dịch vụ — toàn văn (trang /terms)',
+        multiline: true,
+        maxLength: 50_000,
+      },
+      {
+        key: 'legal.privacy',
+        label: 'Chính sách riêng tư — toàn văn (trang /privacy)',
+        multiline: true,
+        maxLength: 50_000,
+      },
     ],
   },
 ];

@@ -60,6 +60,14 @@
   margin-bottom: var(--space-20);
 }
 
+/* Ảnh logo từ CMS — cùng cách khoá kích thước với header: cao cố định, rộng tự co. */
+.brandLogoImage {
+  height: var(--space-10);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
 /*
  * `<p>` mang cỡ chữ H2 chứ không phải thẻ `<h2>`: trang này chỉ có MỘT tiêu đề thật là
  * "Đăng nhập". Câu quảng bá ở cột trái là chữ trang trí — biến nó thành heading sẽ làm

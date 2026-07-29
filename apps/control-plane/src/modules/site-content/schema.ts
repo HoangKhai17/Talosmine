@@ -163,6 +163,10 @@ export const CONTENT_SLOT_KEYS = [
   'seo.description.categories',
   'seo.description.contact',
   'seo.description.submit',
+  // Văn bản pháp lý (0014) — thân trang `/terms` và `/privacy`. Chữ dài, không có bản dự
+  // phòng trong catalog: chưa soạn thì trang hiện thông báo "đang cập nhật".
+  'legal.terms',
+  'legal.privacy',
 ] as const;
 
 export type ContentSlotKey = (typeof CONTENT_SLOT_KEYS)[number];

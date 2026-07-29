@@ -164,6 +164,25 @@ describe('/v1/site/content + /v1/admin/site/content', () => {
       expect(rows).toHaveLength(0);
     });
 
+    /**
+     * Khe pháp lý (migration 0014) có trần ký tự RIÊNG: toàn văn điều khoản dài hơn hẳn một
+     * tiêu đề. Ca này chốt cả hai phía — khe thường vẫn bị chặn ở 2000, khe `legal.*` nhận
+     * văn bản dài.
+     */
+    it('khe `legal.*` nhận văn bản dài; khe thường vẫn bị trần 2000', async () => {
+      const admin = await createUser('legal', ['content:manage']);
+      const longText = 'Điều khoản mẫu. '.repeat(700); // ~11k ký tự
+
+      expect(
+        (await setSlot(admin.headers, 'legal.terms', { values: { vi: longText } })).statusCode,
+      ).toBe(204);
+      expect(
+        (await setSlot(admin.headers, 'home.heroTitle', { values: { vi: longText } })).statusCode,
+      ).toBe(400);
+
+      expect((await publicValues('vi'))['legal.terms']).toBe(longText.trim());
+    });
+
     it('TỪ CHỐI khoá ngoài danh mục — không ghi rác', async () => {
       const admin = await createUser('bad-key', ['content:manage']);
       const res = await setSlot(admin.headers, 'home.khongCoThat', { values: { vi: 'x' } });

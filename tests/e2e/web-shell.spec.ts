@@ -209,7 +209,18 @@ test.describe('CSP (DEC-T12)', () => {
       await page.goto(path);
       await expect(page.locator('main')).toHaveCount(1);
 
-      expect(violations, ['Vi phạm CSP:', ...violations].join('\n')).toEqual([]);
+      /*
+       * NGOẠI LỆ DUY NHẤT, chỉ tồn tại trên môi trường http.
+       *
+       * `/auth` và `/auth/sign-up` redirect sang Logto, nên test này thực chất đo cả trang
+       * `apps/logto-ui`. Trang đó tải logo CMS qua `{APP_URL}/api/brand/logo`; CSP của LOGTO
+       * (không phải của ta) chỉ cho ảnh `https:`, nên trên dev http ảnh bị chặn và trang rơi
+       * về logo chữ — đúng thiết kế fail-open, không phải lỗi. Trên production (https) ảnh
+       * được phép. Lọc ĐÍCH DANH vi phạm đó; mọi vi phạm khác vẫn làm test đỏ.
+       */
+      const real = violations.filter((v) => !v.includes('/api/brand/logo'));
+
+      expect(real, ['Vi phạm CSP:', ...real].join('\n')).toEqual([]);
     });
   }
 

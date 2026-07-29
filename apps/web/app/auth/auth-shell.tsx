@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { getSiteSettings } from '../../server/site-settings';
 import styles from './auth-shell.module.css';
 
 /**
@@ -55,11 +56,21 @@ const BENEFITS = [
  * `<aside>` chứ không phải `<section>`: nội dung này bổ trợ cho hành động chính của trang
  * (đăng nhập hoặc đăng ký), không phải nội dung chính.
  */
-function BrandPanel() {
+async function BrandPanel() {
+  // Logo từ CMS (menu website → logo), cùng nguồn với header — cache 60s, fail-open về chữ.
+  const { logoUrl } = await getSiteSettings();
+
   return (
     <aside className={styles.brandPanel} aria-label="Giới thiệu">
       <div className={styles.brandContent}>
-        <p className={`typeCardTitle ${styles.brandLogo}`}>Talosmine</p>
+        <p className={`typeCardTitle ${styles.brandLogo}`}>
+          {logoUrl === null ? (
+            'Talosmine'
+          ) : (
+            // biome-ignore lint/performance/noImgElement: URL do admin nhập lúc chạy, next/image cần host khai trước.
+            <img className={styles.brandLogoImage} src={logoUrl} alt="Talosmine" />
+          )}
+        </p>
 
         {/*
           `<p>` mang cỡ chữ H2 chứ không phải thẻ `<h2>`: mỗi trang xác thực chỉ có MỘT tiêu

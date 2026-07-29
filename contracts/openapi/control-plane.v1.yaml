@@ -2794,6 +2794,8 @@ components:
         - seo.description.categories
         - seo.description.contact
         - seo.description.submit
+        - legal.terms
+        - legal.privacy
 
     SiteContent:
       type: object

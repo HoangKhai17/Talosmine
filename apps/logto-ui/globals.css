@@ -32,7 +32,9 @@
  * Chỉ lấy hai bảng mã CẦN DÙNG (latin + vietnamese), bỏ cyrillic: 46KB thay vì hơn 100KB.
  *
  * Montserrat là font BIẾN THIÊN — một file phục vụ mọi độ đậm, nên khai `font-weight` theo
- * KHOẢNG `400 600` thay vì ba khối `@font-face` trỏ cùng một file.
+ * KHOẢNG `400 800` thay vì nhiều khối `@font-face` trỏ cùng một file. Trần 800 vì `.accent`
+ * dùng độ đậm đó (2026-07-28); khai hẹp hơn thì trình duyệt kẹp về mép khoảng và chữ không
+ * bao giờ đậm tới mức yêu cầu.
  *
  * KHÔNG chép Inter. Ở bản gốc Inter chỉ là font dự phòng đứng sau Montserrat; khi Montserrat
  * tải được thì Inter không bao giờ hiện. Chép thêm hai file cho một thứ không bao giờ thấy
@@ -41,7 +43,7 @@
 @font-face {
   font-family: Montserrat;
   font-style: normal;
-  font-weight: 400 600;
+  font-weight: 400 800;
   font-display: swap;
   src: url("/fonts/montserrat-vietnamese.woff2") format("woff2");
   unicode-range:
@@ -52,7 +54,7 @@
 @font-face {
   font-family: Montserrat;
   font-style: normal;
-  font-weight: 400 600;
+  font-weight: 400 800;
   font-display: swap;
   src: url("/fonts/montserrat-latin.woff2") format("woff2");
   unicode-range:
@@ -73,8 +75,18 @@
   --color-text-tertiary: #71808a;
   --color-border-default: #dce6d8;
   --color-border-hover: #a3c644;
+  /* Token MÀU — không nhét gradient vào đây: tên `color-*` là hợp đồng "dùng được ở mọi
+   * thuộc tính nhận màu" (border, chữ, accent-color…); gradient chỉ hợp lệ ở background.
+   * Nút chính dùng `--gradient-green-strong` bên dưới. */
   --color-button-primary: #1f8f3a;
   --color-button-text: #ffffff;
+
+  /* Gradient — tham số nguyên văn từ bảng của chủ dự án (2026-07-28), ĐỒNG BỘ với
+   * `apps/web/app/globals.css`:
+   *   light-green:  nền cột giới thiệu (hero/section sáng)
+   *   green-strong: nút chính (CTA) */
+  --gradient-light-green: linear-gradient(135deg, #ffffff 0%, #f1f8e8 45%, #ddecb8 100%);
+  --gradient-green-strong: linear-gradient(135deg, #146329 0%, #1f8f3a 50%, #a3c644 100%);
 
   /* Bản gốc: focus = Border Focus = xanh lá thương hiệu. */
   --color-focus: #1f8f3a;
@@ -90,6 +102,9 @@
   --color-accent: #1f8f3a;
   --color-accent-hover: #197832;
   --color-accent-tint: #eef7e8;
+  /* Độ đậm của chữ nhấn (chủ dự án chốt 800, 2026-07-28). Token riêng của trang đăng nhập —
+   * bản gốc chưa có chỗ nào dùng 800; muốn dùng toàn site thì thêm vào globals gốc trước. */
+  --weight-accent: 800;
 
   /* ── Spacing ──────────────────────────────────────────────────────────────
    * Thang đã duyệt. KHÔNG dùng giá trị ngoài danh sách này. */

@@ -72,18 +72,22 @@
   --color-tag-bg: var(--color-green-soft);
   --color-tag-text: var(--color-green-primary);
 
-  /* Gradient.
+  /* Gradient — tham số NGUYÊN VĂN từ chủ dự án (2026-07-28), thay bản suy diễn
+   * trước đó. Hai hex mốc giữa (#F1F8E8, #DDECB8, #146329…) trùng token thang
+   * xanh nên tham chiếu lại bằng var() để không lệch giá trị.
    *
-   * ⚠ KHÔNG CÓ TRONG BẢNG QUY CHUẨN — bảng xanh lá chỉ ghi lime "dùng cho
-   * gradient" mà không cho tham số. Giá trị dưới đây do tôi SUY RA từ thang
-   * (green-primary → lime, cùng góc 135deg với bảng cũ) để nút CTA của trang
-   * onboarding không mất nền. Chủ dự án cho tham số thật thì thay tại đây.
-   *
-   * Ba gradient còn lại của bảng xanh dương (strong/soft/dark) đã XOÁ: không
-   * component nào gọi, và bảng mới không định nghĩa chúng. */
-  --gradient-green-primary: linear-gradient(
+   *   light-green:  footer sáng, hero, section nền sáng
+   *   green-strong: banner, CTA cuối trang, section nổi bật */
+  --gradient-light-green: linear-gradient(
     135deg,
-    var(--color-green-primary) 0%,
+    #ffffff 0%,
+    var(--color-green-soft) 45%,
+    var(--color-green-light) 100%
+  );
+  --gradient-green-strong: linear-gradient(
+    135deg,
+    var(--color-green-active) 0%,
+    var(--color-green-primary) 50%,
     var(--color-lime) 100%
   );
 

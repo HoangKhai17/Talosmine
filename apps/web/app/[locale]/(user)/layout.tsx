@@ -213,7 +213,9 @@ function SiteFooter({ locale, t, nav }: { locale: Locale; t: Messages; nav: Site
         {/* `<nav>` vì cột này CÓ link thật — cùng lý do với cột "Khám phá". */}
         <nav className={styles.footerCol} aria-label={t.footer.about}>
           <p className="typeBodySmall">{t.footer.about}</p>
-          {column(nav['footer.about'], [t.footer.aboutUs, t.footer.privacy])}
+          {/* `privacy` đã RỜI danh sách pending (2026-07-28): trang `/privacy` tồn tại rồi,
+              link nằm trong fallbackNav và thêm được vào CMS. Chỉ còn `aboutUs` chờ trang. */}
+          {column(nav['footer.about'], [t.footer.aboutUs])}
         </nav>
 
         {/*

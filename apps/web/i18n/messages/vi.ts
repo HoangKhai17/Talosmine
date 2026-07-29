@@ -114,6 +114,16 @@ export const vi = {
     needMore: 'Chọn thêm {count} mục nữa',
   },
 
+  /**
+   * Trang văn bản pháp lý (`/terms`, `/privacy`). THÂN VĂN BẢN không nằm ở đây — nó là khe
+   * `legal.*` soạn trong `/admin/content/pages`; ở đây chỉ có khung trang.
+   */
+  legal: {
+    termsTitle: 'Điều khoản dịch vụ',
+    privacyTitle: 'Chính sách riêng tư',
+    updating: 'Nội dung đang được biên soạn và sẽ sớm được cập nhật tại đây.',
+  },
+
   meta: {
     home: 'Talosmine — Khám phá công cụ để xây dựng và phát triển',
     tools: 'Talosmine — Duyệt công cụ theo danh mục',
@@ -122,6 +132,8 @@ export const vi = {
     categories: 'Talosmine — Danh mục',
     contact: 'Talosmine — Liên hệ',
     submit: 'Talosmine — Gửi công cụ',
+    terms: 'Talosmine — Điều khoản dịch vụ',
+    privacy: 'Talosmine — Chính sách riêng tư',
     account: 'Talosmine — Tài khoản',
     sessions: 'Talosmine — Phiên đăng nhập',
   },

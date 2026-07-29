@@ -125,8 +125,9 @@
 }
 
 /* ── Cột trái: giới thiệu ─────────────────────────────────────────────────────
- * Trắng ở trên chuyển dần sang tím rất nhạt ở dưới, theo thiết kế. `background-color` đặt
- * trước làm nền dự phòng cho trình duyệt không hiểu `linear-gradient`.
+ * Nền Light Green theo bảng gradient của chủ dự án (2026-07-28): trắng ở trên chuyển dần
+ * sang xanh lá nhạt ở dưới. `background-color` đặt trước làm nền dự phòng cho trình duyệt
+ * không hiểu `linear-gradient`.
  *
  * `subgrid` để nội dung bên trong nằm trên ĐÚNG các cột mà vùng này chiếm của lưới trang —
  * không phải trên một lưới con tự chế. `grid-template-rows: auto 1fr` cho khối chữ cao theo
@@ -137,11 +138,7 @@
   grid-template-columns: subgrid;
   grid-template-rows: auto 1fr;
   background-color: var(--color-accent-tint);
-  background-image: linear-gradient(
-    160deg,
-    var(--color-bg-primary) 0%,
-    var(--color-accent-tint) 100%
-  );
+  background-image: var(--gradient-light-green);
 }
 
 /*
@@ -190,6 +187,17 @@
   .brandLogo {
     display: block;
   }
+}
+
+/*
+ * Ảnh logo từ CMS (`app.js` chèn khi tải được): CÙNG cách khoá kích thước với header của
+ * web app — cao cố định, rộng tự co — để logo hiển thị đúng một tỉ lệ ở mọi nơi.
+ */
+.brandLogoImage {
+  height: var(--space-10);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 /* Giới hạn theo ĐƠN VỊ CHỮ — ngoại lệ duy nhất của luật "không max-width": đây là ràng
@@ -241,9 +249,13 @@
 .benefitTitle,
 .socialButton,
 .submitButton,
-.switchLink,
-.accent {
+.switchLink {
   font-weight: var(--weight-caption);
+}
+
+/* `.accent` KHÔNG nằm trong nhóm trên: chủ dự án chốt độ đậm riêng 800 (xem token). */
+.accent {
+  font-weight: var(--weight-accent);
 }
 
 /*
@@ -545,13 +557,20 @@
   padding: var(--space-4);
   border: none;
   border-radius: var(--radius-button);
+  /* Nền dự phòng đặt trước; Green Strong (bảng gradient 2026-07-28) đè lên. */
   background-color: var(--color-accent);
+  background-image: var(--gradient-green-strong);
   color: var(--color-button-text);
   cursor: pointer;
 }
 
+/*
+ * Hover trên nền GRADIENT: đổi `background-color` là vô dụng vì lớp ảnh gradient nằm trên
+ * và che kín nó — nút sẽ trông như chết. Làm tối cả nút bằng `filter` để mọi mốc màu của
+ * gradient cùng sậm lại một mức, không phải bịa một gradient hover riêng.
+ */
 .submitButton:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
+  filter: brightness(0.92);
 }
 
 .submitButton:disabled {
@@ -559,9 +578,36 @@
   opacity: 0.6;
 }
 
-/* Từ được nhấn trong câu quảng bá, tên hai văn bản pháp lý, link chuyển màn hình. */
+/*
+ * Từ được nhấn trong câu quảng bá, tên hai văn bản pháp lý, link chuyển màn hình.
+ *
+ * CHỮ GRADIENT (Green Strong, chủ dự án yêu cầu 2026-07-28) — kỹ thuật duy nhất trình duyệt
+ * có: cắt ảnh nền theo hình chữ rồi làm chữ trong suốt. `color` đặt trước làm DỰ PHÒNG: nếu
+ * `background-clip: text` không được hỗ trợ thì khối `@supports` không áp, chữ giữ màu xanh
+ * đặc — tuyệt đối không để rơi vào trạng thái chữ trong suốt trên nền không cắt.
+ */
 .accent {
   color: var(--color-accent);
+}
+
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .accent {
+    background-image: var(--gradient-green-strong);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* Tên văn bản pháp lý khi ĐÃ là link thật: gạch chân để phân biệt với chữ nhấn thường —
+ * trong một câu chữ, màu không thôi chưa đủ nói "bấm được".
+ *
+ * `text-decoration-color` TƯỜNG MINH: chữ `.accent` gradient dùng `color: transparent`, mà
+ * gạch chân mặc định ăn theo `color` — không đặt riêng thì gạch chân tàng hình. */
+.legalLink {
+  text-decoration: underline;
+  text-decoration-color: var(--color-accent);
+  text-underline-offset: var(--space-1);
 }
 
 .switchRow {
@@ -593,7 +639,8 @@
     transition:
       border-color 150ms ease,
       background-color 150ms ease,
-      color 150ms ease;
+      color 150ms ease,
+      filter 150ms ease;
   }
 }
 

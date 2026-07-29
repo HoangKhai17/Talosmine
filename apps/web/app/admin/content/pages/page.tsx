@@ -129,6 +129,7 @@ function SlotRow({
         <SlotField
           label="Tiếng Việt"
           multiline={slot.multiline === true}
+          maxLength={slot.maxLength ?? 2000}
           value={valueVi}
           onChange={setValueVi}
           placeholder={fallbackText(slot.key, 'vi')}
@@ -136,6 +137,7 @@ function SlotRow({
         <SlotField
           label="Tiếng Anh"
           multiline={slot.multiline === true}
+          maxLength={slot.maxLength ?? 2000}
           value={valueEn}
           onChange={setValueEn}
           placeholder={fallbackText(slot.key, 'en')}
@@ -172,17 +174,19 @@ function SlotRow({
 function SlotField({
   label,
   multiline,
+  maxLength,
   value,
   onChange,
   placeholder,
 }: {
   label: string;
   multiline: boolean;
+  maxLength: number;
   value: string;
   onChange: (next: string) => void;
   placeholder: string | null;
 }) {
-  const hint = placeholder ?? 'Chưa đặt — trang sẽ không phát thẻ này';
+  const hint = placeholder ?? 'Chưa đặt — xem mô tả của khe về hành vi khi bỏ trống';
   // `htmlFor`/`id` tường minh: rule a11y không nhìn xuyên qua ternary để thấy control lồng
   // trong label, và id sinh bằng `useId` nên hai khe không bao giờ trùng nhau.
   const id = useId();
@@ -197,7 +201,7 @@ function SlotField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={hint}
-          maxLength={2000}
+          maxLength={maxLength}
           rows={3}
         />
       ) : (
@@ -207,7 +211,7 @@ function SlotField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={hint}
-          maxLength={2000}
+          maxLength={maxLength}
         />
       )}
     </label>

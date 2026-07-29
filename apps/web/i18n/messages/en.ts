@@ -95,6 +95,12 @@ export const en = {
     needMore: 'Select {count} more',
   },
 
+  legal: {
+    termsTitle: 'Terms of Service',
+    privacyTitle: 'Privacy Policy',
+    updating: 'This content is being drafted and will be published here soon.',
+  },
+
   meta: {
     home: 'Talosmine — Discover tools to build and grow',
     tools: 'Talosmine — Browse tools by category',
@@ -103,6 +109,8 @@ export const en = {
     categories: 'Talosmine — Categories',
     contact: 'Talosmine — Contact',
     submit: 'Talosmine — Submit a tool',
+    terms: 'Talosmine — Terms of Service',
+    privacy: 'Talosmine — Privacy Policy',
     account: 'Talosmine — Account',
     sessions: 'Talosmine — Sessions',
   },
