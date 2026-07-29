@@ -88,6 +88,11 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   return handle(request, segments);
 }
 
+export async function PUT(request: Request, context: RouteContext): Promise<Response> {
+  const { segments } = await context.params;
+  return handle(request, segments);
+}
+
 export async function PATCH(request: Request, context: RouteContext): Promise<Response> {
   const { segments } = await context.params;
   return handle(request, segments);

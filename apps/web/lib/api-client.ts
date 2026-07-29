@@ -86,6 +86,7 @@ async function errorMessage(response: Response): Promise<string> {
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
+  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   // DELETE có body: thu hồi phân quyền bắt buộc kèm `reason` cho nhật ký kiểm toán.
   delete: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),

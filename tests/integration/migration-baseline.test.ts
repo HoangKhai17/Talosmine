@@ -353,6 +353,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
       'nav_items',
       'nav_menus',
       'service_identities',
+      'site_assets',
       'site_settings',
       'survey_answers',
       'survey_option_translations',

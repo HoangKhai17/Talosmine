@@ -3,6 +3,8 @@ import { AdminModule } from '../admin/admin.module.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { SiteContentAdminController, SiteContentController } from './content-slots.controller.js';
 import { ContentSlotsService } from './content-slots.service.js';
+import { SiteLogoAdminController, SiteLogoController } from './site-logo.controller.js';
+import { SiteLogoService } from './site-logo.service.js';
 import { SiteNavController } from './site-nav.controller.js';
 import { SiteNavService } from './site-nav.service.js';
 import { SiteNavAdminController } from './site-nav-admin.controller.js';
@@ -34,7 +36,9 @@ import { SiteSettingsService } from './site-settings.service.js';
     SiteSettingsAdminController,
     SiteContentController,
     SiteContentAdminController,
+    SiteLogoController,
+    SiteLogoAdminController,
   ],
-  providers: [SiteNavService, SiteSettingsService, ContentSlotsService],
+  providers: [SiteNavService, SiteSettingsService, ContentSlotsService, SiteLogoService],
 })
 export class SiteContentModule {}

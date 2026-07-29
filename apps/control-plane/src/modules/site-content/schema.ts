@@ -1,4 +1,12 @@
-import { index, integer, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  customType,
+  index,
+  integer,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { controlPlane } from '../account/schema.js';
 
 /**
@@ -111,6 +119,42 @@ export const siteSettings = controlPlane.table(
 );
 
 export type SiteSettingRow = typeof siteSettings.$inferSelect;
+
+/**
+ * Danh mục MIME ĐÓNG cho tài sản site — khớp CHECK ở migration 0015.
+ *
+ * KHÔNG có SVG: SVG là XML chạy được, phục vụ file người dùng tải lên từ origin của chính
+ * mình là một đường XSS.
+ */
+export const SITE_ASSET_MIMES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export type SiteAssetMime = (typeof SITE_ASSET_MIMES)[number];
+
+/** Trần kích thước file — khớp CHECK `site_assets_size_check`. */
+export const SITE_ASSET_MAX_BYTES = 512 * 1024;
+
+export const SITE_ASSET_KEYS = ['logo.image'] as const;
+export type SiteAssetKey = (typeof SITE_ASSET_KEYS)[number];
+
+/**
+ * Tài sản nhị phân của site (hiện: file logo). Khớp migration 0015.
+ *
+ * Bytea trong PostgreSQL là CÓ CHỦ ĐÍCH cho MỘT file nhỏ đọc qua cache — không phải thư
+ * viện media; ảnh catalog sau này thuộc về object storage (DEC-T12).
+ */
+export const siteAssets = controlPlane.table(
+  'site_assets',
+  {
+    id: uuid('id').primaryKey(),
+    key: text('key').notNull(),
+    mime: text('mime').notNull(),
+    data: customType<{ data: Buffer }>({ dataType: () => 'bytea' })('data').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('site_assets_key_key').on(table.key)],
+);
+
+export type SiteAssetRow = typeof siteAssets.$inferSelect;
 
 /**
  * Khoá khe nội dung — danh mục ĐÓNG, PHẢI khớp CHECK ở migration 0013 và enum

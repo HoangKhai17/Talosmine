@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { getSiteSettings } from '../../server/site-settings';
+import { getBrandLogoSrc } from '../../server/brand-logo';
 import styles from './auth-shell.module.css';
 
 /**
@@ -57,8 +57,8 @@ const BENEFITS = [
  * (đăng nhập hoặc đăng ký), không phải nội dung chính.
  */
 async function BrandPanel() {
-  // Logo từ CMS (menu website → logo), cùng nguồn với header — cache 60s, fail-open về chữ.
-  const { logoUrl } = await getSiteSettings();
+  // Logo từ CMS, cùng nguồn với header (file tải lên thắng URL) — cache 60s, fail-open về chữ.
+  const logoUrl = await getBrandLogoSrc();
 
   return (
     <aside className={styles.brandPanel} aria-label="Giới thiệu">

@@ -271,12 +271,25 @@
 
 @media (min-width: 1280px) {
   .brandImage {
-    /* Trải TRỌN vùng, kể cả track gutter: đây là khối nền, phải chạm mép màn hình. */
+    /* Trải TRỌN vùng, kể cả track gutter: khối này ăn hết phần cao còn lại của cột. */
     grid-column: 1 / -1;
     display: grid;
     place-items: center;
     min-height: var(--space-30);
-    background-color: var(--color-border-default);
+    /* KHÔNG còn nền xám giữ chỗ (2026-07-29): ảnh thật đã có, nền PNG trong suốt nằm
+     * thẳng trên gradient Light Green của cột. */
+    padding-block: var(--space-10);
+  }
+
+  /*
+   * Kẹp theo CẢ hai chiều: `min(…, 100%)` để ở màn hình thấp (1280×720) ảnh co theo phần
+   * cao còn lại của cột thay vì đẩy trang cuộn dọc; màn hình cao thì dừng ở mức token.
+   * `width: auto` giữ tỉ lệ vuông của file gốc.
+   */
+  .brandImage img {
+    max-height: min(var(--media-auth-illustration), 100%);
+    width: auto;
+    max-width: 100%;
   }
 }
 
@@ -599,15 +612,18 @@
   }
 }
 
-/* Tên văn bản pháp lý khi ĐÃ là link thật: gạch chân để phân biệt với chữ nhấn thường —
- * trong một câu chữ, màu không thôi chưa đủ nói "bấm được".
- *
- * `text-decoration-color` TƯỜNG MINH: chữ `.accent` gradient dùng `color: transparent`, mà
- * gạch chân mặc định ăn theo `color` — không đặt riêng thì gạch chân tàng hình. */
+/* Tên văn bản pháp lý — link MÀU ĐẶC, không dùng chữ gradient của `.accent` (chủ dự án chốt
+ * 2026-07-29). Gạch chân để phân biệt với chữ nhấn thường: trong một câu chữ, màu không thôi
+ * chưa đủ nói "bấm được"; gạch chân tự ăn theo `color` nên không cần đặt màu riêng. */
 .legalLink {
+  color: var(--color-accent);
+  font-weight: var(--weight-accent);
   text-decoration: underline;
-  text-decoration-color: var(--color-accent);
   text-underline-offset: var(--space-1);
+}
+
+.legalLink:hover {
+  color: var(--color-accent-hover);
 }
 
 .switchRow {

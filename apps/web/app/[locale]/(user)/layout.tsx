@@ -4,9 +4,9 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { isLocale, type Locale, localeHref } from '../../../i18n/locale';
 import { format, type Messages } from '../../../i18n/messages';
+import { getBrandLogoSrc } from '../../../server/brand-logo';
 import { getContentMessages } from '../../../server/site-content';
 import { getSiteNav, type NavItem, type SiteNav } from '../../../server/site-nav';
-import { getSiteSettings } from '../../../server/site-settings';
 import { HeaderNav } from './header-nav';
 import styles from './layout.module.css';
 
@@ -54,9 +54,10 @@ export default async function UserLayout({
   // SONG SONG: ba lời gọi mạng độc lập nhau, nên chúng chỉ tốn độ trễ của một lời gọi.
   // Cả ba đều cache 60 giây và đều có đường lui — xem `server/site-nav.ts`.
   // `t` đã merge chữ CMS (hiện dùng cho `footer.tagline`) đè lên message catalog.
-  const [{ nav }, settings, { t }] = await Promise.all([
+  const [{ nav }, logoSrc, { t }] = await Promise.all([
     getSiteNav(locale),
-    getSiteSettings(),
+    // File tải lên thắng, rồi tới `logo.url`, rồi logo chữ — xem `server/brand-logo.ts`.
+    getBrandLogoSrc(),
     getContentMessages(locale),
   ]);
 
@@ -68,7 +69,7 @@ export default async function UserLayout({
       <header className={styles.header}>
         <div className={`container ${styles.bar}`}>
           <Link className={styles.brand} href={href('/')}>
-            <Logo url={settings.logoUrl} />
+            <Logo url={logoSrc} />
           </Link>
 
           {/*

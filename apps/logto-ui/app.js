@@ -686,14 +686,13 @@ function brandPanel() {
         ),
       ),
     ]),
+    /*
+      Ảnh minh hoạ CÙNG ORIGIN (`images/` do Logto phục vụ, như `fonts/`) nên không vướng
+      CSP. `aria-hidden` ở khối cha: ảnh thuần trang trí, `alt` rỗng để trình đọc màn hình
+      không loan báo gì.
+    */
     el('div', { class: 'brandImage', 'aria-hidden': 'true' }, [
-      icon(
-        [
-          'M3 5.5A1.5 1.5 0 0 1 4.5 4h15A1.5 1.5 0 0 1 21 5.5v13A1.5 1.5 0 0 1 19.5 20h-15A1.5 1.5 0 0 1 3 18.5v-13Z',
-          'm4 17 5-5 4 4 3-2 4 4',
-        ],
-        40,
-      ),
+      el('img', { src: '/images/auth_bot.png', alt: '' }),
     ]),
   ]);
 }
@@ -832,8 +831,10 @@ function legalLink(label, path) {
   const appUrl = window.TALOSMINE_APP_URL;
   if (!appUrl) return el('span', { class: 'accent', text: label });
 
+  // KHÔNG mang class `accent`: chữ gradient là cho từ nhấn trang trí; link pháp lý dùng màu
+  // đặc (chủ dự án chốt 2026-07-29) — `.legalLink` tự lo màu và độ đậm của nó.
   return el('a', {
-    class: 'accent legalLink',
+    class: 'legalLink',
     href: appUrl + path,
     target: '_blank',
     rel: 'noopener',

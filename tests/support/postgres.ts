@@ -136,6 +136,7 @@ const ROLLBACK_DIR = new URL('../../apps/control-plane/drizzle/rollback/', impor
  * cách những file đó mục nát cho tới đêm sự cố.
  */
 const ROLLBACK_ORDER = [
+  '0015_site_logo_upload.down.sql',
   '0014_legal_slots.down.sql',
   '0013_content_slots.down.sql',
   '0012_survey.down.sql',

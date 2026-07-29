@@ -999,6 +999,58 @@ export interface paths {
         patch: operations["adminUpdateSiteSettings"];
         trace?: never;
     };
+    "/v1/site/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * File logo đã tải lên
+         * @description CÔNG KHAI — trả BYTES của logo do quản trị viên tải lên (bảng `site_assets`,
+         *     migration 0015) kèm đúng `Content-Type`. 404 khi chưa tải logo nào — người gọi rơi
+         *     về `site_settings.logo.url` rồi về logo chữ; thứ tự đó do BFF xử lý ở
+         *     `/api/brand/logo`.
+         */
+        get: operations["getSiteLogo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/site/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tải logo lên
+         * @description Yêu cầu `content:manage`. Ảnh gửi dạng base64 trong JSON — trần 512KB SAU giải mã
+         *     (CHECK ở database là chốt chặn cuối).
+         *
+         *     Danh mục MIME ĐÓNG: png/jpeg/webp. KHÔNG nhận SVG — SVG là XML chạy được, phục vụ
+         *     nó từ origin của chính mình là một đường XSS.
+         */
+        put: operations["adminUploadSiteLogo"];
+        post?: never;
+        /**
+         * Gỡ logo đã tải lên
+         * @description Yêu cầu `content:manage`. Sau khi gỡ, web rơi về `site_settings.logo.url` (nếu đặt)
+         *     rồi về logo chữ.
+         */
+        delete: operations["adminDeleteSiteLogo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/site/content": {
         parameters: {
             query?: never;
@@ -1474,6 +1526,13 @@ export interface components {
              *     frontend dùng NGUYÊN chuỗi này, không tự ghép host.
              */
             logoUrl: string | null;
+        };
+        UploadSiteLogoRequest: {
+            /** @enum {string} */
+            mime: "image/png" | "image/jpeg" | "image/webp";
+            /** @description Bytes của ảnh, mã hoá base64. Trần 512KB sau giải mã. */
+            data: string;
+            reason: string;
         };
         /** @description Trường vắng mặt = không đổi. `logoUrl` bằng `null` = xoá logo. */
         UpdateSiteSettingsRequest: {
@@ -3698,6 +3757,83 @@ export interface operations {
         };
         responses: {
             /** @description Đã lưu. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getSiteLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bytes của ảnh logo (png/jpeg/webp). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Chưa tải logo nào lên. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    adminUploadSiteLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadSiteLogoRequest"];
+            };
+        };
+        responses: {
+            /** @description Đã lưu. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    adminDeleteSiteLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReason"];
+            };
+        };
+        responses: {
+            /** @description Đã gỡ (kể cả khi vốn không có gì để gỡ — kết quả cuối như nhau). */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -1,22 +1,31 @@
+import { getUploadedLogo } from '../../../../server/brand-logo';
 import { getSiteSettings } from '../../../../server/site-settings';
 
 /**
- * Logo thương hiệu — đường CÔNG KHAI cho các bề mặt ngoài Next.js.
+ * Logo thương hiệu — đường CÔNG KHAI, hai người gọi:
  *
- * NGƯỜI GỌI DUY NHẤT hiện tại: trang đăng nhập (`apps/logto-ui`). Nó chạy ở origin của
- * Logto, không render qua Next nên không đọc được `getSiteSettings()` trực tiếp; một thẻ
- * `<img>` trỏ về đây thì không vướng CORS. Nhờ vậy đổi logo trong `/admin/content/nav` là
- * trang đăng nhập cũng đổi theo — một nguồn sự thật, không phải chép URL sang config Logto.
+ *   - Trang đăng nhập (`apps/logto-ui`) — origin khác, thẻ `<img>` không vướng CORS.
+ *   - Chính web app (header, auth-shell) khi logo là file TẢI LÊN: phục vụ cùng origin nên
+ *     luôn hợp lệ với `img-src 'self'`, không đụng allowlist host nào.
  *
- * REDIRECT chứ không proxy bytes: logo có thể nằm ở host ngoài allowlist hoặc đường dẫn nội
- * bộ; chuyển hướng để trình duyệt tự tải giữ route này không thành một proxy ảnh tuỳ ý.
- *
- * 404 khi chưa đặt logo là tín hiệu CÓ CHỦ ĐÍCH: `onerror` phía trang đăng nhập rơi về logo
- * chữ — cùng hành vi với header của chính web app.
+ * THỨ TỰ: file tải lên (bytes, migration 0015) → `logo.url` (redirect) → 404. 404 là tín
+ * hiệu có chủ đích: người gọi rơi về logo chữ — cùng hành vi mọi nơi.
  */
 export async function GET(request: Request): Promise<Response> {
-  const { logoUrl } = await getSiteSettings();
+  const uploaded = await getUploadedLogo();
+  if (uploaded !== null) {
+    return new Response(new Uint8Array(uploaded.data), {
+      headers: {
+        'content-type': uploaded.mime,
+        // Bytes do admin tải lên — trình duyệt không được đoán lại kiểu file.
+        'x-content-type-options': 'nosniff',
+        // Khớp TTL cache phía server — đổi logo hiện ra trong vòng ~60 giây.
+        'cache-control': 'public, max-age=60',
+      },
+    });
+  }
 
+  const { logoUrl } = await getSiteSettings();
   if (logoUrl === null) {
     return new Response(null, { status: 404 });
   }
@@ -26,7 +35,6 @@ export async function GET(request: Request): Promise<Response> {
     headers: {
       // URL tương đối (`/...`) resolve về origin của chính web app.
       location: new URL(logoUrl, request.url).toString(),
-      // Khớp TTL cache của `getSiteSettings` — đổi logo hiện ra trong vòng ~60 giây.
       'cache-control': 'public, max-age=60',
     },
   });

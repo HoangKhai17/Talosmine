@@ -1922,6 +1922,80 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /v1/site/logo:
+    get:
+      tags: [site-content]
+      operationId: getSiteLogo
+      summary: File logo đã tải lên
+      description: |
+        CÔNG KHAI — trả BYTES của logo do quản trị viên tải lên (bảng `site_assets`,
+        migration 0015) kèm đúng `Content-Type`. 404 khi chưa tải logo nào — người gọi rơi
+        về `site_settings.logo.url` rồi về logo chữ; thứ tự đó do BFF xử lý ở
+        `/api/brand/logo`.
+      responses:
+        '200':
+          description: Bytes của ảnh logo (png/jpeg/webp).
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Chưa tải logo nào lên.
+
+  /v1/admin/site/logo:
+    put:
+      tags: [admin]
+      operationId: adminUploadSiteLogo
+      summary: Tải logo lên
+      description: |
+        Yêu cầu `content:manage`. Ảnh gửi dạng base64 trong JSON — trần 512KB SAU giải mã
+        (CHECK ở database là chốt chặn cuối).
+
+        Danh mục MIME ĐÓNG: png/jpeg/webp. KHÔNG nhận SVG — SVG là XML chạy được, phục vụ
+        nó từ origin của chính mình là một đường XSS.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadSiteLogoRequest'
+      responses:
+        '204':
+          description: Đã lưu.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags: [admin]
+      operationId: adminDeleteSiteLogo
+      summary: Gỡ logo đã tải lên
+      description: |
+        Yêu cầu `content:manage`. Sau khi gỡ, web rơi về `site_settings.logo.url` (nếu đặt)
+        rồi về logo chữ.
+      security:
+        - webSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminReason'
+      responses:
+        '204':
+          description: Đã gỡ (kể cả khi vốn không có gì để gỡ — kết quả cuối như nhau).
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /v1/site/content:
     get:
       tags: [site-content]
@@ -2734,6 +2808,19 @@ components:
           description: |
             URL ảnh logo, hoặc `null` khi chưa đặt. Đã qua chính sách URL và đã chuẩn hoá —
             frontend dùng NGUYÊN chuỗi này, không tự ghép host.
+
+    UploadSiteLogoRequest:
+      type: object
+      required: [mime, data, reason]
+      additionalProperties: false
+      properties:
+        mime:
+          type: string
+          enum: [image/png, image/jpeg, image/webp]
+        data:
+          type: string
+          description: Bytes của ảnh, mã hoá base64. Trần 512KB sau giải mã.
+        reason: { type: string, minLength: 1 }
 
     UpdateSiteSettingsRequest:
       type: object
