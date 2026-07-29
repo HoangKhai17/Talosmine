@@ -130,13 +130,17 @@
  * không hiểu `linear-gradient`.
  *
  * `subgrid` để nội dung bên trong nằm trên ĐÚNG các cột mà vùng này chiếm của lưới trang —
- * không phải trên một lưới con tự chế. `grid-template-rows: auto 1fr` cho khối chữ cao theo
- * nội dung còn khối ảnh ăn hết phần cao còn lại.
+ * không phải trên một lưới con tự chế.
+ *
+ * `align-content: center` (2026-07-29, thay khối ảnh minh hoạ đã bỏ): panel này được lưới
+ * `.page` kéo cao TRỌN cột (`align-items` mặc định là `stretch`), nên phần cao dư ra giữa
+ * chữ và mép panel giờ CHIA ĐỀU hai đầu — cùng cách `.formArea` bên cột phải căn giữa nội
+ * dung của nó, để hai cột đối xứng nhau theo chiều dọc.
  */
 .brandPanel {
   display: grid;
   grid-template-columns: subgrid;
-  grid-template-rows: auto 1fr;
+  align-content: center;
   background-color: var(--color-accent-tint);
   background-image: var(--gradient-light-green);
 }
@@ -256,41 +260,6 @@
 /* `.accent` KHÔNG nằm trong nhóm trên: chủ dự án chốt độ đậm riêng 800 (xem token). */
 .accent {
   font-weight: var(--weight-accent);
-}
-
-/*
- * Khối ảnh ẨN Ở MOBILE và TABLET.
- *
- * Khi xếp chồng, nó nằm giữa phần giới thiệu và biểu mẫu — người dùng phải cuộn qua một
- * khối cao mới tới được ô đăng nhập. Việc chính của trang này là đăng nhập, nên thứ trang
- * trí phải nhường đường.
- */
-.brandImage {
-  display: none;
-}
-
-@media (min-width: 1280px) {
-  .brandImage {
-    /* Trải TRỌN vùng, kể cả track gutter: khối này ăn hết phần cao còn lại của cột. */
-    grid-column: 1 / -1;
-    display: grid;
-    place-items: center;
-    min-height: var(--space-30);
-    /* KHÔNG còn nền xám giữ chỗ (2026-07-29): ảnh thật đã có, nền PNG trong suốt nằm
-     * thẳng trên gradient Light Green của cột. */
-    padding-block: var(--space-10);
-  }
-
-  /*
-   * Kẹp theo CẢ hai chiều: `min(…, 100%)` để ở màn hình thấp (1280×720) ảnh co theo phần
-   * cao còn lại của cột thay vì đẩy trang cuộn dọc; màn hình cao thì dừng ở mức token.
-   * `width: auto` giữ tỉ lệ vuông của file gốc.
-   */
-  .brandImage img {
-    max-height: min(var(--media-auth-illustration), 100%);
-    width: auto;
-    max-width: 100%;
-  }
 }
 
 /* ── Cột phải: biểu mẫu ─────────────────────────────────────────────────────── */

@@ -686,14 +686,8 @@ function brandPanel() {
         ),
       ),
     ]),
-    /*
-      Ảnh minh hoạ CÙNG ORIGIN (`images/` do Logto phục vụ, như `fonts/`) nên không vướng
-      CSP. `aria-hidden` ở khối cha: ảnh thuần trang trí, `alt` rỗng để trình đọc màn hình
-      không loan báo gì.
-    */
-    el('div', { class: 'brandImage', 'aria-hidden': 'true' }, [
-      el('img', { src: '/images/auth_bot.png', alt: '' }),
-    ]),
+    // KHÔNG còn khối ảnh minh hoạ (chủ dự án bỏ 2026-07-29): `.brandContent` giờ là con
+    // DUY NHẤT của `.brandPanel`, và CSS căn nó giữa cột theo cả hai chiều — xem auth.css.
   ]);
 }
 
