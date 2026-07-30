@@ -179,6 +179,22 @@ export interface SurveyResponseRecordView {
   answers: { questionKey: string; optionKeys: string[] }[];
 }
 
+/**
+ * Câu trả lời khảo sát của CHÍNH người dùng — dạng đọc được (câu hỏi/lựa chọn đã dịch),
+ * khác `SurveyResponseRecordView` (dành cho admin, chỉ trả khoá thô). Khớp
+ * `OwnSurveyResponseView` của Control Plane (`modules/survey/survey.service.ts`).
+ */
+export interface OwnSurveyResponseView {
+  status: 'completed' | 'skipped';
+  locale: string;
+  createdAt: string;
+  answers: {
+    questionKey: string;
+    questionTitle: string;
+    selectedOptions: { key: string; label: string }[];
+  }[];
+}
+
 /** Khớp `OwnAccountView` của Control Plane (apps/control-plane/.../account.service.ts). */
 export interface AccountView {
   id: string;

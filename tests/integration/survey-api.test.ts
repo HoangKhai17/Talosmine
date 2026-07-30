@@ -260,6 +260,157 @@ describe('/v1/me/onboarding', () => {
     });
   });
 
+  describe('/v1/me/onboarding/response — xem/xoá câu trả lời của chính mình (DEC-B11 câu 2)', () => {
+    const getResponse = (headers: Record<string, string>, locale = 'vi') =>
+      app.inject({
+        method: 'GET',
+        url: `/v1/me/onboarding/response?locale=${locale}`,
+        headers,
+      });
+
+    const deleteResponse = (headers: Record<string, string>) =>
+      app.inject({ method: 'DELETE', url: '/v1/me/onboarding/response', headers });
+
+    it('404 khi account chưa từng trả lời/bỏ qua', async () => {
+      const user = await createUser('response-none');
+      expect((await getResponse(user.headers)).statusCode).toBe(404);
+    });
+
+    it('thiếu phiên → 401', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/v1/me/onboarding/response?locale=vi',
+      });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('TỪ CHỐI locale ngoài danh mục', async () => {
+      const user = await createUser('response-bad-locale');
+      expect((await getResponse(user.headers, 'fr')).statusCode).toBe(400);
+    });
+
+    it('trả nội dung ĐỌC ĐƯỢC (câu hỏi + lựa chọn) cho lần trả lời đã hoàn tất', async () => {
+      const user = await createUser('response-completed');
+      const answers = await validAnswers(user.headers);
+      await post(user.headers, { status: 'completed', locale: 'vi', answers });
+
+      const body = (await getResponse(user.headers)).json();
+      expect(body.status).toBe('completed');
+      expect(body.locale).toBe('vi');
+      expect(body.answers).toHaveLength(answers.length);
+
+      // Khoá phải khớp với những gì vừa nộp, và mỗi câu phải có tiêu đề + nhãn ĐỌC ĐƯỢC
+      // (không phải khoá thô như `SurveyResponseRecord` của admin).
+      const categoriesAnswer = body.answers.find(
+        (a: { questionKey: string }) => a.questionKey === 'categories',
+      );
+      expect(categoriesAnswer.questionTitle).toEqual(expect.any(String));
+      expect(categoriesAnswer.questionTitle.length).toBeGreaterThan(0);
+      expect(categoriesAnswer.selectedOptions.length).toBeGreaterThan(0);
+      for (const option of categoriesAnswer.selectedOptions) {
+        expect(option.key).toEqual(expect.any(String));
+        expect(option.label).toEqual(expect.any(String));
+        expect(option.label.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('trả tiêu đề/nhãn KHÁC NHAU theo locale, cùng một lần trả lời', async () => {
+      const user = await createUser('response-locale');
+      const answers = await validAnswers(user.headers);
+      await post(user.headers, { status: 'completed', locale: 'vi', answers });
+
+      const vi = (await getResponse(user.headers, 'vi')).json();
+      const en = (await getResponse(user.headers, 'en')).json();
+
+      expect(vi.answers[0].questionTitle).not.toBe(en.answers[0].questionTitle);
+      expect(vi.answers[0].selectedOptions[0].label).not.toBe(
+        en.answers[0].selectedOptions[0].label,
+      );
+      // Khoá (key) phải giữ nguyên bất kể locale — chỉ nhãn hiển thị đổi.
+      expect(vi.answers[0].questionKey).toBe(en.answers[0].questionKey);
+      expect(vi.answers[0].selectedOptions[0].key).toBe(en.answers[0].selectedOptions[0].key);
+    });
+
+    it('trả `answers` rỗng cho lần bỏ qua', async () => {
+      const user = await createUser('response-skipped');
+      await post(user.headers, { status: 'skipped', locale: 'vi' });
+
+      const body = (await getResponse(user.headers)).json();
+      expect(body.status).toBe('skipped');
+      expect(body.answers).toEqual([]);
+    });
+
+    it('vẫn hiển thị lựa chọn đã bị admin đổi trạng thái SAU khi trả lời', async () => {
+      const user = await createUser('response-inactive-option');
+      const answers = await validAnswers(user.headers);
+      await post(user.headers, { status: 'completed', locale: 'vi', answers });
+
+      // Tắt MỌI lựa chọn `active` — mô phỏng admin đổi trạng thái sau khi người dùng đã trả
+      // lời. `survey_options` là dữ liệu SEED, KHÔNG bị `beforeEach` truncate/reset — đổi
+      // trạng thái ở đây rò rỉ sang MỌI test chạy sau trong file này nếu không tự phục hồi.
+      // `try/finally` đảm bảo phục hồi kể cả khi assertion bên dưới thất bại.
+      try {
+        await client.sql`UPDATE control_plane.survey_options SET status = 'inactive'`;
+
+        const body = (await getResponse(user.headers)).json();
+        // Lịch sử câu trả lời KHÔNG được biến mất chỉ vì lựa chọn đó không còn `active` —
+        // khác `GET /v1/me/onboarding`, endpoint này không lọc theo status.
+        expect(body.answers).toHaveLength(answers.length);
+      } finally {
+        await client.sql`UPDATE control_plane.survey_options SET status = 'active'`;
+      }
+    });
+
+    it('xoá thành công → 204, tự xoá theo tầng cả answers, và required bật lại true', async () => {
+      const user = await createUser('response-delete');
+      const answers = await validAnswers(user.headers);
+      await post(user.headers, { status: 'completed', locale: 'vi', answers });
+
+      expect((await deleteResponse(user.headers)).statusCode).toBe(204);
+
+      const responseRows = await client.sql`
+        SELECT 1 FROM control_plane.survey_responses WHERE account_id = ${user.accountId}
+      `;
+      expect(responseRows).toHaveLength(0);
+
+      const answerRows = await client.sql`
+        SELECT 1 FROM control_plane.survey_answers a
+        JOIN control_plane.survey_responses r ON r.id = a.response_id
+        WHERE r.account_id = ${user.accountId}
+      `;
+      expect(answerRows).toHaveLength(0);
+
+      expect((await get(user.headers)).json().required).toBe(true);
+    });
+
+    it('xoá khi chưa có gì để xoá → 404', async () => {
+      const user = await createUser('response-delete-none');
+      expect((await deleteResponse(user.headers)).statusCode).toBe(404);
+    });
+
+    it('xoá thiếu phiên → 401', async () => {
+      const res = await app.inject({ method: 'DELETE', url: '/v1/me/onboarding/response' });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('KHÔNG đọc/xoá được câu trả lời của account KHÁC', async () => {
+      const owner = await createUser('response-owner');
+      const stranger = await createUser('response-stranger');
+      await post(owner.headers, { status: 'skipped', locale: 'vi' });
+
+      // Stranger chưa có response của CHÍNH họ — accountId luôn đến từ phiên, không có cách
+      // nào truyền id của owner vào request để dò/xoá hộ.
+      expect((await getResponse(stranger.headers)).statusCode).toBe(404);
+      expect((await deleteResponse(stranger.headers)).statusCode).toBe(404);
+
+      // Response của owner vẫn còn nguyên sau khi stranger cố xoá.
+      const rows = await client.sql`
+        SELECT 1 FROM control_plane.survey_responses WHERE account_id = ${owner.accountId}
+      `;
+      expect(rows).toHaveLength(1);
+    });
+  });
+
   /**
    * Quyền của role runtime — bài này bắt đúng lỗi đã xảy ra ở migration 0010.
    *
@@ -282,15 +433,32 @@ describe('/v1/me/onboarding', () => {
     });
 
     /**
-     * Câu trả lời đã nộp là dữ liệu lịch sử — ứng dụng không có đường sửa hay xoá. Cấp
-     * UPDATE/DELETE ở đây nghĩa là một lỗi lập trình cũng làm hỏng được dữ liệu thu thập.
+     * Câu trả lời đã nộp là dữ liệu lịch sử — ứng dụng không có đường SỬA. Cấp UPDATE ở đây
+     * nghĩa là một lỗi lập trình cũng làm hỏng được dữ liệu thu thập.
      */
-    it('bảng TRẢ LỜI KHÔNG có UPDATE/DELETE', async () => {
+    it('bảng TRẢ LỜI KHÔNG có UPDATE', async () => {
       for (const table of ['survey_responses', 'survey_answers']) {
-        for (const privilege of ['UPDATE', 'DELETE']) {
-          expect(await can(table, privilege), `${table} KHÔNG được có ${privilege}`).toBe(false);
-        }
+        expect(await can(table, 'UPDATE'), `${table} KHÔNG được có UPDATE`).toBe(false);
       }
+    });
+
+    /**
+     * `survey_answers` KHÔNG có DELETE trực tiếp — migration 0016 (DEC-B11 câu 2) chỉ cấp
+     * DELETE trên `survey_responses`. Xoá answers CHỈ xảy ra như hệ quả của xoá đúng MỘT
+     * response (`ON DELETE CASCADE`) — đã kiểm chứng thật rằng cascade KHÔNG đòi role phải
+     * có DELETE trên bảng con, nên không cần cấp thêm ở đây. Có DELETE trực tiếp trên
+     * `survey_answers` sẽ mở một đường xoá lẻ từng câu trả lời mà không qua response.
+     */
+    it('`survey_answers` KHÔNG có DELETE trực tiếp', async () => {
+      expect(await can('survey_answers', 'DELETE')).toBe(false);
+    });
+
+    /**
+     * `survey_responses` CÓ DELETE — DEC-B11 câu 2 (2026-07-30): người dùng được tự xoá câu
+     * trả lời khảo sát của chính mình (`DELETE /v1/me/onboarding/response`).
+     */
+    it('`survey_responses` CÓ DELETE (DEC-B11 câu 2 — tự xoá dữ liệu của chính mình)', async () => {
+      expect(await can('survey_responses', 'DELETE')).toBe(true);
     });
   });
 });

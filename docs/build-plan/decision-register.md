@@ -434,7 +434,7 @@ Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default
 
 | ID | Quyết định | Trạng thái | Chặn phase | Ghi chú |
 |---|---|---|---|---|
-| DEC-B01 | **Danh sách ứng dụng của Hub** và owner từng app | `open` | P3, P6, P7 | Không tồn tại ở bất kỳ đâu trong repo. Blocker lớn nhất còn lại. Không chặn P1/P2. |
+| DEC-B01 | **Danh sách ứng dụng của Hub** và owner từng app | `approved` (một phần) 2026-07-30 | P3, P6, P7 | Hướng đã chốt — xem dưới. Danh sách app/domain thật vẫn `open`. |
 | DEC-B02 | **Sample app** cho P6 và path nào nó đại diện | `open` | P6 | Phụ thuộc DEC-B01. |
 | DEC-B03 | Auth0 tenant/environment thật, issuer, audience | `open` | P2 | Cần tài khoản Auth0 của chủ dự án. Cấu trúc topology đã đề xuất tại DEC-T14. |
 | DEC-B04 | Account activation policy và default plan | `approved` (một phần) | P2, P4 | Activation đã chốt — xem dưới. Default plan vẫn `open` (thuộc P4). |
@@ -444,10 +444,11 @@ Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default
 | DEC-B08 | Reservation TTL và late-success behavior | `open` | P5–P7 | |
 | DEC-B09 | Subscription lifecycle: timing upgrade/downgrade/cancel, terminal branch | `open` | P4, P9 | `../modular.md` mục 7.4 cố ý không chọn nhánh. |
 | DEC-B10 | Revoke SLA, outage policy, last-known-good | `open` | P2, P4, P6–P8 | Chưa chốt thì mặc định fail-closed. |
-| DEC-B11 | Retention và privacy matrix | `open` | P2, P5, P8 | |
+| DEC-B11 | Retention và privacy matrix | `approved` (một phần) 2026-07-30 | P2, P5, P8 | Hai trong ba câu đã chốt — xem dưới. Thời hạn lưu cụ thể vẫn `open`. |
 | DEC-B12 | RPO/RTO và restore drill cadence | `open` | P8 | |
 | DEC-B13 | Payment provider | `open` | P9 | Deferred có chủ đích. |
 | DEC-B15 | **Danh sách ngôn ngữ hỗ trợ** | `approved` 2026-07-27 | module nội dung site | `vi` (mặc định) + `en`. Xem dưới. |
+| DEC-B16 | **Blog/"Gửi công cụ"/"Liên hệ" thuộc phase nào** | `approved` 2026-07-30 | P3 | Gộp vào P3, cùng đợt catalog. Xem dưới. |
 
 ### DEC-B04a — Account activation policy
 
@@ -481,6 +482,52 @@ Nhóm B **không** nằm trong ủy quyền của agent. Không điền "default
   không phải ngôn ngữ.
 - **Affected phase:** module nội dung site.
 
+### DEC-B01 — Hướng Hub/Catalog *(`approved` một phần 2026-07-30)*
+
+- **Quyết định:** Talosmine là **hub đóng, ~10 ứng dụng do chủ dự án kiểm soát** — không phải
+  thư mục mở kiểu "10.000+ công cụ, ai cũng gửi lên" như wireframe Figma từng gợi ý. Chỉ
+  chủ dự án/admin tạo được ứng dụng trong `/admin/catalog`; **không** có luồng "submit" công
+  khai cho người ngoài.
+- **Vẫn `open`:** danh sách ứng dụng thật (tên, domain, ai sở hữu) — chưa có, vẫn chặn kích
+  hoạt bất kỳ app nào (`CATALOG_ALLOWED_HOSTS` rỗng). Hướng đã chốt chỉ mở khoá được việc
+  THIẾT KẾ (không cần lược đồ dữ liệu kiểu marketplace mở), chưa mở khoá được việc TẠO app.
+- **Hệ quả trực tiếp:** A6 (redirect URI) và A7 (metadata service identity) vẫn chờ dữ liệu
+  thật của từng app cụ thể — hướng đã chốt không tự sinh ra dữ liệu đó. F1 (search/filter)
+  giờ thiết kế được cho đúng loại catalog (đóng, ít app, không cần duyệt/kiểm duyệt hàng
+  loạt).
+- **Affected phase:** P3 (mở khoá thiết kế schema), P6, P7 (vẫn chờ inventory thật).
+
+### DEC-B11 — Retention và privacy matrix *(`approved` một phần 2026-07-30)*
+
+Áp dụng cho `survey_responses`/`survey_answers` (migration 0012) — loại dữ liệu cá nhân mới
+gắn `account_id`, đã đọc được qua `/admin/survey/responses` từ 2026-07-28.
+
+- **Câu 2 — ĐÃ CHỐT: người dùng được tự xem/xoá câu trả lời của mình, cần làm SỚM.** Hiện
+  chưa có màn hình này — đây là việc mới cần thêm vào `pending-work.md` mục D (một trang ở
+  `/account`, đọc/xoá đúng dữ liệu của chính phiên đang đăng nhập, cùng khuôn với
+  `/account/sessions`).
+- **Câu 3 — ĐÃ CHỐT: giữ `ON DELETE RESTRICT`.** Xoá account bị chặn nếu còn câu trả lời khảo
+  sát — không đổi schema (đã đúng là `RESTRICT` từ trước, quyết định này CHÍNH THỨC HOÁ lựa
+  chọn đó thay vì để nó là một default ngầm chưa ai duyệt). Hệ quả: quy trình xoá account
+  (khi được xây) phải tự xử lý câu trả lời khảo sát trước — hoặc để người dùng tự xoá qua màn
+  hình ở câu 2, hoặc admin xử lý tường minh — không thể xoá account rồi "quên" phần này.
+- **Câu 1 — VẪN `open`:** giữ câu trả lời khảo sát bao lâu, có ẩn danh hoá sau một thời hạn
+  không. Code cố ý chưa ghi thời hạn nào. Cần một con số cụ thể (ví dụ "12 tháng rồi ẩn danh
+  hoá", hoặc "giữ vô thời hạn tới khi user tự xoá") trước khi phát hành ra người dùng thật.
+- **Affected phase:** P2 (màn hình tự xem/xoá), P5, P8 (chính sách retention tổng thể).
+
+### DEC-B16 — Blog/"Gửi công cụ"/"Liên hệ" thuộc phase nào *(`approved` 2026-07-30)*
+
+- **Quyết định:** ba trang này (đã dựng bố cục đầy đủ, dữ liệu mẫu — xem `pending-work.md`
+  D1) **gộp vào P3**, làm cùng đợt với catalog thay vì để một phase riêng sau P9.
+- **Vì sao hợp lý sau DEC-B01:** hướng "hub đóng" nghĩa là không có luồng submit công khai từ
+  người lạ — nhưng route `/submit` vẫn có nghĩa như một kênh **đề xuất** (chủ dự án/đối tác
+  gợi ý ứng dụng, không phải ai cũng tự thêm được), khớp với model catalog đã chốt.
+- **Việc phát sinh:** Blog cần toàn bộ tầng dữ liệu (bảng, API, trang soạn bài) — chưa có gì,
+  xem `pending-work.md` D1. `/submit`, `/contact` cần xác định form đó ghi vào đâu (bảng mới,
+  hay chỉ gửi email) — chưa thiết kế.
+- **Affected phase:** P3.
+
 ### DEC-T14 — Cấu trúc Auth0 topology *(`proposed` — chờ DEC-B03)*
 
 Đây là **đề xuất cấu trúc**, không phải cấu hình thật. Không có giá trị nào ở đây là secret.
@@ -498,15 +545,15 @@ Trạng thái giữ `proposed` cho tới khi chủ dự án cung cấp tenant th
 
 | Phase | Quyết định bắt buộc phải `approved` để mở phase | Tình trạng hiện tại |
 |---|---|---|
-| P0 | DEC-G01 | Đạt cho phần kỹ thuật; inventory app vẫn `open` (DEC-B01). |
+| P0 | DEC-G01 | Đạt cho phần kỹ thuật; hướng Hub đã chốt (DEC-B01), inventory app cụ thể vẫn `open`. |
 | **P1** | DEC-T01…T13, T15…T17 | **Đủ — P1 đang thực thi.** Xem [`evidence-p1.md`](./evidence-p1.md) để biết phần nào đã chạy thật. |
 | P2 | DEC-B03, DEC-B04, DEC-B10, DEC-T14 | Chưa đủ. |
-| P3 | DEC-B01, DEC-B05, DEC-T12 | Chưa đủ. |
+| P3 | DEC-B01 (một phần), DEC-B05, DEC-B16, DEC-T12 | Chưa đủ — còn DEC-B05 (đơn vị đo), và dữ liệu inventory thật của DEC-B01. |
 | P4 | DEC-B04, DEC-B09, DEC-B10 | Chưa đủ. |
 | P5 | DEC-B05…B08, DEC-T05, DEC-T09 | Chưa đủ. |
-| P6 | DEC-B01, DEC-B02 | Chưa đủ. |
-| P7 | DEC-B01, DEC-B05 | Chưa đủ. |
-| P8 | DEC-B11, DEC-B12 | Chưa đủ. |
+| P6 | DEC-B01, DEC-B02 | Chưa đủ — vẫn cần inventory app thật. |
+| P7 | DEC-B01, DEC-B05 | Chưa đủ — vẫn cần inventory app thật. |
+| P8 | DEC-B11 (một phần), DEC-B12 | Chưa đủ — còn thời hạn lưu cụ thể (câu 1 của DEC-B11). |
 | P9 | DEC-B13 + approval riêng | Deferred. |
 
 ## D. Bảng version pin — nguồn sự thật duy nhất

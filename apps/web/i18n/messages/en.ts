@@ -113,6 +113,7 @@ export const en = {
     privacy: 'Talosmine — Privacy Policy',
     account: 'Talosmine — Account',
     sessions: 'Talosmine — Sessions',
+    surveyAnswers: 'Talosmine — Survey answers',
   },
 
   home: {
@@ -262,6 +263,7 @@ export const en = {
     idpNote:
       'Your email and password are managed by the sign-in system and cannot be edited here. Your account is identified by your sign-in identity, not by your email address.',
     viewSessions: 'View sign-in sessions',
+    viewSurveyAnswers: 'View survey answers',
     editProfile: 'Edit profile',
     displayName: 'Display name',
     locale: 'Language',
@@ -296,6 +298,23 @@ export const en = {
     revokingAll: 'Signing out…',
     revokeAllFailed: 'Could not sign out.',
     revokeAllNote: 'This includes the device you are using — you will have to sign in again.',
+    backToAccount: 'Back to account',
+  },
+
+  surveyAnswers: {
+    title: 'Survey answers',
+    lead: 'What you answered (or skipped) in the onboarding survey. You can delete this answer at any time.',
+    loadFailed: 'Could not load your survey answer.',
+    empty: 'You have not answered this survey yet.',
+    skippedNotice: 'You chose to skip this survey.',
+    answeredAt: 'Answered {when}',
+    skippedAt: 'Skipped {when}',
+    deleteButton: 'Delete answer',
+    deleting: 'Deleting…',
+    confirmDelete:
+      'Delete this survey answer? You will be asked again next time you sign in, and this cannot be undone.',
+    deleted: 'Survey answer deleted.',
+    deleteFailed: 'Could not delete the survey answer.',
     backToAccount: 'Back to account',
   },
 } as const satisfies Messages;

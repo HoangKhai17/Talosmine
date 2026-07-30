@@ -140,6 +140,56 @@ export async function createAdminSession(
 }
 
 /**
+ * Ghi thẳng một lần "bỏ qua khảo sát" cho account — dùng cho B2 mở rộng (2026-07-30):
+ * `/account/survey`. Raw SQL thay vì nhập schema từ `dist/`: chỉ hai bảng, không cần thêm
+ * một vòng `@ts-expect-error`/`import type` nữa cho một lần ghi đơn giản.
+ */
+export async function createSkippedSurveyResponse(accountId: string): Promise<void> {
+  const { sql } = db();
+  await sql`
+    INSERT INTO control_plane.survey_responses (id, account_id, status, locale)
+    VALUES (${crypto.randomUUID()}, ${accountId}, 'skipped', 'vi')
+  `;
+}
+
+/**
+ * Ghi thẳng một lần "đã hoàn tất khảo sát" cho account, chọn `minSelect` lựa chọn đầu tiên
+ * (theo `sort_order`) của MỖI câu hỏi `active` — không viết cứng khoá câu hỏi/lựa chọn nào,
+ * cùng tinh thần `validAnswers()` ở `tests/integration/survey-api.test.ts` (dựng từ seed
+ * thật, không đoán nội dung).
+ */
+export async function createCompletedSurveyResponse(accountId: string): Promise<void> {
+  const { sql } = db();
+  const responseId = crypto.randomUUID();
+  await sql`
+    INSERT INTO control_plane.survey_responses (id, account_id, status, locale)
+    VALUES (${responseId}, ${accountId}, 'completed', 'vi')
+  `;
+
+  const questions = await sql<{ id: string; minSelect: number }[]>`
+    SELECT id, min_select AS "minSelect"
+    FROM control_plane.survey_questions
+    WHERE status = 'active'
+    ORDER BY sort_order
+  `;
+
+  for (const question of questions) {
+    const options = await sql<{ id: string }[]>`
+      SELECT id FROM control_plane.survey_options
+      WHERE question_id = ${question.id} AND status = 'active'
+      ORDER BY sort_order
+      LIMIT ${question.minSelect}
+    `;
+    for (const option of options) {
+      await sql`
+        INSERT INTO control_plane.survey_answers (id, response_id, question_id, option_id)
+        VALUES (${crypto.randomUUID()}, ${responseId}, ${question.id}, ${option.id})
+      `;
+    }
+  }
+}
+
+/**
  * Đặt MỘT cookie qua một response HTTP THẬT (bị chặn và tự trả lời bởi `context.route`),
  * không qua `context.addCookies`.
  *

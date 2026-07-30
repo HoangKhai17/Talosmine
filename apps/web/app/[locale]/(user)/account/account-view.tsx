@@ -25,11 +25,13 @@ export function AccountView({
   t,
   common,
   sessionsHref,
+  surveyHref,
   signInHref,
 }: {
   t: Messages['account'];
   common: Messages['common'];
   sessionsHref: string;
+  surveyHref: string;
   /** Đích khi phiên hết hạn. Dựng ở server vì nó phải mang `returnTo` đã encode đúng locale. */
   signInHref: string;
 }) {
@@ -107,6 +109,9 @@ export function AccountView({
           <div className={styles.actions}>
             <Link className="typeBody" href={sessionsHref}>
               {t.viewSessions}
+            </Link>
+            <Link className="typeBody" href={surveyHref}>
+              {t.viewSurveyAnswers}
             </Link>
           </div>
         </>

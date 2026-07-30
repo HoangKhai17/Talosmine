@@ -113,6 +113,13 @@
       "when": 1784201400000,
       "tag": "0015_site_logo_upload",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1784201500000,
+      "tag": "0016_survey_response_self_delete",
+      "breakpoints": true
     }
   ]
 }

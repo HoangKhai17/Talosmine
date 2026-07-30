@@ -1,0 +1,71 @@
+/*
+ * Trang câu trả lời khảo sát. Chỉ dùng token từ globals.css.
+ *
+ * Mỗi câu hỏi là MỘT khối (không phải bảng): đây là dữ liệu MỘT chiều (câu hỏi → các lựa
+ * chọn đã chọn), không phải nhiều hàng × nhiều cột như `/account/sessions`.
+ */
+
+.empty {
+  padding: var(--space-8);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.answerCard {
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.questionTitle {
+  margin: 0;
+}
+
+.optionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.optionTag {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-tag);
+  border: var(--border-default);
+}
+
+.dangerZone {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: var(--border-default);
+}
+
+.deleteButton {
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.deleteButton:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+}
+
+.deleteButton:disabled {
+  cursor: not-allowed;
+  color: var(--color-text-tertiary);
+}

@@ -170,6 +170,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/onboarding/response": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Câu trả lời khảo sát của chính mình — đọc được
+         * @description Cần phiên đăng nhập. Khác `SurveyResponseRecord` (dành cho admin, chỉ trả khoá thô
+         *     để tổng hợp): endpoint này trả nội dung ĐỌC ĐƯỢC — câu hỏi và lựa chọn đã dịch theo
+         *     `locale` yêu cầu, cho chính account đang gọi.
+         *
+         *     404 khi account này chưa từng trả lời/bỏ qua khảo sát.
+         *
+         *     Câu hỏi/lựa chọn đã bị admin đổi trạng thái SAU KHI trả lời vẫn hiển thị đầy đủ — đây
+         *     là LỊCH SỬ câu trả lời của người dùng, không phải bộ câu hỏi hiện đang hỏi (khác
+         *     `GET /v1/me/onboarding`, chỉ trả mục `active`).
+         */
+        get: operations["getOwnSurveyResponse"];
+        put?: never;
+        post?: never;
+        /**
+         * Xoá câu trả lời khảo sát của chính mình
+         * @description Cần phiên đăng nhập. Xoá HẲN bản ghi `survey_responses` của account này — câu trả lời
+         *     liên quan (`survey_answers`) bị xoá theo tầng ở database, không cần gọi riêng.
+         *
+         *     Sau khi xoá, account trở lại trạng thái "chưa onboard" (`GET /v1/me/onboarding` sẽ
+         *     trả `required: true` ở lần đăng nhập kế tiếp).
+         *
+         *     Không phải thu hồi/vô hiệu hoá — đây là XOÁ DỮ LIỆU CÁ NHÂN theo yêu cầu chính chủ
+         *     (DEC-B11). Không có audit log cho thao tác này, cùng lý do đã ghi ở
+         *     `POST /v1/me/onboarding`: dữ liệu của chính người dùng, không phải một thao tác quản
+         *     trị cần biện minh.
+         */
+        delete: operations["deleteOwnSurveyResponse"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/account": {
         parameters: {
             query?: never;
@@ -1392,6 +1433,29 @@ export interface components {
             }[];
         };
         /**
+         * @description Nội dung ĐỌC ĐƯỢC câu trả lời của chính người dùng — khác `SurveyResponseRecord`
+         *     (dành cho admin, chỉ trả khoá thô để tổng hợp/đối chiếu).
+         */
+        OwnSurveyResponse: {
+            /** @enum {string} */
+            status: "completed" | "skipped";
+            /** @enum {string} */
+            locale: "vi" | "en";
+            /** Format: date-time */
+            createdAt: string;
+            /** @description Rỗng khi `status = skipped`. */
+            answers: {
+                questionKey: components["schemas"]["SurveyQuestionKey"];
+                /** @description Nhãn câu hỏi theo `locale` đã yêu cầu. */
+                questionTitle: string;
+                selectedOptions: {
+                    key: string;
+                    /** @description Nhãn lựa chọn theo `locale` đã yêu cầu. */
+                    label: string;
+                }[];
+            }[];
+        };
+        /**
          * @description Khác `SurveyQuestion` ở hai chỗ: trả CẢ HAI ngôn ngữ cùng lúc (màn hình quản trị sửa
          *     song song), và trả cả lựa chọn `draft`/`inactive` mà người dùng không thấy.
          */
@@ -2159,6 +2223,51 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+        };
+    };
+    getOwnSurveyResponse: {
+        parameters: {
+            query: {
+                locale: "vi" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Câu trả lời (hoặc bỏ qua) của chính account đang đăng nhập. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnSurveyResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteOwnSurveyResponse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Đã xoá. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getOwnAccount: {

@@ -359,6 +359,68 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /v1/me/onboarding/response:
+    get:
+      tags: [survey]
+      operationId: getOwnSurveyResponse
+      summary: Câu trả lời khảo sát của chính mình — đọc được
+      description: |
+        Cần phiên đăng nhập. Khác `SurveyResponseRecord` (dành cho admin, chỉ trả khoá thô
+        để tổng hợp): endpoint này trả nội dung ĐỌC ĐƯỢC — câu hỏi và lựa chọn đã dịch theo
+        `locale` yêu cầu, cho chính account đang gọi.
+
+        404 khi account này chưa từng trả lời/bỏ qua khảo sát.
+
+        Câu hỏi/lựa chọn đã bị admin đổi trạng thái SAU KHI trả lời vẫn hiển thị đầy đủ — đây
+        là LỊCH SỬ câu trả lời của người dùng, không phải bộ câu hỏi hiện đang hỏi (khác
+        `GET /v1/me/onboarding`, chỉ trả mục `active`).
+      security:
+        - webSession: []
+      parameters:
+        - name: locale
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [vi, en]
+      responses:
+        '200':
+          description: Câu trả lời (hoặc bỏ qua) của chính account đang đăng nhập.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnSurveyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [survey]
+      operationId: deleteOwnSurveyResponse
+      summary: Xoá câu trả lời khảo sát của chính mình
+      description: |
+        Cần phiên đăng nhập. Xoá HẲN bản ghi `survey_responses` của account này — câu trả lời
+        liên quan (`survey_answers`) bị xoá theo tầng ở database, không cần gọi riêng.
+
+        Sau khi xoá, account trở lại trạng thái "chưa onboard" (`GET /v1/me/onboarding` sẽ
+        trả `required: true` ở lần đăng nhập kế tiếp).
+
+        Không phải thu hồi/vô hiệu hoá — đây là XOÁ DỮ LIỆU CÁ NHÂN theo yêu cầu chính chủ
+        (DEC-B11). Không có audit log cho thao tác này, cùng lý do đã ghi ở
+        `POST /v1/me/onboarding`: dữ liệu của chính người dùng, không phải một thao tác quản
+        trị cần biện minh.
+      security:
+        - webSession: []
+      responses:
+        '204':
+          description: Đã xoá.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /v1/me/account:
     patch:
       tags: [account]
@@ -2586,6 +2648,42 @@ components:
                 type: array
                 minItems: 1
                 items: { type: string }
+
+    OwnSurveyResponse:
+      type: object
+      required: [status, locale, createdAt, answers]
+      additionalProperties: false
+      description: |
+        Nội dung ĐỌC ĐƯỢC câu trả lời của chính người dùng — khác `SurveyResponseRecord`
+        (dành cho admin, chỉ trả khoá thô để tổng hợp/đối chiếu).
+      properties:
+        status: { type: string, enum: [completed, skipped] }
+        locale: { type: string, enum: [vi, en] }
+        createdAt: { type: string, format: date-time }
+        answers:
+          type: array
+          description: Rỗng khi `status = skipped`.
+          items:
+            type: object
+            required: [questionKey, questionTitle, selectedOptions]
+            additionalProperties: false
+            properties:
+              questionKey:
+                $ref: '#/components/schemas/SurveyQuestionKey'
+              questionTitle:
+                type: string
+                description: Nhãn câu hỏi theo `locale` đã yêu cầu.
+              selectedOptions:
+                type: array
+                items:
+                  type: object
+                  required: [key, label]
+                  additionalProperties: false
+                  properties:
+                    key: { type: string }
+                    label:
+                      type: string
+                      description: Nhãn lựa chọn theo `locale` đã yêu cầu.
 
     # ── Survey: quản trị ───────────────────────────────────────────────────────
 

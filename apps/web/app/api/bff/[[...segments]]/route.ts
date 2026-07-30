@@ -17,11 +17,22 @@ import { csrfTokenFromRequest, readSessionToken } from '../../../../server/sessi
  * phiên của người dùng bằng cách gọi thẳng Control Plane.
  */
 async function handle(request: Request, segments: string[] | undefined): Promise<Response> {
-  const path = `/v1/${(segments ?? []).join('/')}`;
+  // `url.search` giữ nguyên `?locale=vi` v.v. — thiếu dòng này thì MỌI query string từ
+  // browser bị bỏ rơi lặng lẽ (catch-all chỉ bắt path segments, không bắt query), và
+  // endpoint nào cần tham số qua GET (ví dụ `/me/onboarding/response?locale=`) sẽ luôn nhận
+  // `undefined` phía Control Plane mà không có lỗi nào để thấy.
+  const url = new URL(request.url);
+  const path = `/v1/${(segments ?? []).join('/')}${url.search}`;
 
-  // GET không bao giờ có body. DELETE thì CÓ: thu hồi phân quyền bắt buộc kèm `reason`,
-  // và HTTP không cấm DELETE mang body.
-  const hasBody = request.method !== 'GET';
+  // DELETE không phải lúc nào cũng có body (thu hồi phân quyền kèm `reason` thì có, xoá tài
+  // nguyên của chính mình như `/me/onboarding/response` thì không) — HTTP không cấm DELETE
+  // mang body nhưng cũng không bắt buộc. Đọc THẬT rồi kiểm độ dài, không suy theo method: coi
+  // MỌI request khác GET là "có body" từng khiến DELETE rỗng vẫn bị gắn
+  // `content-type: application/json` với thân rỗng — Fastify từ chối thẳng với "Body cannot
+  // be empty when content-type is set to 'application/json'". Lỗi này chưa từng lộ ra vì
+  // trước đây không có luồng DELETE-không-body nào được bấm thật qua trình duyệt trong e2e.
+  const rawBody = request.method !== 'GET' ? await request.text() : '';
+  const hasBody = rawBody.length > 0;
 
   // Request ghi dữ liệu phải qua cửa CSRF trước khi chạm Control Plane.
   const isUnsafe = request.method !== 'GET';
@@ -44,7 +55,7 @@ async function handle(request: Request, segments: string[] | undefined): Promise
       path,
       sessionToken: readSessionToken(request.headers.get('cookie')),
       csrfToken,
-      body: hasBody ? await request.text() : undefined,
+      body: hasBody ? rawBody : undefined,
       contentType: hasBody
         ? (request.headers.get('content-type') ?? 'application/json')
         : undefined,

@@ -28,6 +28,7 @@ export default async function AccountPage({ params }: PageLocaleParams) {
       t={t.account}
       common={t.common}
       sessionsHref={localeHref(locale, '/account/sessions')}
+      surveyHref={localeHref(locale, '/account/survey')}
       // `/auth` nằm ngoài vùng locale; `returnTo` thì phải mang locale để sau khi đăng nhập
       // người dùng quay lại đúng ngôn ngữ họ đang xem.
       signInHref={`/auth?returnTo=${encodeURIComponent(accountPath)}`}

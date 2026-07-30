@@ -63,44 +63,43 @@ App Secret hiện dùng **đã lộ trong hội thoại**. Phải thay:
 2. Cập nhật `OIDC_CLIENT_SECRET` ở **cả hai** nơi: `.env.dev` và `apps/web/.env.local`
 3. Khởi động lại BFF
 
-### A4. DEC-B01 — danh sách ứng dụng của Hub
+### A4. DEC-B01 — danh sách ứng dụng của Hub — HƯỚNG ĐÃ CHỐT (2026-07-30), còn chờ dữ liệu
 
-`open` từ đầu dự án. **Chặn P3, P6, P7.** Không tồn tại ở bất kỳ đâu trong repo.
+**Hướng đã chốt:** Talosmine là **hub đóng, ~10 ứng dụng do chủ dự án kiểm soát** — không
+phải thư mục mở kiểu marketplace. Chi tiết ở `decision-register.md` (DEC-B01).
 
-Cần: có những app nào, ai sở hữu, chạy ở domain nào.
+**Vẫn `open`, vẫn chặn P3, P6, P7:** danh sách ứng dụng THẬT — có những app nào, ai sở hữu,
+chạy ở domain nào. Hướng đã chốt chỉ xác định LOẠI schema cần dùng (đóng, không cần luồng
+duyệt hàng loạt), không tự sinh ra dữ liệu.
 
-**Hệ quả cụ thể đang thấy được (2026-07-22):** `CATALOG_ALLOWED_HOSTS` đang **rỗng**, nên
-mọi URL nhập vào danh mục đều bị từ chối. Đó là hành vi đúng theo thiết kế, không phải lỗi
-— cơ chế đã dựng và có 31 test, chỉ là danh sách chưa có nội dung. Giao diện quản trị
-`/admin/catalog` đã chạy nhưng chưa tạo được ứng dụng nào cho tới khi có host hợp lệ.
+**Hệ quả cụ thể đang thấy được:** `CATALOG_ALLOWED_HOSTS` đang **rỗng**, nên mọi URL nhập
+vào danh mục đều bị từ chối. Đó là hành vi đúng theo thiết kế, không phải lỗi — cơ chế đã
+dựng và có 31 test, chỉ là danh sách chưa có nội dung. Giao diện quản trị `/admin/catalog`
+đã chạy nhưng chưa tạo được ứng dụng nào cho tới khi có host hợp lệ.
 
-Câu hỏi lớn hơn nằm dưới DEC-B01, cần chốt trước: **Talosmine là hub ~10 ứng dụng do chủ
-dự án kiểm soát** (như `docs/index.md` mô tả), **hay là thư mục công cụ AI mở cho người
-ngoài gửi lên** (như wireframe Figma mô tả với "10.000+ công cụ", "Submit a Tool")? Hai thứ
-này cần hai lược đồ dữ liệu khác nhau. Xem thêm A8.
+**Cần bạn cung cấp:** với MỖI ứng dụng — tên, domain (cho `CATALOG_ALLOWED_HOSTS`), người sở
+hữu. Xem thêm A6 (redirect URI) và A7 (metadata service identity) — cả hai đều cần dữ liệu
+tương ứng cho từng app này.
 
-### A10. Thời hạn lưu dữ liệu khảo sát — DEC-B11
+### A10. Thời hạn lưu dữ liệu khảo sát — DEC-B11 — HAI TRONG BA CÂU ĐÃ CHỐT (2026-07-30)
 
 `survey_responses` và `survey_answers` (migration 0012) là **loại dữ liệu cá nhân MỚI**, gắn
-với `account_id`. `AGENTS.md` liệt kê **retention** vào nhóm chỉ chủ dự án chốt được, và
-DEC-B11 đang `open`.
+với `account_id`. Ba câu, đã chốt hai:
 
-Ba câu cần trả lời **trước khi phát hành ra người dùng thật**:
+1. **VẪN `open`.** Giữ bao lâu? Có ẩn danh hoá sau một thời hạn không? Code cố ý **không ghi
+   thời hạn nào** cho tới khi có con số cụ thể.
+2. **✅ ĐÃ CHỐT: có, người dùng được tự xem/xoá câu trả lời của mình, cần làm SỚM.** Việc mới
+   phát sinh — xem D0 mục 1: một trang ở `/account` (cùng khuôn `/account/sessions`), đọc/xoá
+   đúng dữ liệu của phiên đang đăng nhập.
+3. **✅ ĐÃ CHỐT: giữ `ON DELETE RESTRICT`** (không đổi schema — đã đúng vậy từ trước, quyết
+   định này chính thức hoá lựa chọn đó). Xoá account bị chặn nếu còn câu trả lời khảo sát —
+   quy trình xoá account (khi được xây) phải tự xử lý phần này trước, không được âm thầm bỏ
+   qua.
 
-1. Giữ bao lâu? Có ẩn danh hoá sau một thời hạn không?
-2. Người dùng có được xem/xoá câu trả lời của chính mình không? (hiện **chưa** có màn hình đó)
-3. Xoá account thì câu trả lời đi theo hay giữ lại dạng ẩn danh?
-
-Câu 3 là thứ duy nhất **đổi schema**: hiện `survey_responses.account_id` dùng
-`ON DELETE RESTRICT` — lựa chọn an toàn nhất, buộc phải xử lý tường minh thay vì âm thầm mất
-dữ liệu. Đổi sang `SET NULL` (giữ ẩn danh) hay `CASCADE` (xoá theo) đều cần migration.
-
-Code cố ý **không ghi thời hạn nào**.
-
-**Từ 2026-07-28 câu hỏi này không còn là giả thuyết:** `/admin/survey/responses` đã tồn tại và
-trả `accountId`, nên dữ liệu này đã đọc được qua giao diện. Nó nằm sau `survey_response:read`
-— permission riêng, không phải `content:*` — nhưng phân quyền không thay thế được chính sách
-lưu trữ.
+**Từ 2026-07-28 câu 1 không còn là giả thuyết:** `/admin/survey/responses` đã tồn tại và trả
+`accountId`, nên dữ liệu này đã đọc được qua giao diện. Nó nằm sau `survey_response:read` —
+permission riêng, không phải `content:*` — nhưng phân quyền không thay thế được chính sách
+lưu trữ. Chi tiết đầy đủ ở `decision-register.md` (DEC-B11).
 
 ### A5. DEC-B05 — đơn vị đo của `usage_metrics`
 
@@ -136,9 +135,10 @@ Cần: issuer, M2M client ID đã cấp, tên hiển thị, chủ sở hữu và
 **Không** cần và **không** được cung cấp: client secret, access token, refresh token. Bảng
 cố ý không có cột cho chúng.
 
-### A8. Blog, "Gửi công cụ", "Liên hệ" — chưa thuộc phase nào
+### A8. Blog, "Gửi công cụ", "Liên hệ" — ✅ ĐÃ CHỐT (2026-07-30): gộp vào P3
 
-Xem D1. Ghi ở đây vì đây là quyết định của chủ dự án, không phải việc kỹ thuật.
+Ba trang này gộp vào P3, làm cùng đợt với catalog — không phải một phase riêng, không bỏ
+khỏi thiết kế. Chi tiết ở `decision-register.md` (DEC-B16). Việc kỹ thuật phát sinh xem D1.
 
 ### A9. Đăng nhập bằng Google — ✅ ĐÃ DỰNG, CHỜ CHỦ DỰ ÁN TEST TAY (2026-07-22)
 
@@ -591,15 +591,43 @@ của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T
 
 **Chưa làm — việc kế tiếp của hướng này:**
 
-1. **KHẢO SÁT — còn một blocker duy nhất: thời hạn lưu (DEC-B11).** Quản trị nội dung và báo
-   cáo kết quả đã xong. Nhưng `survey_responses`/`survey_answers` là dữ liệu cá nhân gắn
-   `account_id`, và chưa có chính sách lưu trữ nào. Xem mục A10 — blocker trước khi phát hành
-   ra người dùng thật, và câu hỏi về `ON DELETE` là thứ duy nhất còn đổi được schema.
+1. **KHẢO SÁT — tự xem/xoá câu trả lời (DEC-B11 câu 2) — ✅ ĐÃ XONG (2026-07-30).**
+   `GET`/`DELETE /v1/me/onboarding/response` (Control Plane) + trang
+   [`/account/survey`](../../apps/web/app/[locale]/(user)/account/survey) (web), cùng khuôn
+   `/account/sessions`. GET trả nội dung ĐỌC ĐƯỢC (câu hỏi + lựa chọn đã dịch theo locale,
+   khác `SurveyResponseRecord` của admin chỉ trả khoá thô); vẫn hiển thị đúng lựa chọn đã bị
+   admin tắt SAU khi trả lời (không lọc theo `active` — đây là lịch sử, không phải bộ câu hỏi
+   hiện hành). DELETE xoá cả `survey_answers` theo tầng (`ON DELETE CASCADE`), account quay
+   lại trạng thái "chưa onboard".
 
-   Hai việc nhỏ đi kèm, chưa làm vì chưa cần:
-   - **Người dùng chưa xem/xoá được câu trả lời của chính mình.** Phụ thuộc câu 2 của DEC-B11.
+   **Cần migration 0016** (`survey_response_self_delete`): migration 0012 CỐ Ý không cấp
+   quyền DELETE trên `survey_responses`/`survey_answers` cho `talosmine_runtime` — đúng ở
+   thời điểm đó (chưa có đường xoá hợp lệ nào), sai bây giờ (DEC-B11 câu 2 tạo ra một đường
+   hợp lệ). Đã kiểm chứng THẬT bằng container Postgres riêng, role bị giới hạn: `ON DELETE
+   CASCADE` KHÔNG đòi quyền DELETE trên bảng con, nên chỉ cấp GRANT trên `survey_responses`,
+   giữ nguyên bất biến "không có đường DELETE trực tiếp vào `survey_answers`".
+
+   **Tìm được HAI lỗi thật ở tầng BFF khi test qua trình duyệt thật (`tests/e2e/survey-answers.spec.ts`),
+   cả hai đều đã tồn tại từ trước, chưa ai chạm tới:**
+   - `apps/web/app/api/bff/[[...segments]]/route.ts` bỏ rơi QUERY STRING (`?locale=vi`) khi
+     forward sang Control Plane — catch-all chỉ bắt path segments. Ảnh hưởng MỌI endpoint cần
+     tham số qua GET gọi từ trình duyệt (kể cả endpoint có từ trước, chỉ là chưa ai gọi kèm
+     query qua đường này).
+   - Cùng file: MỌI request khác GET bị coi là "có body", kể cả DELETE không kèm body (thu
+     hồi phiên của chính mình, xoá câu trả lời khảo sát) — gửi `content-type: application/json`
+     với thân RỖNG, bị Fastify từ chối thẳng ("Body cannot be empty..."). **Đây là lỗi có
+     thật, ảnh hưởng cả nút "Thu hồi" ở `/account/sessions` đã có từ trước** — chưa từng lộ ra
+     vì chưa có e2e nào từng BẤM nút đó qua trình duyệt thật (chỉ test API trực tiếp qua
+     `app.inject`). Đã sửa: đọc body thật rồi kiểm độ dài, không suy theo method.
+
+   Test: 28 integration mới ở `tests/integration/survey-api.test.ts` (gồm cả cách ly cross-
+   account: không đọc/xoá được response của người khác), 6 e2e mới, cộng 3 test cũ về quyền
+   role runtime được viết lại cho khớp thực tế (`survey_responses` giờ CÓ DELETE,
+   `survey_answers` vẫn KHÔNG).
+   - **Vẫn `open`:** thời hạn lưu cụ thể (câu 1 của DEC-B11) — cần trước khi phát hành ra
+     người dùng thật.
    - **Chưa có xuất CSV.** Báo cáo hiện chỉ đọc trên màn hình; xuất file là một bề mặt rò dữ
-     liệu mới nên chờ chính sách lưu trữ trước.
+     liệu mới nên chờ chính sách lưu trữ (câu 1) trước.
 2. ~~Content slot + SEO theo route~~ — **ĐÃ LÀM (2026-07-28, migration 0013)**: 41 khe cho 6
    trang + footer/newsletter, gồm cả `<title>` và meta description theo route; sửa ở
    `/admin/content/pages`. Chưa có: ảnh OG (chờ object storage), và FAQ trên trang chủ vẫn
@@ -622,10 +650,10 @@ của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T
    **`Chính sách riêng tư` đã rời khỏi danh sách này từ 2026-07-28** — route `/privacy` đã
    tồn tại thật (xem C5), chỉ còn 4 mục trên là thật sự chưa có đích.
 
-### D1. Blog, "Gửi công cụ", "Liên hệ" không nằm trong phase nào
+### D1. Blog, "Gửi công cụ", "Liên hệ" — ✅ ĐÃ CHỐT vào P3 (2026-07-30, xem A8/DEC-B16)
 
-Ba mục này có trong thiết kế Figma và **đã dựng bố cục đầy đủ**, nhưng **build plan P0–P9
-không có mục nào** cho hệ thống blog, luồng đề xuất công cụ hay trang liên hệ.
+Ba mục này có trong thiết kế Figma và **đã dựng bố cục đầy đủ**. Trước đây build plan P0–P9
+không có mục nào cho chúng — nay đã chốt **gộp vào P3**, làm cùng đợt với catalog.
 
 | Route | Trạng thái (2026-07-30) |
 |---|---|
@@ -637,7 +665,8 @@ không có mục nào** cho hệ thống blog, luồng đề xuất công cụ h
 Blog còn thiếu **toàn bộ tầng dữ liệu**: chưa có bảng, chưa có API, chưa có trang quản trị
 soạn bài. Bố cục dựng trước theo yêu cầu của chủ dự án.
 
-**Cần chủ dự án quyết định:** đưa vào phase nào, hay bỏ khỏi thiết kế.
+`/submit`, `/contact` cần xác định form ghi vào đâu (bảng mới trong Control Plane, hay chỉ
+gửi email) — chưa thiết kế, là việc kỹ thuật kế tiếp khi P3 tới lượt hai trang này.
 
 ### D2. Trang chủ và `/tools` đã lấn sang P3 — có chủ đích
 
@@ -725,7 +754,7 @@ Trạng thái tổng thể (rà lại 2026-07-30), đối chiếu với 14 bư�
 
 | Bước | Nội dung | Trạng thái |
 |---|---|---|
-| 1 | Thu quyết định nghiệp vụ | ⚠ Còn A4, A5, A6, A7 và F1 |
+| 1 | Thu quyết định nghiệp vụ | ⚠ A4 đã chốt hướng (2026-07-30) nhưng còn chờ dữ liệu app thật; còn A5, A6, A7 và F1 |
 | 2 | Freeze OpenAPI | ✅ 30 path, lint valid, drift OK |
 | 3–6 | Bốn migration theo thứ tự phụ thuộc | ✅ `0007`–`0009` |
 | 7 | Test thứ tự migration + rollback | ✅ Xem B4 |
@@ -751,6 +780,13 @@ có (xem D3).
 
 Cần biết: tìm theo trường nào, lọc theo gì, sắp xếp theo gì. Chưa có thì viết endpoint tìm
 kiếm là đoán mò.
+
+**Thu hẹp được nhờ DEC-B01 (2026-07-30):** hướng "hub đóng ~10 app" nghĩa là danh sách rất
+nhỏ — không cần pagination phức tạp, không cần full-text search hạng nặng. Một gợi ý tối
+giản để bạn duyệt nhanh (thay vì phải tự nghĩ từ đầu): tìm theo tên (client-side, không cần
+endpoint riêng), lọc theo trạng thái hiển thị công khai, sắp xếp theo tên hoặc thứ tự admin tự
+xếp tay. Nếu đồng ý hướng này thì F1 coi như chốt; nếu muốn khác (ví dụ lọc theo loại hình,
+theo mô hình AI dùng) thì cần nói rõ trường nào.
 
 ### F2. UI danh mục phía người dùng — nối API và ba thứ còn thiếu
 

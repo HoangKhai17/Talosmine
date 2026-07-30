@@ -136,6 +136,7 @@ export const vi = {
     privacy: 'Talosmine — Chính sách riêng tư',
     account: 'Talosmine — Tài khoản',
     sessions: 'Talosmine — Phiên đăng nhập',
+    surveyAnswers: 'Talosmine — Câu trả lời khảo sát',
   },
 
   home: {
@@ -285,6 +286,7 @@ export const vi = {
     idpNote:
       'Email và mật khẩu do hệ thống đăng nhập quản lý, không chỉnh sửa tại đây. Tài khoản của bạn được nhận dạng bằng danh tính đăng nhập, không phải bằng email.',
     viewSessions: 'Xem các phiên đăng nhập',
+    viewSurveyAnswers: 'Xem câu trả lời khảo sát',
     editProfile: 'Sửa hồ sơ',
     displayName: 'Tên hiển thị',
     locale: 'Ngôn ngữ',
@@ -318,6 +320,23 @@ export const vi = {
     revokingAll: 'Đang đăng xuất…',
     revokeAllFailed: 'Không đăng xuất được.',
     revokeAllNote: 'Bao gồm cả thiết bị này — bạn sẽ phải đăng nhập lại.',
+    backToAccount: 'Về trang tài khoản',
+  },
+
+  surveyAnswers: {
+    title: 'Câu trả lời khảo sát',
+    lead: 'Nội dung bạn đã trả lời (hoặc bỏ qua) trong khảo sát lúc đăng ký. Bạn có thể xoá câu trả lời này bất kỳ lúc nào.',
+    loadFailed: 'Không tải được câu trả lời khảo sát.',
+    empty: 'Bạn chưa trả lời khảo sát này.',
+    skippedNotice: 'Bạn đã chọn bỏ qua khảo sát này.',
+    answeredAt: 'Trả lời lúc {when}',
+    skippedAt: 'Bỏ qua lúc {when}',
+    deleteButton: 'Xoá câu trả lời',
+    deleting: 'Đang xoá…',
+    confirmDelete:
+      'Xoá câu trả lời khảo sát này? Bạn sẽ được hỏi lại ở lần đăng nhập kế tiếp, và thao tác này không hoàn tác được.',
+    deleted: 'Đã xoá câu trả lời khảo sát.',
+    deleteFailed: 'Không xoá được câu trả lời khảo sát.',
     backToAccount: 'Về trang tài khoản',
   },
 } as const;

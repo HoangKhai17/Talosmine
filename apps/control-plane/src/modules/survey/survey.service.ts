@@ -36,6 +36,19 @@ export interface OnboardingSurveyView {
   questions: SurveyQuestionView[];
 }
 
+export interface OwnSurveyAnswerView {
+  questionKey: string;
+  questionTitle: string;
+  selectedOptions: { key: string; label: string }[];
+}
+
+export interface OwnSurveyResponseView {
+  status: SurveyResponseStatus;
+  locale: string;
+  createdAt: string;
+  answers: OwnSurveyAnswerView[];
+}
+
 export class SurveyError extends Error {
   constructor(
     public readonly code: 'ALREADY_ANSWERED' | 'INVALID_ANSWERS',
@@ -93,6 +106,106 @@ export class SurveyService {
       .from(surveyResponses)
       .where(eq(surveyResponses.accountId, accountId))
       .limit(1);
+
+    return rows.length > 0;
+  }
+
+  /**
+   * Câu trả lời của CHÍNH account này, dạng đọc được (câu hỏi + lựa chọn đã dịch theo
+   * `locale`). Trả `null` khi account chưa từng trả lời/bỏ qua — controller quyết định biến
+   * điều đó thành 404.
+   *
+   * KHÔNG lọc theo `status = 'active'` như `readQuestions()`: đây là LỊCH SỬ câu trả lời,
+   * không phải bộ câu hỏi hiện đang hỏi. Một lựa chọn admin đã tắt sau khi người dùng chọn nó
+   * vẫn phải hiển thị — FK `survey_answers.optionId` là RESTRICT nên hàng đó luôn còn tồn
+   * tại, chỉ đổi trạng thái.
+   */
+  async getOwnResponse(accountId: string, locale: string): Promise<OwnSurveyResponseView | null> {
+    const responseRows = await this.database.db
+      .select({
+        id: surveyResponses.id,
+        status: surveyResponses.status,
+        locale: surveyResponses.locale,
+        createdAt: surveyResponses.createdAt,
+      })
+      .from(surveyResponses)
+      .where(eq(surveyResponses.accountId, accountId))
+      .limit(1);
+
+    const response = responseRows[0];
+    if (!response) return null;
+
+    if (response.status !== 'completed') {
+      return {
+        status: response.status as SurveyResponseStatus,
+        locale: response.locale,
+        createdAt: response.createdAt.toISOString(),
+        answers: [],
+      };
+    }
+
+    // INNER JOIN với bản dịch theo `locale` — mục thiếu bản dịch cho ngôn ngữ này bị LOẠI
+    // khỏi kết quả, cùng quy tắc đã áp cho `readQuestions()`.
+    const rows = await this.database.db
+      .select({
+        questionKey: surveyQuestions.key,
+        questionSortOrder: surveyQuestions.sortOrder,
+        questionTitle: surveyQuestionTranslations.title,
+        optionKey: surveyOptions.key,
+        optionSortOrder: surveyOptions.sortOrder,
+        optionLabel: surveyOptionTranslations.label,
+      })
+      .from(surveyAnswers)
+      .innerJoin(surveyQuestions, eq(surveyQuestions.id, surveyAnswers.questionId))
+      .innerJoin(
+        surveyQuestionTranslations,
+        and(
+          eq(surveyQuestionTranslations.questionId, surveyQuestions.id),
+          eq(surveyQuestionTranslations.locale, locale),
+        ),
+      )
+      .innerJoin(surveyOptions, eq(surveyOptions.id, surveyAnswers.optionId))
+      .innerJoin(
+        surveyOptionTranslations,
+        and(
+          eq(surveyOptionTranslations.optionId, surveyOptions.id),
+          eq(surveyOptionTranslations.locale, locale),
+        ),
+      )
+      .where(eq(surveyAnswers.responseId, response.id))
+      .orderBy(asc(surveyQuestions.sortOrder), asc(surveyOptions.sortOrder));
+
+    const byQuestion = new Map<string, OwnSurveyAnswerView>();
+    for (const row of rows) {
+      const bucket = byQuestion.get(row.questionKey) ?? {
+        questionKey: row.questionKey,
+        questionTitle: row.questionTitle,
+        selectedOptions: [],
+      };
+      bucket.selectedOptions.push({ key: row.optionKey, label: row.optionLabel });
+      byQuestion.set(row.questionKey, bucket);
+    }
+
+    return {
+      status: 'completed',
+      locale: response.locale,
+      createdAt: response.createdAt.toISOString(),
+      answers: [...byQuestion.values()],
+    };
+  }
+
+  /**
+   * Xoá HẲN câu trả lời của CHÍNH account này. `survey_answers` liên quan tự xoá theo tầng
+   * (`ON DELETE CASCADE` từ `response_id`) — không cần xoá riêng.
+   *
+   * Trả `false` khi account chưa từng trả lời/bỏ qua — controller quyết định biến điều đó
+   * thành 404, cùng pattern "không phân biệt lý do" đã dùng ở `SessionService.revokeOwnSession`.
+   */
+  async deleteOwnResponse(accountId: string): Promise<boolean> {
+    const rows = await this.database.db
+      .delete(surveyResponses)
+      .where(eq(surveyResponses.accountId, accountId))
+      .returning({ id: surveyResponses.id });
 
     return rows.length > 0;
   }

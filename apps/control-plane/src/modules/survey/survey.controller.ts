@@ -3,10 +3,12 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Inject,
+  NotFoundException,
   Post,
   Query,
   Req,
@@ -16,7 +18,12 @@ import {
 import { type AuthenticatedRequest, WebSessionGuard } from '../identity/web-session.guard.js';
 import type { SubmittedAnswer } from './answer-validation.js';
 import { SURVEY_LOCALES, SURVEY_QUESTION_KEYS, type SurveyLocale } from './schema.js';
-import { type OnboardingSurveyView, SurveyError, SurveyService } from './survey.service.js';
+import {
+  type OnboardingSurveyView,
+  type OwnSurveyResponseView,
+  SurveyError,
+  SurveyService,
+} from './survey.service.js';
 
 /** Chặn payload phi lý trước khi nó chạm database. */
 const MAX_OPTIONS_PER_QUESTION = 50;
@@ -77,6 +84,39 @@ export class SurveyController {
       });
     } catch (error) {
       throw toHttp(error);
+    }
+  }
+
+  /**
+   * Câu trả lời của chính mình, dạng đọc được — DEC-B11 câu 2 (2026-07-30): người dùng được
+   * tự xem câu trả lời khảo sát của họ.
+   */
+  @Get('response')
+  async getOwnResponse(
+    @Req() request: AuthenticatedRequest,
+    @Query('locale') locale?: string,
+  ): Promise<OwnSurveyResponseView> {
+    if (!isLocale(locale)) {
+      throw new BadRequestException(`\`locale\` phải là một trong: ${SURVEY_LOCALES.join(', ')}.`);
+    }
+
+    const response = await this.survey.getOwnResponse(this.accountId(request), locale);
+    if (!response) {
+      throw new NotFoundException('Chưa có câu trả lời khảo sát nào.');
+    }
+    return response;
+  }
+
+  /**
+   * Xoá câu trả lời của chính mình — DEC-B11 câu 2. Xoá dữ liệu cá nhân theo yêu cầu chính
+   * chủ, không phải thu hồi/vô hiệu hoá.
+   */
+  @Delete('response')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteOwnResponse(@Req() request: AuthenticatedRequest): Promise<void> {
+    const deleted = await this.survey.deleteOwnResponse(this.accountId(request));
+    if (!deleted) {
+      throw new NotFoundException('Chưa có câu trả lời khảo sát nào.');
     }
   }
 
