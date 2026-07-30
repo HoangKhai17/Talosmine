@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
+import { getCorrelationId } from '../../shared/correlation.js';
 import type { DatabaseClient } from '../../shared/database.js';
 import { DATABASE_CLIENT } from '../../shared/database.module.js';
 import { accounts } from '../account/schema.js';
@@ -69,6 +70,7 @@ export class AuthController {
       // Log chi tiết phía server để điều tra; trả về thông điệp chung để không tiết lộ
       // token sai ở điểm nào (hết hạn / sai chữ ký / sai audience).
       this.logger.warn(
+        { correlationId: getCorrelationId() },
         `Xác minh ID token thất bại: ${err instanceof Error ? err.message : String(err)}`,
       );
       throw new UnauthorizedException('Token không hợp lệ.');
@@ -101,6 +103,13 @@ export class AuthController {
     const session = await createWebSession(this.database.db, accountId, {
       ttlSeconds: 60 * 60 * 24 * 7,
     });
+
+    // B3 (`pending-work.md`) — "callback outcome" phía Control Plane: nối được với log
+    // cùng tên ở BFF (`auth/callback/route.ts`) qua correlationId chung của lượt đăng nhập.
+    this.logger.log(
+      { correlationId: getCorrelationId(), accountId, created },
+      'Phiên đăng nhập mới được tạo',
+    );
 
     return {
       sessionToken: session.sessionToken,
@@ -141,5 +150,12 @@ export class AuthController {
       throw new UnauthorizedException('Thiếu phiên đăng nhập.');
     }
     await revokeSession(this.database.db, auth.sessionId, 'user logout');
+
+    // B3 (`pending-work.md`) — "session revoke": nối với log cùng tên ở BFF
+    // (`auth/logout/route.ts`) qua correlationId chung của lượt đăng xuất này.
+    this.logger.log(
+      { correlationId: getCorrelationId(), accountId: auth.accountId, sessionId: auth.sessionId },
+      'Phiên đã bị thu hồi (đăng xuất)',
+    );
   }
 }

@@ -62,9 +62,9 @@
 
 | Hạng mục | Target path dự kiến |
 |---|---|
-| User catalog | `apps/web/app/(user)` |
+| User catalog | `apps/web/app/[locale]/(user)` |
 | Admin catalog | `apps/web/app/admin` |
-| BFF auth/session dependency | `apps/web/src/bff/auth/features` |
+| BFF auth/session dependency | `apps/web/app/api/bff/` (route handlers) + `apps/web/server/` (`control-plane-boundary.ts`, `session.ts`…) |
 | Catalog module | `apps/control-plane/src/modules/application-catalog` |
 | Service identity baseline model/persistence | `apps/control-plane/src/modules/service-identity` |
 | Admin orchestration extension | `apps/control-plane/src/modules/admin` |
@@ -211,10 +211,10 @@ Runbook dưới đây là **kế hoạch thực thi**, không khẳng định ar
    - **Lane:** backend.
 
 6. Tạo migration hoàn thiện audit service-actor FK + canonical actor check (phased P2->P3 upgrade).
-   - **Hành động:** sau khi `service_identities` tồn tại, kiểm tra dữ liệu staging tương thích, thêm `audit_events.actor_service_identity_id REFERENCES service_identities(id) ON DELETE RESTRICT`, rồi thay P2 actor check bằng canonical check cho đúng một actor `account|service|system`. Giữ nguyên `audit_events_append_only_trg` và runtime grants đã tạo ở P2.
+   - **Hành động:** sau khi `service_identities` tồn tại, kiểm tra dữ liệu staging tương thích, thêm `audit_events.actor_service_identity_id REFERENCES service_identities(id) ON DELETE RESTRICT`, rồi thay P2 actor check bằng canonical check cho đúng một actor `account|service|system`. Giữ nguyên `audit_events_append_only` và runtime grants đã tạo ở P2.
    - **Sản phẩm:** `apps/control-plane/drizzle/migrations/` (migration audit FK + actor check upgrade).
    - **Phụ thuộc:** bước 5 (`service_identities` phải tồn tại).
-   - **Verify:** evidence SQL trực tiếp — sau upgrade, `actor_type = 'service'` với FK hợp lệ được chấp nhận, service identity không tồn tại bị FK từ chối, `account`/`system` vẫn hợp lệ; `audit_events_append_only_trg` vẫn chặn `UPDATE`/`DELETE`; runtime grants vẫn chặn `TRUNCATE`; không có cửa sổ thiếu actor constraint.
+   - **Verify:** evidence SQL trực tiếp — sau upgrade, `actor_type = 'service'` với FK hợp lệ được chấp nhận, service identity không tồn tại bị FK từ chối, `account`/`system` vẫn hợp lệ; `audit_events_append_only` vẫn chặn `UPDATE`/`DELETE`; runtime grants vẫn chặn `TRUNCATE`; không có cửa sổ thiếu actor constraint.
    - **Lane:** backend.
 
 7. Viết migration-order/rollback/composite-ownership tests trước repository/API.
@@ -243,8 +243,8 @@ Runbook dưới đây là **kế hoạch thực thi**, không khẳng định ar
 **D. Frontend (lane frontend, song song sau freeze)**
 
 10. Xây user list/card/detail/search/filter được duyệt và launch behavior.
-    - **Hành động:** trong `apps/web/app/(user)` dựng list/card (chỉ app theo visibility contract, fallback ảnh/alt an toàn), detail (metadata catalog, không secret/redirect nội bộ), search/filter chỉ khi requirement hỗ trợ, launch dùng `launch_url` đã validate từ catalog (không ghép host/path từ input); ghi rõ thấy app không đồng nghĩa được cấp quyền; dùng auth/session Phase 2 qua `apps/web/src/bff/auth/features`.
-    - **Sản phẩm:** `apps/web/app/(user)`.
+    - **Hành động:** trong `apps/web/app/[locale]/(user)` dựng list/card (chỉ app theo visibility contract, fallback ảnh/alt an toàn), detail (metadata catalog, không secret/redirect nội bộ), search/filter chỉ khi requirement hỗ trợ, launch dùng `launch_url` đã validate từ catalog (không ghép host/path từ input); ghi rõ thấy app không đồng nghĩa được cấp quyền; dùng auth/session Phase 2 qua `apps/web/app/api/bff/` + `apps/web/server/`.
+    - **Sản phẩm:** `apps/web/app/[locale]/(user)`.
     - **Phụ thuộc:** bước 2 (frozen contract); Phase 2 auth feature. Không đổi DB/API ngầm hoặc fetch URL server-side trái policy.
     - **Verify:** UI tests (bước 12); keyboard/focus/error/announcement, image fallback/alt, card/grid không mất thứ tự đọc mobile/tablet/desktop; inactive/draft không launch.
     - **Lane:** frontend.
@@ -290,7 +290,7 @@ Sau contract freeze, ba làn chạy song song trên path rời nhau:
 | Làn | Owner | Path sở hữu | Ranh giới |
 |---|---|---|---|
 | Backend | `subagent/backend` | `apps/control-plane/src/modules/application-catalog`, baseline persistence tại `apps/control-plane/src/modules/service-identity`, extension qua public port tại admin, `apps/control-plane/drizzle/migrations/`, phần contract được giao | Không mở service management API/scope; không sửa web/test; Admin không sở hữu Catalog repository |
-| Frontend | `subagent/frontend` | `apps/web/app/(user)`, `apps/web/app/admin`; chỉ dùng auth feature Phase 2 qua interface đã freeze | Không đổi DB/API ngầm hoặc fetch URL server-side trái policy |
+| Frontend | `subagent/frontend` | `apps/web/app/[locale]/(user)`, `apps/web/app/admin`; chỉ dùng auth feature Phase 2 qua interface đã freeze | Không đổi DB/API ngầm hoặc fetch URL server-side trái policy |
 | Tester | `subagent/tester` | `tests/**` | Không sửa product; không nới test khi implementation sai |
 
 Orchestrator chỉ định một owner cho `contracts/openapi/control-plane.v1.yaml` để tránh conflict. QA/reviewer read-only. Nhu cầu chạm path làn khác phải dừng và điều phối lại.

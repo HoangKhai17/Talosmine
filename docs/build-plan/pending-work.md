@@ -1,7 +1,7 @@
 # Việc còn treo
 
 > **Mục đích:** ghi lại mọi thứ đã biết là chưa làm, để không phải nhớ bằng đầu và không
-> ai tưởng nhầm là đã xong. Cập nhật lần cuối **2026-07-22**.
+> ai tưởng nhầm là đã xong. Cập nhật lần cuối **2026-07-30**.
 >
 > Quy tắc của file này: chỉ ghi việc **đã xác định**, kèm **vì sao nó quan trọng** và
 > **điều gì đang chặn**. Không ghi ý tưởng chưa chín — chỗ đó là decision register.
@@ -258,11 +258,43 @@ Không chờ ai — agent làm được ngay.
 issuer/audience/chữ ký/hạn dùng, callback replay, và open redirect (host/path/port gần
 giống, wildcard, encoded payload, protocol-relative).
 
-**Phần lớn chưa có test tự động cho luồng auth.** Đây là khoảng trống lớn nhất còn lại của P2.
-
 Cài đặt cần kiểm: [`oidc-verifier.ts`](../../apps/control-plane/src/modules/identity/oidc-verifier.ts),
 [`callback/route.ts`](../../apps/web/app/auth/callback/route.ts), `safeReturnTo` trong
 [`oidc.ts`](../../apps/web/server/oidc.ts).
+
+**Phần "sai issuer/audience/chữ ký/hạn dùng" — ĐÃ XONG (2026-07-30).**
+[`tests/unit/oidc-verifier.test.ts`](../../tests/unit/oidc-verifier.test.ts), 13 test, dựng
+một JWKS server THẬT bằng `node:http` và ký token bằng `jose` — không mock `jose`, đúng tinh
+thần DEC-T05 áp cho mạng thay vì DB. Phủ: chữ ký sai (ký bằng khoá khác nhưng khai đúng
+`kid` thật — giả mạo danh tính), `kid` không tồn tại trong JWKS, `alg:none` (token tự chế
+tay), **alg confusion RS256→HS256** (dùng public key làm secret HMAC — đòn JWT kinh điển),
+hết hạn, chưa có hiệu lực (`nbf`), sai issuer, sai audience, thiếu `sub`, và hành vi có chủ
+đích "không kiểm audience khi `OIDC_CLIENT_ID` chưa cấu hình". Đã kiểm chứng bằng cách phá:
+tắt phép kiểm `sub` trong `oidc-verifier.ts` → đúng 1/13 test đỏ, 12 test còn lại vẫn xanh
+(không phụ thuộc chéo).
+
+**Phần `state`/`nonce`/PKCE/callback replay ở tầng BFF — ĐÃ XONG (2026-07-30).**
+[`tests/unit/auth-callback.test.ts`](../../tests/unit/auth-callback.test.ts), 7 test cho
+`apps/web/app/auth/callback/route.ts`. `state`/`nonce`/`code_verifier` KHÔNG được tự so
+sánh trong code của ta — `client.authorizationCodeGrant()` của `openid-client` làm việc đó —
+nên bộ test này KHÔNG re-test đúng-sai của phép so sánh đó (đó là việc của bộ test riêng của
+thư viện), mà chứng minh route xử lý AN TOÀN khi thư viện TỪ CHỐI, ở CẢ BỐN tình huống (state
+sai, nonce sai, PKCE thất bại, và mã đã dùng lại — replay, mô phỏng bằng lỗi kiểu
+`invalid_grant`): redirect lỗi CHUNG không lộ chi tiết ra URL, xoá `TRANSACTION_COOKIE`,
+không tạo phiên. Cộng hai case phòng thủ replay tầng ngoài (thiếu/hỏng transaction cookie →
+dừng trước khi gọi `openid-client`) và một case IdP trả thiếu `id_token`.
+
+Mock `openid-client` + `getOidcConfiguration` (biên ngoài, không phải logic nghiệp vụ — mock
+ở đây không phạm DEC-T05) — LẦN ĐẦU repo dùng `vi.mock`. Đã kiểm chứng bằng cách phá: gỡ dòng
+`response.cookies.delete(TRANSACTION_COOKIE)` khỏi `failure()` → đúng 4/7 test đỏ (đúng bốn
+case kiểm cookie), 3 test còn lại vẫn xanh. Đã khôi phục, diff sạch.
+
+Đường THÀNH CÔNG (đổi code lấy token thật rồi tạo phiên) cố ý NGOÀI phạm vi — cần
+`exchangeIdTokenForSession` gọi thật ra Control Plane, thuộc B2/integration có DB thật.
+Open redirect (`safeReturnTo`) đã có test từ trước (rà soát bảo mật 2026-07-23).
+
+**B1 coi như đã đóng** theo nghĩa "khoảng trống lớn nhất của P2" đã có test tự động; phần
+còn lại (nếu có) là bổ sung case, không phải dựng khung từ đầu.
 
 **RÀ SOÁT BẢO MẬT 2026-07-23 — thăm dò thủ công trên hệ thống đang chạy.** 19 phòng thủ giữ
 vững (giả mạo token: alg:none / khoá lạ / alg-confusion HS256 / sai issuer đều 401; chặn
@@ -282,25 +314,128 @@ Việc B1 vẫn còn: rà soát trên là THĂM DÒ thủ công, chưa phải b�
 (state/nonce/PKCE/replay chưa có test). Nhưng open-redirect — mục §14 nêu đích danh — nay đã
 có test.
 
-### B2. E2E cho các trang cần đăng nhập
+### B2. E2E cho các trang cần đăng nhập — ✅ ĐÃ XONG (2026-07-30)
 
 **108 test e2e** (2026-07-22) phủ: shell, CSP trên từng trang, lưới cột, responsive, bàn
 phím, breadcrumb.
 
-**Chưa phủ — tất cả đều cần một phiên đăng nhập thật:** đăng nhập, `/account`,
-`/account/sessions`, `/admin`, `/admin/audit`, `/admin/roles`, `/admin/catalog`.
+**Cơ chế fixture phiên — ĐÃ MỞ KHOÁ (2026-07-30).**
+[`tests/e2e/support/session-fixture.ts`](../../tests/e2e/support/session-fixture.ts) ghi
+thẳng một phiên THẬT vào `web_sessions` bằng đúng hàm Control Plane dùng
+(`provisionByExternalIdentity` + `createWebSession`), bỏ qua OIDC hoàn toàn — không phải giả
+lập, mà là một phiên thật qua con đường thật, chỉ bỏ qua bước "gõ mật khẩu trên trang của
+Google" (không tự động hoá được, đã ghi ở A9).
+[`tests/e2e/authenticated.spec.ts`](../../tests/e2e/authenticated.spec.ts), **5 test** chứng
+minh cơ chế chạy đúng: dữ liệu tài khoản thật cho người đã đăng nhập; chưa đăng nhập bị đưa
+khỏi `/account`; `account:read` → `/admin` 200; `audit:read` → `/admin/audit` 200 (quyền
+riêng từng trang, không chỉ cần vào được `/admin`); đã đăng nhập nhưng không có quyền quản
+trị nào → `/admin` bị chặn 403 ngay ở `proxy.ts` (không phải 404 — 404 chỉ xảy ra ở lớp
+phòng thủ thứ hai nếu lớp thứ nhất bị bỏ qua).
 
-Khoảng trống chung là **fixture phiên admin cho Playwright**: chưa có cách dựng một phiên
-hợp lệ trong e2e, nên mọi màn hình sau đăng nhập đều nằm ngoài tầm phủ. Làm cái đó một lần
-sẽ mở khoá toàn bộ danh sách trên.
+`playwright.config.ts` được thêm một `webServer` thứ hai chạy Control Plane thật
+(`dev:api`, health-check `/health/ready`) — trước đây chỉ tự quản lý `next start`. Yêu cầu hạ
+tầng: Docker (`talosmine-db`, `talosmine-pooler`) đã bật.
 
-§17 cũng đòi accessibility (hoàn tất bằng bàn phím) và responsive cho các màn hình đó.
+**Ba lỗi không hiển nhiên đã gặp và giải quyết khi dựng cơ chế này** (đáng lưu vì có thể tái
+diễn khi mở rộng bộ test):
+- Playwright's TS loader resolve `.js`-suffixed import theo đúng nghĩa đen (không tự bỏ đuôi
+  sang `.ts` như vitest/Vite) — fixture phải nhập từ `apps/control-plane/dist/` (đã build)
+  thay vì `src/`, còn type thì đọc riêng từ `src/` qua `import type` (bị xoá lúc biên dịch).
+- `context.addCookies` (CDP `Storage.setCookies`) có bug đã biết
+  (microsoft/playwright#11372, #27473): từ chối thẳng cookie tên bắt đầu bằng `__Host-`/
+  `__Secure-` với lỗi chung chung "Invalid cookie fields", dù mọi field đều đúng. Đường vòng:
+  `context.route(...).fulfill({ headers: { 'set-cookie': ... } })` — tạo một response THẬT ở
+  tầng network mà Chromium xử lý Set-Cookie đúng như một response từ server, cùng cơ chế
+  `setSessionCookies` (`apps/web/server/session.ts`) đã dùng khi đăng nhập thật.
+- `/admin` cho một phiên đã đăng nhập nhưng KHÔNG có quyền nào trả **403** (chặn ở
+  `proxy.ts`), không phải 404 (đó là lớp phòng thủ thứ hai ở `app/admin/layout.tsx`, chỉ
+  chạy nếu lớp thứ nhất bị bỏ qua) — ban đầu viết nhầm kỳ vọng, đã sửa test theo đúng hành vi
+  đã thiết kế (xem comment ở `proxy.ts:182-213`).
 
-### B3. Observability — §17
+**Ba trang còn lại — ĐÃ PHỦ (2026-07-30).**
+[`tests/e2e/admin-pages.spec.ts`](../../tests/e2e/admin-pages.spec.ts), **9 test** (×3
+viewport = 27 lượt chạy) cho `/account/sessions`, `/admin/roles`, `/admin/catalog` — mỗi
+trang: truy cập đúng quyền/đúng dữ liệu, không tràn ngang (responsive), và focus nhìn thấy
+được khi tab (accessibility), dùng lại nguyên `session-fixture.ts`.
 
-- **Correlation ID xuyên BFF → API → audit.** Control Plane đã có
-  (`shared/correlation.ts`); **BFF chưa nối** — nó không truyền correlation ID sang.
-- **Metric** cho callback outcome, session revoke, RBAC deny: **chưa có gì**.
+**TÌM ĐƯỢC MỘT LỖ HỔNG RESPONSIVE THẬT KHI CHẠY TEST MOBILE (390px) — ĐÃ SỬA.** `/admin/roles`
+và `/admin/catalog` tràn ngang thật ở viewport mobile (`scrollWidth` 412px so với 390px). Gốc
+rễ nằm ở khung sườn `/admin` ([`apps/web/app/admin/layout.module.css`](../../apps/web/app/admin/layout.module.css)),
+KHÔNG phải ở từng trang riêng — mọi trang `/admin/*` đều bị ảnh hưởng như nhau, nhưng trước
+đây chưa từng bị bắt vì `authenticated.spec.ts` chỉ chạy `/admin`/`/admin/audit` trên project
+`desktop`. Ba tầng lồng nhau của CÙNG một lỗi CSS kinh điển ("track/item không co dưới kích
+thước nội dung của chính nó" — `1fr` một mình và flex item mặc định đều có sàn `auto`, phải
+đổi tường minh về `0`):
+1. `.shell` (`display: grid`, không khai `grid-template-columns`) — cột ẩn giữ sàn theo nội
+   dung rộng nhất bên trong.
+2. `.body` (`grid-template-columns: 1fr`) — cùng lỗi, một tầng con.
+3. `.sidebar` (item của `.body`, có `overflow-x: auto` nhưng thiếu `min-width: 0`) — nội
+   dung `.navList` (`min-width: max-content`, danh sách trang quản trị xếp hàng ngang ở mobile)
+   ép `.sidebar` rộng ra thay vì tự cuộn trong khung của chính nó.
+
+Sửa cả ba tầng bằng `minmax(0, 1fr)` (thay `1fr` trơn) và `min-width: 0`. Đã kiểm bằng cách đo
+trực tiếp `document.documentElement.scrollWidth` trước/sau: 412px → đúng bằng `clientWidth`
+(390px) sau khi sửa — không còn lệch một pixel nào, không phải "thu hẹp cho qua test". Toàn
+bộ 221 test e2e (3 viewport) xanh sau khi sửa; đã kiểm riêng multiple lần để loại trừ
+flaky do tài nguyên khi chạy song song nhiều worker (một lần đỏ ngẫu nhiên trong lượt chạy
+225 test cùng lúc, không tái diễn qua 4 lần chạy lại riêng lẻ và một lượt full-suite sạch).
+
+Cùng class CSS này (`.tableWrap` thiếu `min-width: 0` khi là con của flex column) cũng được vá
+ở `admin/roles/page.module.css` và `admin/catalog/page.module.css` — không phải nguyên nhân
+chính (nguyên nhân chính là khung sườn ở trên) nhưng là một lỗi thật độc lập, phòng khi bảng
+đó thật sự rộng hơn khung sườn cho phép.
+
+**Còn treo, CHƯA sửa vì chưa kiểm chứng:** cùng pattern `.tableWrap` xuất hiện thêm ở
+`admin/audit/page.module.css`, `admin/accounts/[accountId]/page.module.css`, và
+`admin/page.module.css` — RẤT có thể có cùng lỗ hổng tiềm ẩn (không còn bị khung sườn che nữa
+sau bản sửa trên, nhưng riêng bảng của từng trang thì chưa đo), nhưng chưa test mobile cho ba
+trang đó nên không tự vá mà không kiểm chứng trước.
+
+### B3. Observability — §17 — ✅ ĐÃ XONG (2026-07-30)
+
+**Correlation ID xuyên BFF → API → audit — ĐÃ NỐI.**
+[`control-plane-boundary.ts`](../../apps/web/server/control-plane-boundary.ts) (`callControlPlane`,
+điểm ra DUY NHẤT từ web sang Control Plane cho mọi trang admin) giờ LUÔN gắn header
+`x-correlation-id` — tự sinh (`crypto.randomUUID()`) nếu caller không truyền sẵn. Hai lời gọi
+`fetch` trực tiếp còn lại (không qua boundary vì xảy ra trước/ngoài phiên đã xác thực) cũng
+được gắn cùng header: `exchangeIdTokenForSession` (`server/session.ts`, đổi id_token lấy
+phiên) và `auth/logout/route.ts` (thu hồi phiên). Control Plane đã đọc đúng header này từ
+trước (`shared/correlation.ts`) và đưa vào mọi audit event — không cần đổi gì phía đó.
+
+**Log có cấu trúc cho ba sự kiện** (chọn mức "structured log", chưa cần metric/APM thật):
+- `apps/web/server/logger.ts` (mới) — logger JSON tối giản, là nơi DUY NHẤT trong `apps/web`
+  được phép gọi `console.*` (override `noConsole` trong `biome.json` chỉ áp cho đúng file
+  này). Mọi log vận hành khác trong `apps/web` phải đi qua đây.
+- **Callback outcome**: `auth/callback/route.ts` — `auth.callback.token_exchange_failed`,
+  `auth.callback.session_exchange_failed`, `auth.callback.success` (mới, trước đây đường
+  thành công không log gì). Ba `console.error` cũ (đã bị `noConsole` cảnh báo từ trước) được
+  thay bằng log có cấu trúc, kèm `correlationId`.
+- **Session revoke**: cả hai phía. BFF — `auth/logout/route.ts` log
+  `auth.logout.success`/`auth.logout.revoke_rejected`/`auth.logout.revoke_failed`. Control
+  Plane (nguồn sự thật) — `AuthController.logout` (tự đăng xuất) và
+  `SessionController.revokeAll`/`revokeOne` (đăng xuất mọi nơi / thu hồi một phiên cụ thể) mỗi
+  nơi thêm một dòng `Logger.log` kèm `correlationId`. Nhánh admin thu hồi phiên của account
+  khác (`admin.controller.ts`) đã có audit từ trước, không cần thêm.
+- **RBAC deny**: `proxy.ts` (lớp chặn admin thứ nhất) log `admin.access_denied` (mức `warn`)
+  khi một phiên ĐÃ XÁC THỰC bị từ chối vào `/admin` — cố ý KHÔNG log nhánh `NO_SESSION` (khách
+  vãng lai, không phải một quyết định RBAC).
+
+**Đã kiểm chứng bằng hạ tầng thật, không chỉ đọc code:**
+- `admin.access_denied` — xác nhận xuất hiện đúng trong log `webServer` khi chạy
+  `tests/e2e/authenticated.spec.ts` (case "không có quyền quản trị nào"): dòng JSON đầy đủ
+  `{"level":"warn","event":"admin.access_denied","correlationId":"...","reason":"NO_ADMIN_PERMISSION","path":"/admin"}`.
+- Session revoke phía Control Plane — tạo một phiên thật qua DB, gọi thẳng
+  `DELETE /v1/auth/sessions/current` bằng `curl` với `x-correlation-id` tự chọn, xác nhận log
+  `[AuthController] Phiên đã bị thu hồi (đăng xuất)` xuất hiện kèm ĐÚNG `correlationId`,
+  `accountId`, `sessionId` đã gửi.
+- `pnpm run typecheck`, `pnpm run lint`, `pnpm run test` (462 test) và
+  `pnpm exec playwright test` (194 test) đều xanh sau các đổi này.
+
+**Chưa kiểm bằng hạ tầng thật (chỉ suy luận từ cùng cơ chế đã kiểm ở trên):** `auth.callback.*`
+và `auth.logout.success`/`revoke_rejected` ở phía BFF — dùng lại NGUYÊN VẸN `logger.ts` (đã
+kiểm qua `admin.access_denied`) và cùng kiểu header `fetch` (đã kiểm qua session revoke phía
+Control Plane), nhưng đường callback thật cần một lượt OIDC thật qua Logto (không tự động hoá
+được, xem A9) nên chưa chạy qua trình duyệt thật lượt này.
 
 ### B4. Rollback rehearsal — §17 — ✅ ĐÃ XONG (2026-07-22)
 
@@ -350,11 +485,15 @@ Sửa = đổi con số trong `page.module.css`, **không dựng lại layout**.
 
 ### C3. Tương tác chưa có
 
-Tất cả đều là **nút có mặt đúng chỗ trong bố cục nhưng chưa gắn hành vi**. Không cái nào
-giả vờ chạy: nút chưa có backend thì để `disabled` hoặc render bằng chữ, không phải link.
+Phần lớn là **nút có mặt đúng chỗ trong bố cục nhưng chưa gắn hành vi** (trừ băng đối tác —
+xem đính chính bên dưới). Không cái nào giả vờ chạy: nút chưa có backend thì để `disabled`
+hoặc render bằng chữ, không phải link.
 
-- **Mũi tên băng đối tác** (trang chủ) — băng chạy tự động và cuộn tay được, hai nút mũi
-  tên chưa có hành vi (cần client component + state).
+- **Băng đối tác** (trang chủ) — đính chính (2026-07-30): **không có nút mũi tên nào trong
+  code**, khác mô tả cũ ở đây. Thực tế là animation CSS tự chạy, dừng khi hover/focus, và
+  cuộn tay được qua `overflow-x: auto` khi `prefers-reduced-motion: reduce`
+  (`page.module.css`) — không phải "có nút nhưng chưa gắn hành vi". Không có việc gì cần làm
+  trừ khi chủ dự án muốn thêm nút điều khiển thật.
 - **Mũi tên dải danh mục** (`/tools`) — cùng tình trạng. Bàn phím vẫn tới được mọi pill nhờ
   Tab, nên không ai bị kẹt.
 - **Tab lọc chủ đề** (`/blog`) — sẽ chuyển sang `searchParams` khi có dữ liệu thật, để lọc
@@ -412,9 +551,12 @@ Hai thứ **chưa** xử lý được:
 Logto 1.41 **không có tiếng Việt** (đã thử `?lng=vi` → rơi về tiếng Anh). Giao diện của ta
 viết cứng tiếng Việt nên phần lớn chữ không phụ thuộc thiết lập này.
 
-**Còn treo:** hai văn bản "Điều khoản dịch vụ" và "Chính sách riêng tư" chưa được soạn, nên
-trong biểu mẫu chúng là chữ mang màu nhấn chứ không phải link — một link dẫn tới 404 ngay
-chỗ người dùng đang cam kết điều gì đó thì tệ hơn hẳn.
+**Còn treo, thu hẹp (2026-07-29):** cơ chế đã xong — `/terms` và `/privacy` tồn tại trên web
+app, khe nội dung `legal.terms`/`legal.privacy` (migration 0014) sửa được trong
+`/admin/content/pages`, và biểu mẫu đăng ký ở `apps/logto-ui` đã trỏ hai link đó (mở tab
+mới, không phá form đang điền). **Việc còn lại chỉ là NỘI DUNG**: hai văn bản thật chưa được
+soạn — chủ dự án cần điền vào hai khe đó trước khi phát hành. Trang hiện thông báo "đang
+được biên soạn" thay vì 404 hay trắng.
 
 ### C4. Bảng màu dark
 
@@ -439,7 +581,8 @@ của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T
 | Migration `0010_site_nav` + rollback + diễn tập | Xong |
 | API `/v1/site/nav` (công khai) + `/v1/admin/site/nav` | Xong, trong OpenAPI |
 | Trang `/admin/content/nav` | Xong (gồm cả ô đặt logo) |
-| Logo quản trị được (`site_settings`, migration 0011) | Xong — **chỉ nhận URL** |
+| Logo quản trị được — **tải file lên** (`site_assets`, migration 0015) | Xong; URL cũ (0011) giữ làm dự phòng |
+| Văn bản pháp lý — `/terms`, `/privacy` + khe CMS (migration 0014) | Xong khung + cơ chế; **nội dung chưa soạn** |
 | Header mobile: logo + nút ba gạch | Xong |
 | Khảo sát onboarding — luồng người dùng (migration 0012) | Xong |
 | Khảo sát — quản trị nội dung (`/admin/content/survey`) | Xong, có test |
@@ -464,28 +607,32 @@ của chủ dự án (2026-07-27) và đã được chốt bằng DEC-T25, DEC-T
 3. **Vô hiệu hoá cache xuyên tiến trình.** DEC-T26 chấp nhận độ trễ 60 giây và cache theo
    từng tiến trình web. Khi chạy nhiều instance, hai người dùng có thể thấy hai phiên bản
    menu trong vòng một phút. Cần pub/sub khi việc đó thành vấn đề thật.
-4. **UPLOAD FILE LOGO — chặn ở hạ tầng.** Object storage chưa được dựng (compose chỉ có db,
-   supavisor, logto, mailpit). DEC-T12 chốt ảnh nằm trên Supabase Storage nhưng chưa triển
-   khai. Hiện quản trị viên phải dán URL của ảnh đã host sẵn, và host đó phải nằm trong
-   `CATALOG_ALLOWED_HOSTS` — biến này đang **rỗng**, nghĩa là chưa khai thì chỉ nhận được
-   đường dẫn nội bộ. Dựng storage là một lượt làm việc riêng và cần một DEC.
+4. ~~UPLOAD FILE LOGO — chặn ở hạ tầng~~ — **ĐÃ LÀM (2026-07-29, migration 0015)**, đi đường
+   KHÁC với kế hoạch gốc: object storage vẫn CHƯA được dựng, nên logo được lưu thẳng trong
+   PostgreSQL (bảng `site_assets`, cột `bytea`, trần 512KB, chỉ nhận png/jpeg/webp — không
+   SVG). Quản trị viên tải file trực tiếp ở `/admin/content/nav`, không cần dán URL hay khai
+   `CATALOG_ALLOWED_HOSTS` nữa. Đây là giải pháp CHO RIÊNG một file nhỏ đọc qua cache 60s,
+   không thay thế DEC-T12: ảnh catalog (nhiều, lớn hơn) vẫn cần object storage thật khi tới
+   lượt P3. URL cũ (`site_settings.logo.url`) giữ lại làm đường dự phòng, file tải lên
+   luôn thắng nếu có cả hai.
 5. **Icon mạng xã hội ở footer** vẫn là `<span>` không link — chưa có tài khoản thật, và
    mô hình `nav_items` bắt buộc mọi mục phải có `href` nên chúng chưa vào CMS được.
-6. **Mục `footerPending`** (Giới thiệu, Chính sách riêng tư, Hướng dẫn, Bản tin, FAQ) vẫn
-   hardcode: chúng cố ý không có đích đến. Khi trang tương ứng ra đời thì xoá khỏi code và
-   thêm vào CMS.
+6. **Mục `footerPending`** (Giới thiệu, Hướng dẫn, Bản tin, FAQ) vẫn hardcode: chúng cố ý
+   không có đích đến. Khi trang tương ứng ra đời thì xoá khỏi code và thêm vào CMS.
+   **`Chính sách riêng tư` đã rời khỏi danh sách này từ 2026-07-28** — route `/privacy` đã
+   tồn tại thật (xem C5), chỉ còn 4 mục trên là thật sự chưa có đích.
 
 ### D1. Blog, "Gửi công cụ", "Liên hệ" không nằm trong phase nào
 
 Ba mục này có trong thiết kế Figma và **đã dựng bố cục đầy đủ**, nhưng **build plan P0–P9
 không có mục nào** cho hệ thống blog, luồng đề xuất công cụ hay trang liên hệ.
 
-| Route | Trạng thái (2026-07-22) |
+| Route | Trạng thái (2026-07-30) |
 |---|---|
 | `/blog` | Bố cục đầy đủ, dữ liệu mẫu |
 | `/blog/[slug]` | Bố cục đầy đủ, dữ liệu mẫu, chưa đọc `slug` |
-| `/submit` | Trang chỗ giữ chỗ |
-| `/contact` | Trang chỗ giữ chỗ |
+| `/submit` | Trang chỗ giữ chỗ — dùng chung component `ComingSoon` |
+| `/contact` | Trang chỗ giữ chỗ — dùng chung component `ComingSoon` |
 
 Blog còn thiếu **toàn bộ tầng dữ liệu**: chưa có bảng, chưa có API, chưa có trang quản trị
 soạn bài. Bố cục dựng trước theo yêu cầu của chủ dự án.
@@ -496,14 +643,17 @@ soạn bài. Bố cục dựng trước theo yêu cầu của chủ dự án.
 
 Lưới "Tìm đúng công cụ" / "Khám phá danh mục" ở trang chủ, và toàn bộ trang `/tools`
 (bộ lọc, dải danh mục, lưới kết quả) chính là UI catalog mà §10 của phase-3 mô tả. Layout
-dựng trước theo yêu cầu, dữ liệu là mẫu (`PLACEHOLDER_*`).
+dựng trước theo yêu cầu, dữ liệu là mẫu — biến đặt tên `PLACEHOLDER_*` trước đây đã đổi
+thành tên cụ thể hơn (`CATEGORY_TAB_COUNT`, `MODEL_FILTER_COUNT`, `RESULT_IDS`…), bản chất
+không đổi: vẫn hoàn toàn tĩnh, không gọi API nào.
 
 **Sang P3 chỉ thay các mảng đó bằng lời gọi API — không dựng lại layout.** Ghi ở đây để
 người làm P3 không tưởng là phải làm lại từ đầu. Việc còn lại xem F2.
 
 ### D3. `/categories` tồn tại nhưng chưa có nghĩa
 
-Route `/categories` đang là trang chỗ giữ chỗ. **Build plan không định nghĩa taxonomy nào**,
+Route `/categories` đang là trang chỗ giữ chỗ (dùng chung component `ComingSoon` như
+`/submit`/`/contact`). **Build plan không định nghĩa taxonomy nào**,
 và §3 của phase-3 nói thẳng: *"Không tự thêm taxonomy/category nếu requirement chưa có."*
 
 Đã kiểm: database không có bảng `categories`, `applications` không có cột `category`, và
@@ -520,10 +670,26 @@ còn.
 
 ## E. Ngoài phạm vi hiện tại nhưng cần nhớ
 
-### E1. Production deploy — thuộc P8
+### E1. Production deploy — thuộc P8 — ĐÍNH CHÍNH LỚN (2026-07-30): mô tả cũ đã sai
 
-Chưa có: Dockerfile cho `apps/web` và `apps/control-plane`, compose production, cấu hình
-Caddy/HTTPS, trình quản lý tiến trình.
+**Dockerfile và Caddy ĐÃ CÓ**, khác hẳn mô tả cũ ("chưa có"):
+- [`infra/docker/web.Dockerfile`](../../infra/docker/web.Dockerfile) — multi-stage cho
+  `apps/web` (Next 16), user non-root.
+- [`infra/docker/control-plane.Dockerfile`](../../infra/docker/control-plane.Dockerfile) —
+  multi-stage cho `apps/control-plane`, MỘT image dùng chung cho cả API (`dist/main-api.js`)
+  và worker (`dist/main-worker.js`), chỉ đổi `command:` lúc chạy.
+- [`infra/caddy/Caddyfile`](../../infra/caddy/Caddyfile) — route `/v1/*`, `/health/*` sang
+  `control-plane:3001`, còn lại sang `web:3000`; security headers; ACME/Let's Encrypt tự
+  động qua biến `TALOSMINE_SITE_ADDRESS`. CSP **cố ý không** đặt ở Caddy — Next tự sinh nonce
+  theo từng request ở `apps/web/proxy.ts`, đặt CSP ở Caddy sẽ lệch nonce.
+
+**Vẫn thiếu, và đây mới là chỗ chặn thật:** `infra/compose/docker-compose.yml` (compose
+PRODUCTION — khác `docker-compose.dev.yml` là overlay cho dev) hiện chỉ có 3 service (`db`,
+`supavisor`, `logto`). **Chưa có service `web`, `control-plane`, `caddy`** — hai Dockerfile
+và Caddyfile ở trên trỏ tới các hostname (`web:3000`, `control-plane:3001`) chưa tồn tại
+trong compose, tự Caddyfile cũng ghi nhận điều này (khối "TRẠNG THÁI THẬT"). Và **trình quản
+lý tiến trình vẫn chưa có** (không PM2/systemd/supervisor nào trong repo) — đúng phần này
+mô tả cũ không sai.
 
 Ràng buộc đã biết: cookie `__Host-` **bắt buộc HTTPS**; cổng 3002 (Admin Console Logto)
 **không được** mở ra internet.
@@ -534,11 +700,28 @@ Cột `web_sessions.idp_sid` đã có sẵn cho mục đích này nhưng **chưa
 hiệu logout từ Logto. Khi người dùng đăng xuất ở phía IdP, phiên Talosmine hiện vẫn sống
 tới khi hết hạn.
 
+**Sâu hơn mô tả cũ (2026-07-30):** cột `idp_sid` hiện **chưa từng được GHI giá trị**, không
+chỉ thiếu endpoint đọc. `createWebSession()` nhận `opts.idpSid` optional
+([`web-session.ts:53-56`](../../apps/control-plane/src/modules/identity/web-session.ts)),
+nhưng lời gọi duy nhất tới nó — ở `AuthController.exchange`
+([`auth.controller.ts:101-103`](../../apps/control-plane/src/modules/identity/auth.controller.ts)) —
+không truyền `idpSid`, và claim đã verify từ id_token cũng không có field `sid`. Kết quả: cột
+này luôn `NULL`. Xây endpoint nhận tín hiệu logout ngay bây giờ cũng vô dụng — chưa có gì để
+tra cứu. Cần sửa CẢ nơi tạo phiên (đọc claim `sid` từ Logto, truyền vào `createWebSession`)
+TRƯỚC khi endpoint có ý nghĩa. Chi tiết đầy đủ hơn đã có ở
+[`docs/identity-provider.md` mục 15](../identity-provider.md) — bao gồm việc Logto discovery
+tự khai `backchannel_logout_supported: true`.
+
 ---
 
 ## F. Phase 3 — việc kỹ thuật còn lại
 
-Trạng thái tổng thể (2026-07-22), đối chiếu với 14 bước ở §15 của phase-3:
+> **Rà lại 2026-07-30:** mục F chưa được cập nhật kể từ 2026-07-22 dù nhiều mốc khác của tài
+> liệu (mục B) đã tiến xa hơn — đây là phần lệch nhịp rõ nhất của file này. Đã đối chiếu lại
+> từng bước với code thật; các mục dưới đã cập nhật, ngày trong ngoặc là ngày rà chứ không
+> phải ngày viết code.
+
+Trạng thái tổng thể (rà lại 2026-07-30), đối chiếu với 14 bước ở §15 của phase-3:
 
 | Bước | Nội dung | Trạng thái |
 |---|---|---|
@@ -573,8 +756,10 @@ kiếm là đoán mò.
 
 Bố cục xong (xem D2). Còn lại:
 
-- **Nối API.** Thay `PLACEHOLDER_*` ở `app/(user)/page.tsx` và `app/(user)/tools/page.tsx`
-  bằng lời gọi `/v1/catalog/applications`.
+- **Nối API.** Thay dữ liệu mẫu ở `app/[locale]/(user)/page.tsx` và
+  `app/[locale]/(user)/tools/page.tsx` (tên biến đã đổi từ `PLACEHOLDER_*` sang tên cụ thể
+  hơn — `CATEGORY_TAB_COUNT`, `RESULT_IDS`… — bản chất không đổi) bằng lời gọi
+  `/v1/catalog/applications`.
 - **Trang chi tiết ứng dụng.** `§10` đòi có; hiện **chưa tồn tại** route nào. Dự kiến
   `/tools/[key]` — tra theo `key` chứ không phải `id`, khớp với endpoint đã có.
 - **Hành vi mở ứng dụng.** Nút mở dùng `launch_url` **đã lưu và đã kiểm** từ phản hồi
@@ -603,20 +788,32 @@ Còn thiếu:
 
 ### F4. Bộ test P3 còn thiếu
 
-Hiện có **277 test** unit+integration. Theo §14 còn thiếu:
+**Con số đã lỗi thời — cập nhật (2026-07-30):** không phải 277 test unit+integration nữa.
+Hiện có **462 test** unit+integration (`pnpm run test`) và **221 test e2e**
+(`pnpm exec playwright test`, xem B2). Theo §14 còn thiếu:
 
 - **Chỉ số:** `unit` thiếu/rỗng/placeholder/chưa duyệt thì không tạo được dòng nào. Chặn
   bởi A5 — chưa có endpoint để kiểm.
-- **Service identity và audit:** chứng minh không có cột/payload/log nào chứa secret hay
-  token; một service identity không bind được sang app khác; audit với actor `service`
-  thiếu FK hoặc trỏ id không tồn tại thì bị từ chối.
+- **Service identity và audit — MỘT PHẦN ĐÃ CÓ (đính chính 2026-07-30).** Khác mô tả cũ
+  "chưa có": [`tests/integration/catalog-schema.test.ts`](../../tests/integration/catalog-schema.test.ts)
+  đã có `describe('service_identities')` (không cột nào chứa secret/token) và
+  `describe('audit — nâng cấp actor của P3')` (actor `service` phải trỏ FK hợp lệ, thiếu FK
+  bị từ chối). **Vẫn thiếu:** test hành vi "một service identity không bind được sang app
+  khác" — module `service-identity` mới có `schema.ts`, chưa có controller/service nên chưa
+  có gì để gọi mà test.
 - **URL ảnh:** bộ test âm — URL có token presigned, URL chuyển hướng tới host nội bộ, phản
   hồi quá lớn hoặc không phải ảnh. Phạm vi phụ thuộc F2 (có fetch ảnh phía server hay không).
 - **Tương tranh:** hai lệnh tạo cùng `key`, hai lệnh đổi trạng thái cạnh tranh, hai lệnh
   thêm cùng redirect — phải cho một kết quả nhất quán, không nhân đôi, và audit không tách
-  khỏi transaction.
-- **Accessibility và responsive** cho màn hình danh mục, cả phía người dùng lẫn quản trị.
-  Chặn bởi B2 (thiếu fixture phiên admin cho e2e).
+  khỏi transaction. `tests/concurrency/row-lock.test.ts` hiện chỉ test khoá dòng cho
+  quota/balance (generic), chưa có case catalog nào chạy thật đồng thời (`Promise.all`) —
+  các test "key trùng → 409" hiện có đều là tuần tự, không phải race thật. Vẫn thiếu.
+- **Accessibility và responsive cho màn hình danh mục — BLOCKER B2 ĐÃ GỠ (2026-07-30).**
+  Khác mô tả cũ "chặn bởi B2": phía quản trị,
+  [`tests/e2e/admin-pages.spec.ts`](../../tests/e2e/admin-pages.spec.ts) đã có 3 test cho
+  `/admin/catalog` (trạng thái rỗng, không tràn ngang, focus khi tab). Phía người dùng,
+  `/tools` đã có trong bộ test bố cục tĩnh (`web-shell.spec.ts`, `grid.spec.ts`) nhưng đó là
+  test LAYOUT TĨNH — chưa test được hành vi sau khi nối API thật vì F2 (nối API) chưa làm.
 
 ### F5. Runbook vận hành — deliverable của §6, chưa tồn tại
 
@@ -648,24 +845,28 @@ Cần cập nhật cho khớp thực tế: ma trận permission, cách biểu di
 `counting_point`/`failure_treatment`, delta schema của service identity và audit, và các
 chỗ giữ chỗ cấu hình CSP.
 
-### F9. Sai tên trigger trong phase-3 §15
+### F9. Sai tên trigger trong phase-3 §15 — ✅ ĐÃ SỬA (2026-07-30)
 
 §15 bước 6 gọi trigger là `audit_events_append_only_trg`. Tên thật trong migration `0004`
 là **`audit_events_append_only`**, không có hậu tố.
 
-Tài liệu sai chứ không phải code. Sửa một chữ, nhưng để nguyên thì lần sau lại có người
-viết test tìm nhầm tên — đã xảy ra một lần rồi (2026-07-22).
+Tài liệu sai chứ không phải code. Đã sửa cả hai chỗ gọi sai trong
+[`phase-3-application-catalog.md`](./phase-3-application-catalog.md) (bước 6, mục Hành động
+và Verify) về đúng tên thật.
 
-### F10. Lệch khỏi bảng target path §7 — đã sửa một nửa
+### F10. Lệch khỏi bảng target path §7 — ✅ ĐÃ SỬA (2026-07-30)
 
-| Kế hoạch | Thực tế |
-|---|---|
-| `modules/application-catalog` | ✅ Đã đổi đúng tên (2026-07-22) |
-| `modules/service-identity` | ✅ Đã tách ra module riêng (2026-07-22) |
-| `apps/web/src/bff/auth/features` | ✗ BFF thật nằm ở `apps/web/app/api/bff/` và `apps/web/server/` |
+| Kế hoạch cũ | Thực tế | Trạng thái |
+|---|---|---|
+| `modules/application-catalog` | đúng | ✅ Đã đổi đúng tên (2026-07-22) |
+| `modules/service-identity` | đúng | ✅ Đã tách ra module riêng (2026-07-22) |
+| `apps/web/src/bff/auth/features` | `apps/web/app/api/bff/` + `apps/web/server/` | ✅ Đã sửa kế hoạch cho khớp code (2026-07-30) |
 
-Dòng cuối chưa xử lý: hoặc đổi code cho khớp kế hoạch, hoặc sửa kế hoạch cho khớp code.
-Nghiêng về vế sau — cấu trúc hiện tại theo đúng quy ước App Router của Next.
+Đã sửa `phase-3-application-catalog.md` (bảng §7 + hai chỗ nhắc lại trong bước 10) theo
+hướng "sửa kế hoạch cho khớp code" — cấu trúc hiện tại theo đúng quy ước App Router của Next,
+đổi code cho khớp kế hoạch cũ sẽ là đi ngược quy ước không có lý do tốt. Nhân dịp sửa cũng
+cập nhật `apps/web/app/(user)` → `apps/web/app/[locale]/(user)` ở cùng bảng đó (route i18n
+thêm vào sau khi bảng target path gốc được viết, cùng lớp lỗi thời với hàng BFF).
 
 ---
 

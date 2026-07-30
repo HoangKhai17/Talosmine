@@ -10,6 +10,11 @@
   min-height: 100vh;
   display: grid;
   grid-template-rows: auto 1fr;
+  /* Không khai `grid-template-columns` thì cột ẩn (implicit) vẫn có sàn kích thước ngầm
+     bằng nội dung rộng nhất bên trong nó (`.header`/`.body`) — CÙNG lỗi với `.body` bên
+     dưới, chỉ ở một tầng cao hơn. `.header`/`.body` khai `min-width: 0`/`minmax(0, 1fr)`
+     không đủ nếu chính `.shell` (cha của cả hai) không có sàn `0` tương ứng. */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .header {
@@ -95,7 +100,11 @@
  */
 .body {
   display: grid;
-  grid-template-columns: 1fr;
+  /* `minmax(0, 1fr)`, KHÔNG `1fr` trơn: một track `1fr` một mình vẫn giữ kích thước tối
+     thiểu ngầm bằng nội dung lớn nhất bên trong nó (giống hệt `min-width: auto` của flex
+     item) — `.sidebar` dù đã có `min-width: 0` vẫn bị `.body` ép rộng theo `.navList`, đẩy
+     CẢ SHELL tràn ngang trên màn hình hẹp. `minmax(0, 1fr)` bỏ đúng cái sàn ngầm đó. */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .sidebar {
@@ -103,6 +112,12 @@
   background-color: var(--color-bg-secondary);
   padding: var(--space-4) var(--container-gutter);
   overflow-x: auto;
+  /* Dưới 1024px, `.sidebar` là item của `.body` (CSS grid) — mặc định grid item không co
+     dưới kích thước nội dung của nó (`min-width: auto`), mà `.navList` bên trong lại ép
+     rộng bằng `min-width: max-content`. Kết quả: TOÀN BỘ shell quản trị (không riêng gì
+     `.sidebar`) bị đẩy tràn ngang trên màn hình hẹp, thay vì cuộn ngang bên trong khung
+     sidebar như `overflow-x: auto` ở trên vốn định làm. */
+  min-width: 0;
 }
 
 .navList {
@@ -141,7 +156,8 @@
 
 @media (min-width: 1024px) {
   .body {
-    grid-template-columns: 240px 1fr;
+    /* Cùng lý do ở khai báo `.body` phía trên: `1fr` trơn giữ sàn ngầm bằng nội dung. */
+    grid-template-columns: 240px minmax(0, 1fr);
     align-items: start;
   }
 

@@ -142,6 +142,15 @@ importers:
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(postgres@3.4.9)
+      jose:
+        specifier: 6.2.3
+        version: 6.2.3
+      next:
+        specifier: 16.2.10
+        version: 16.2.10(@playwright/test@1.61.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      openid-client:
+        specifier: 6.8.4
+        version: 6.8.4
       postgres:
         specifier: 3.4.9
         version: 3.4.9

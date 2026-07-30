@@ -36,6 +36,7 @@ export function isAdminPath(pathname: string): boolean {
  */
 export async function decideAdminAccess(
   sessionToken: string | undefined,
+  correlationId?: string,
 ): Promise<AdminAccessDecision> {
   if (!sessionToken) {
     return { allowed: false, reason: 'NO_SESSION' };
@@ -46,6 +47,7 @@ export async function decideAdminAccess(
       method: 'GET',
       path: '/v1/me/permissions',
       sessionToken,
+      correlationId,
     });
 
     if (!response.ok) {

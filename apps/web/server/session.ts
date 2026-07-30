@@ -23,13 +23,21 @@ export interface ControlPlaneSession {
  * Ta gửi NGUYÊN id_token chứ không gửi `issuer`/`subject` đã tự parse: Control Plane phải
  * tự verify chữ ký. Nếu nó tin claim do BFF khai, bất cứ ai gọi được endpoint đó đều có
  * thể mạo danh người khác.
+ *
+ * Gọi thẳng bằng `fetch`, không qua `callControlPlane`: lời gọi này xảy ra TRƯỚC khi có
+ * phiên, nên không có `sessionToken` để gắn — nhưng vẫn phải gắn `x-correlation-id` (B3)
+ * để nối được với log "callback outcome" ở `auth/callback/route.ts` và với log phía Control
+ * Plane (`AuthController.exchange`) cho cùng một lượt đăng nhập.
  */
-export async function exchangeIdTokenForSession(idToken: string): Promise<ControlPlaneSession> {
+export async function exchangeIdTokenForSession(
+  idToken: string,
+  correlationId: string,
+): Promise<ControlPlaneSession> {
   const cfg = requireOidcConfig();
 
   const response = await fetch(new URL('/v1/auth/sessions', cfg.controlPlaneBaseUrl), {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-correlation-id': correlationId },
     body: JSON.stringify({ idToken }),
     cache: 'no-store',
   });

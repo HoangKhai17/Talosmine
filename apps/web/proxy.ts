@@ -8,6 +8,7 @@ import {
   splitLocale,
 } from './i18n/locale';
 import { decideAdminAccess, isAdminPath } from './server/admin-authorization';
+import { logWarn } from './server/logger';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -187,7 +188,10 @@ const proxy: NextProxy = async (request: NextRequest) => {
    */
   if (isAdminPath(request.nextUrl.pathname)) {
     const sessionToken = request.cookies.get('__Host-talos_session')?.value;
-    const decision = await decideAdminAccess(sessionToken);
+    // B3 (`pending-work.md`): correlation ID cho lượt kiểm quyền này, nối được với log
+    // "RBAC deny" bên dưới và với lời gọi `/v1/me/permissions` phía Control Plane.
+    const correlationId = crypto.randomUUID();
+    const decision = await decideAdminAccess(sessionToken, correlationId);
 
     if (!decision.allowed) {
       // Khách VÃNG LAI (chưa đăng nhập) được đưa về trang chủ, KHÔNG phải trang đăng nhập.
@@ -198,9 +202,19 @@ const proxy: NextProxy = async (request: NextRequest) => {
       //
       // Đánh đổi: admin có session hết hạn bấm bookmark `/admin` sẽ về trang chủ mà không
       // được giải thích. Chấp nhận được — họ đăng nhập từ trang chủ rồi vào lại.
+      //
+      // KHÔNG log nhánh `NO_SESSION`: đó là khách vãng lai, không phải một quyết định RBAC
+      // (không có danh tính nào để từ chối). Log ở đây chỉ ghi lại lượt "có danh tính nhưng
+      // bị từ chối" — đúng nghĩa "RBAC deny" mà B3 nhắc tới.
       if (decision.reason === 'NO_SESSION') {
         return NextResponse.redirect(new URL('/', request.nextUrl.origin));
       }
+
+      logWarn('admin.access_denied', {
+        correlationId,
+        reason: decision.reason,
+        path: request.nextUrl.pathname,
+      });
 
       return new NextResponse('403 Forbidden\n', {
         status: 403,

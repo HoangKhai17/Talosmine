@@ -10,6 +10,13 @@ import { readServerEnv } from './env';
  * 3. Base URL của Control Plane là chi tiết nội bộ, không bao giờ trả về client.
  */
 
+/**
+ * Tên header khớp CHÍNH XÁC `CORRELATION_HEADER` ở `apps/control-plane/src/shared/correlation.ts`
+ * — không import chéo giữa hai app (mỗi app build/deploy độc lập), nên khai lại như một
+ * hằng số cục bộ có comment neo về nguồn sự thật bên kia.
+ */
+const CORRELATION_HEADER = 'x-correlation-id';
+
 export class ControlPlaneBoundaryNotWiredError extends Error {
   public readonly code = 'CONTROL_PLANE_BOUNDARY_NOT_WIRED';
 
@@ -28,6 +35,12 @@ export interface ControlPlaneRequest {
   readonly csrfToken?: string | undefined;
   readonly body?: BodyInit | undefined;
   readonly contentType?: string | undefined;
+  /**
+   * Truyền vào khi caller cần TỰ log lời gọi này (đối chiếu với log/audit của Control
+   * Plane) — không truyền thì hàm tự sinh một ID mới cho lời gọi đó. Không bắt buộc:
+   * phần lớn lời gọi qua ranh giới này (trang admin đọc dữ liệu…) không cần theo dõi riêng.
+   */
+  readonly correlationId?: string | undefined;
 }
 
 /**
@@ -36,6 +49,11 @@ export interface ControlPlaneRequest {
  * Chỉ forward những header ta CHỦ ĐỘNG chọn. Forward nguyên header của browser sẽ mang
  * theo cookie, `origin`, `referer` sang một service tin cậy — Control Plane không được
  * nhìn thấy cookie của browser, đó là toàn bộ điểm của mẫu BFF.
+ *
+ * LUÔN gắn `x-correlation-id` — B3 (`pending-work.md`): correlation ID phải xuyên được từ
+ * BFF sang Control Plane rồi vào audit event, và Control Plane đã đọc đúng header này
+ * (`shared/correlation.ts`). Không có nó thì mọi audit event do lời gọi qua ranh giới này
+ * tạo ra chỉ có một ID tự sinh ở phía Control Plane, không nối lại được với log phía BFF.
  */
 export async function callControlPlane(request: ControlPlaneRequest): Promise<Response> {
   const env = readServerEnv();
@@ -49,6 +67,7 @@ export async function callControlPlane(request: ControlPlaneRequest): Promise<Re
   if (request.sessionToken) headers.set('x-session-token', request.sessionToken);
   if (request.csrfToken) headers.set('x-csrf-token', request.csrfToken);
   if (request.contentType) headers.set('content-type', request.contentType);
+  headers.set(CORRELATION_HEADER, request.correlationId ?? crypto.randomUUID());
 
   return fetch(new URL(request.path, baseUrl), {
     method: request.method,

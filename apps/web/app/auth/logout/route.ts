@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOidcConfig } from '../../../server/env';
+import { logError, logInfo } from '../../../server/logger';
 import { endSessionUrl } from '../../../server/oidc';
 import {
   clearSessionCookies,
@@ -48,19 +49,34 @@ export async function POST(request: Request): Promise<Response> {
   const token = readSessionToken(request.headers.get('cookie'));
 
   if (token) {
+    // B3 (`pending-work.md`): correlation ID cho lượt thu hồi này — nối log "session revoke"
+    // ở đây với log phía Control Plane (`AuthController.logout`, đọc lại đúng ID qua header).
+    const correlationId = crypto.randomUUID();
     try {
-      await fetch(new URL('/v1/auth/sessions/current', cfg.controlPlaneBaseUrl), {
+      const response = await fetch(new URL('/v1/auth/sessions/current', cfg.controlPlaneBaseUrl), {
         method: 'DELETE',
         headers: {
           'x-session-token': token,
+          'x-correlation-id': correlationId,
           ...(csrf.token ? { 'x-csrf-token': csrf.token } : {}),
         },
         cache: 'no-store',
       });
+
+      if (response.ok) {
+        logInfo('auth.logout.success', { correlationId });
+      } else {
+        // Không phải lỗi mạng — Control Plane trả lời, chỉ là không phải 2xx (ví dụ phiên
+        // đã bị thu hồi từ trước). Vẫn đi tiếp như dưới, nhưng ghi lại mức cảnh báo khác.
+        logError('auth.logout.revoke_rejected', { correlationId, status: response.status });
+      }
     } catch (error) {
       // Thu hồi thất bại thì VẪN đi tiếp: trình duyệt này mất quyền truy cập ngay khi cookie
       // bị xoá. Phiên còn sót vẫn hết hạn theo TTL và người dùng thu hồi tay được ở trang phiên.
-      console.error('[auth/logout] thu hồi phiên thất bại:', error);
+      logError('auth.logout.revoke_failed', {
+        correlationId,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

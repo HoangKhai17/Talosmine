@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import * as client from 'openid-client';
 import { localeHref, negotiateLocale } from '../../../i18n/locale';
 import { requireOidcConfig } from '../../../server/env';
+import { logError, logInfo } from '../../../server/logger';
 import {
   getOidcConfiguration,
   safeReturnTo,
@@ -20,6 +21,10 @@ import { exchangeIdTokenForSession, setSessionCookies } from '../../../server/se
  */
 export async function GET(request: Request): Promise<Response> {
   const cfg = requireOidcConfig();
+  // Một correlation ID cho TOÀN BỘ lượt callback này — B3 (`pending-work.md`): nối log
+  // "callback outcome" ở đây với audit event phía Control Plane (đọc lại đúng ID này qua
+  // header `x-correlation-id` mà `exchangeIdTokenForSession` gắn vào).
+  const correlationId = crypto.randomUUID();
 
   const raw = getCookie(request, TRANSACTION_COOKIE);
   if (!raw) {
@@ -50,17 +55,29 @@ export async function GET(request: Request): Promise<Response> {
     }
     idToken = tokens.id_token;
   } catch (error) {
-    console.error('[auth/callback] đổi code thất bại:', error);
+    logError('auth.callback.token_exchange_failed', {
+      correlationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return failure(cfg.appBaseUrl, 'Không hoàn tất được đăng nhập. Vui lòng thử lại.');
   }
 
   let session: Awaited<ReturnType<typeof exchangeIdTokenForSession>>;
   try {
-    session = await exchangeIdTokenForSession(idToken);
+    session = await exchangeIdTokenForSession(idToken, correlationId);
   } catch (error) {
-    console.error('[auth/callback] đổi phiên thất bại:', error);
+    logError('auth.callback.session_exchange_failed', {
+      correlationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return failure(cfg.appBaseUrl, 'Không tạo được phiên đăng nhập. Vui lòng thử lại.');
   }
+
+  logInfo('auth.callback.success', {
+    correlationId,
+    accountId: session.accountId,
+    created: session.created,
+  });
 
   const target = await resolveDestination(request, session, transaction, cfg.appBaseUrl);
 

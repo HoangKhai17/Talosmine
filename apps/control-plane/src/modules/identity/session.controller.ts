@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Logger,
   NotFoundException,
   Param,
   ParseUUIDPipe,
@@ -12,6 +13,7 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { getCorrelationId } from '../../shared/correlation.js';
 import { SessionService, type SessionView } from './session.service.js';
 import { type AuthenticatedRequest, WebSessionGuard } from './web-session.guard.js';
 
@@ -24,6 +26,8 @@ import { type AuthenticatedRequest, WebSessionGuard } from './web-session.guard.
 @Controller({ path: 'me/account/sessions', version: '1' })
 @UseGuards(WebSessionGuard)
 export class SessionController {
+  private readonly logger = new Logger(SessionController.name);
+
   // Token tường minh: dev runner (tsx/esbuild) không sinh `emitDecoratorMetadata`, nên
   // DI suy luận theo kiểu sẽ nhận `undefined`. Xem admin-permission.guard.ts.
   constructor(@Inject(SessionService) private readonly sessionService: SessionService) {}
@@ -42,7 +46,13 @@ export class SessionController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async revokeAll(@Req() request: AuthenticatedRequest): Promise<void> {
     const auth = this.requireAuth(request);
-    await this.sessionService.revokeAllOwnSessions(auth.accountId);
+    const count = await this.sessionService.revokeAllOwnSessions(auth.accountId);
+
+    // B3 (`pending-work.md`) — "session revoke": nhánh "đăng xuất mọi nơi" tự người dùng bấm.
+    this.logger.log(
+      { correlationId: getCorrelationId(), accountId: auth.accountId, revokedCount: count },
+      'Đã thu hồi mọi phiên của account (đăng xuất mọi nơi)',
+    );
   }
 
   @Delete(':sessionId')
@@ -58,6 +68,13 @@ export class SessionController {
       // Không phân biệt "không tồn tại" với "của người khác" — tránh dò sessionId hợp lệ.
       throw new NotFoundException('Không tìm thấy phiên.');
     }
+
+    // B3 (`pending-work.md`) — "session revoke": nhánh thu hồi MỘT phiên cụ thể (ví dụ từ
+    // trang "các thiết bị đang đăng nhập").
+    this.logger.log(
+      { correlationId: getCorrelationId(), accountId: auth.accountId, sessionId },
+      'Đã thu hồi một phiên theo yêu cầu của chính chủ',
+    );
   }
 
   private requireAuth(request: AuthenticatedRequest): { accountId: string; sessionId: string } {
