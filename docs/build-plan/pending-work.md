@@ -1,7 +1,7 @@
 # Việc còn treo
 
 > **Mục đích:** ghi lại mọi thứ đã biết là chưa làm, để không phải nhớ bằng đầu và không
-> ai tưởng nhầm là đã xong. Cập nhật lần cuối **2026-07-30**.
+> ai tưởng nhầm là đã xong. Cập nhật lần cuối **2026-07-31**.
 >
 > Quy tắc của file này: chỉ ghi việc **đã xác định**, kèm **vì sao nó quan trọng** và
 > **điều gì đang chặn**. Không ghi ý tưởng chưa chín — chỗ đó là decision register.
@@ -385,11 +385,45 @@ Cùng class CSS này (`.tableWrap` thiếu `min-width: 0` khi là con của flex
 chính (nguyên nhân chính là khung sườn ở trên) nhưng là một lỗi thật độc lập, phòng khi bảng
 đó thật sự rộng hơn khung sườn cho phép.
 
-**Còn treo, CHƯA sửa vì chưa kiểm chứng:** cùng pattern `.tableWrap` xuất hiện thêm ở
-`admin/audit/page.module.css`, `admin/accounts/[accountId]/page.module.css`, và
-`admin/page.module.css` — RẤT có thể có cùng lỗ hổng tiềm ẩn (không còn bị khung sườn che nữa
-sau bản sửa trên, nhưng riêng bảng của từng trang thì chưa đo), nhưng chưa test mobile cho ba
-trang đó nên không tự vá mà không kiểm chứng trước.
+**BA TRANG CÒN LẠI — ĐÃ ĐO VÀ ĐÃ SỬA (2026-07-31).** Nghi ngờ ở bản ghi trước là ĐÚNG: cả ba
+đều tràn ngang thật ở viewport 390px — `/admin` **554px**, `/admin/audit` **742px**,
+`/admin/accounts/[accountId]` **542px** (so với clientWidth 390px). Không trang nào tự lộ ra
+trước đây vì bảng của chúng CHỈ render khi có dữ liệu, mà chưa bài test nào từng dựng dữ liệu
+đó rồi đo ở màn hẹp.
+
+[`tests/e2e/admin-tables.spec.ts`](../../tests/e2e/admin-tables.spec.ts), **3 test** (×3
+viewport = 9 lượt). Mỗi test BẮT BUỘC bảng phải hiện ra trước khi đo — `/admin` tra chính
+account của fixture theo UUID (`searchAccounts` so khớp chính xác), `/admin/audit` tự ghi một
+sự kiện qua `createAuditEvent` (fixture mới), trang chi tiết dùng luôn phiên vừa gắn cookie.
+Riêng ở mobile còn khẳng định thêm bảng THẬT SỰ rộng hơn khung chứa nó: thiếu phép đo đó,
+"không tràn ngang" chỉ đang chứng minh một bảng nhỏ thì không tràn.
+
+**Nguyên nhân KHÁC với lần trước, và `min-width: 0` KHÔNG sửa được.** Đã thử từng declaration
+ngay trên DOM của bản production (đo, không đoán): `min-width: 0` giữ nguyên 742px — tức sàn
+`min-width: auto` KHÔNG phải nguyên nhân ở đây, khác hẳn ghi chú đang có trong
+`admin/roles/page.module.css`. Ba tầng nguyên nhân thật:
+
+1. **`.stack` (globals.css) có `align-items: flex-start`** — con của nó KHÔNG giãn theo bề
+   ngang cha mà tự lấy kích thước theo nội dung, nên `.tableWrap` bị `min-width` của `.table`
+   (640/720/520px) kéo rộng ra bất kể `overflow-x: auto`. Sửa bằng `align-self: stretch`.
+2. **Trang chi tiết account có `.stack` LỒNG trong `.stack`.** Sửa riêng `.tableWrap` xong vẫn
+   tràn 542px vì chính `<section class="stack">` mới là thứ rộng 522px. Phải thêm
+   `.sessionsSection { align-self: stretch }` cho tầng cha — sửa tầng con mà bỏ tầng cha thì
+   chỉ dời chỗ tràn.
+3. **`/admin`: một `<span class="visuallyHidden">` THOÁT khỏi khung cuộn.** Class này là
+   `position: absolute`; khung cuộn ở trạng thái `static` nên không phải containing block của
+   nó → nó không bị `overflow-x: auto` cắt, neo vào vị trí tĩnh trong bảng 640px và đẩy
+   scrollWidth của cả trang lên 554px trong khi khung chỉ rộng 350px. Tìm ra bằng cách ẩn từng
+   phần tử rồi đo lại; sửa bằng `position: relative` trên `.tableWrap`.
+
+Đã kiểm chứng bằng cách phá: gỡ riêng `position: relative` → **đúng 1/9 test đỏ** (`/admin`
+mobile), 8 test còn lại vẫn xanh. Sau khi sửa: 9/9 xanh, và toàn bộ `pnpm run test` (475
+test) + `pnpm exec playwright test` (252 test) chạy lại đều xanh.
+
+**Cùng pattern còn ở `admin/roles` và `admin/catalog`** (cũng có `visuallyHidden` trong cột
+hành động) nhưng test hiện tại của hai trang đó vẫn xanh — cái span ở đó rơi trong phạm vi
+viewport nên chưa thành lỗi. Không vá sẵn theo đúng quy tắc "chưa đo thì chưa sửa"; ghi lại ở
+đây để lần sau bảng của chúng rộng ra thì biết ngay chỗ phải nhìn.
 
 ### B3. Observability — §17 — ✅ ĐÃ XONG (2026-07-30)
 
@@ -450,10 +484,35 @@ append-only còn nguyên và vẫn chặn `UPDATE`.
 **Đính chính tên:** trigger tên là `audit_events_append_only`, **không** có hậu tố `_trg`.
 Phase-3 §15 đang gọi sai tên — xem F9.
 
-### B5. Kết quả CI
+### B5. Kết quả CI — TÌM ĐƯỢC MỘT NGUYÊN NHÂN ĐỎ THẬT (2026-07-31), vẫn chờ chủ dự án xem run
 
-Commit `e0e362d` đã push lên `origin/main`. Cần xem CI xanh hay đỏ — đây là điều kiện 7
-của exit gate P1, chưa từng được xác nhận.
+Điều kiện 7 của exit gate P1, vẫn chưa ai NHÌN vào một run thật.
+
+**Agent không đọc được trạng thái run:** repo `HoangKhai17/Talosmine` là private, máy dev không
+có `gh` CLI và git không có credential lưu (`git ls-remote` đòi đăng nhập). Cần chủ dự án mở
+`https://github.com/HoangKhai17/Talosmine/actions` và báo lại bốn job (`quality`, `test`, `db`,
+`build`) xanh hay đỏ. Đây là việc DUY NHẤT của B5 mà agent không làm thay được.
+
+**Nhưng chạy được chính các lệnh CI chạy, và job `quality` CHẮC CHẮN ĐỎ ở commit đã push.**
+`pnpm lint` (biome) báo lỗi format thật trong `tests/e2e/authenticated.spec.ts` — file commit
+hôm 2026-07-30: hai lời gọi `test(...)` có tham số vượt `lineWidth: 100`, biome đòi xuống dòng
+`({ browser })` thành nhiều dòng. Đây là lỗi NỘI DUNG, không phải hiện tượng kết thúc dòng của
+Windows: blob trong git là LF, và `biome.json` cũng đặt `lineEnding: "lf"`. CI chạy đúng
+`pnpm lint` không kèm `continue-on-error` nên job dừng ngay tại đó — nghĩa là gitleaks (điều 8
+của exit gate) cũng chưa từng chạy, vì nó nằm SAU bước lint trong cùng job.
+
+Đã sửa (`biome check --write`). Sau khi sửa, các lệnh của job `quality` và `test` đều xanh trên
+máy dev: `typecheck`, `lint`, `openapi:lint`, `openapi:drift`, `test` (475 test).
+
+**Còn lại chưa kiểm được ở máy dev:** job `db` (dựng PostgreSQL từ volume RỖNG rồi migrate —
+máy dev đang có dữ liệu, chạy sẽ phá), job `build` (build hai image Docker), và bước gitleaks.
+Ba thứ này chỉ CI trả lời được.
+
+**Bẫy cần biết khi đọc lint ở máy này:** `core.autocrlf=true` mà repo không có `.gitattributes`,
+nên file nào git vừa ghi lại (checkout, stash/pop) sẽ thành CRLF trong working tree và biome
+báo "needs to be formatted" hàng loạt — TOÀN LÀ NHIỄU, không phải lỗi thật, và không lên tới CI
+(blob vẫn là LF, `git diff` vẫn sạch). Cách phân biệt: lỗi thật thì `biome check <file>` vẫn báo
+sau khi đã chuyển file về LF.
 
 ---
 
@@ -824,9 +883,8 @@ Còn thiếu:
 
 ### F4. Bộ test P3 còn thiếu
 
-**Con số đã lỗi thời — cập nhật (2026-07-30):** không phải 277 test unit+integration nữa.
-Hiện có **462 test** unit+integration (`pnpm run test`) và **221 test e2e**
-(`pnpm exec playwright test`, xem B2). Theo §14 còn thiếu:
+**Con số cập nhật (2026-07-31):** **475 test** unit+integration (`pnpm run test`) và **252
+test e2e** (`pnpm exec playwright test`, xem B2). Theo §14 còn thiếu:
 
 - **Chỉ số:** `unit` thiếu/rỗng/placeholder/chưa duyệt thì không tạo được dòng nào. Chặn
   bởi A5 — chưa có endpoint để kiểm.

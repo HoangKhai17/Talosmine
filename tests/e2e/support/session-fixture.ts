@@ -190,6 +190,42 @@ export async function createCompletedSurveyResponse(accountId: string): Promise<
 }
 
 /**
+ * Ghi thẳng MỘT sự kiện kiểm toán do `actorAccountId` thực hiện — dùng cho nhóm test bảng
+ * quản trị ở `admin-tables.spec.ts`.
+ *
+ * VÌ SAO PHẢI TỰ TẠO thay vì dựa vào dữ liệu sẵn có: `/admin/audit` chỉ render `.tableWrap`
+ * khi CÓ ít nhất một sự kiện. Một bài test đo tràn ngang mà chạy trên trạng thái rỗng sẽ
+ * XANH mà không chứng minh gì — đúng loại test tệ hơn không có test. Database dev hiện có
+ * sẵn hàng trăm sự kiện, nhưng dựa vào đó là dựa vào một tiền đề không ai bảo đảm.
+ *
+ * `actor_type = 'account'` kèm `actor_account_id` (và `actor_service_identity_id` NULL) là
+ * một trong ba tổ hợp mà `audit_events_actor_check` cho phép — không phải lựa chọn tuỳ ý.
+ * Trigger `audit_events_append_only` chỉ chặn UPDATE/DELETE nên INSERT ở đây hợp lệ, đúng
+ * bản chất của một bảng chỉ-thêm.
+ *
+ * `reason` cố ý DÀI: cột "Lý do" là cột co giãn nhất của bảng, nên một lý do thật (dài như
+ * người ta gõ) mới ép bảng tới kích thước đáng đo. Lý do ngắn sẽ làm bài test dễ hơn thực tế.
+ */
+export async function createAuditEvent(actorAccountId: string): Promise<void> {
+  const { sql } = db();
+  await sql`
+    INSERT INTO control_plane.audit_events
+      (id, operation_id, sequence, actor_type, actor_account_id, action, target_type, target_id, reason)
+    VALUES (
+      ${crypto.randomUUID()},
+      ${crypto.randomUUID()},
+      0,
+      'account',
+      ${actorAccountId},
+      'account.disable',
+      'account',
+      ${actorAccountId},
+      ${'Yêu cầu từ ticket #4821 — người dùng báo mất quyền kiểm soát hộp thư đăng ký.'}
+    )
+  `;
+}
+
+/**
  * Đặt MỘT cookie qua một response HTTP THẬT (bị chặn và tự trả lời bởi `context.route`),
  * không qua `context.addCookies`.
  *

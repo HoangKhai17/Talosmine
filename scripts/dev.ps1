@@ -56,7 +56,12 @@ if ($missing.Count -gt 0) {
 
     Bật hạ tầng bằng lệnh:
 
-      docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.dev.yml up -d
+      docker compose -f infra/compose/docker-compose.yml -f infra/compose/docker-compose.dev.yml --env-file .env up -d
+
+    (`--env-file .env` là BẮT BUỘC: thư mục dự án của compose là infra/compose/ chứ không phải
+     gốc repo, nên nó KHÔNG tự tìm thấy .env ở gốc và sẽ dừng ở
+     "required variable LOGTO_DB_PASSWORD is missing a value". Là .env, không phải .env.dev —
+     .env.dev dành cho hai app Node, không chứa biến của compose.)
 
 '@ -ForegroundColor Yellow
     exit 1

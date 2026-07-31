@@ -213,7 +213,7 @@ export default function AdminAccountDetailPage({
             ) : null}
           </section>
 
-          <section aria-labelledby="sessions-heading" className="stack">
+          <section aria-labelledby="sessions-heading" className={`stack ${styles.sessionsSection}`}>
             <h2 className="typeH3" id="sessions-heading">
               Phiên đăng nhập
             </h2>

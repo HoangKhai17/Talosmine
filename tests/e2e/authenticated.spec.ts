@@ -79,7 +79,9 @@ test.describe('Phiên đăng nhập thật (fixture ghi thẳng DB)', () => {
     await context.close();
   });
 
-  test('có `audit:read` → /admin/audit trả 200 — quyền RIÊNG cho TỪNG trang, không chỉ vào được /admin', async ({ browser }) => {
+  test('có `audit:read` → /admin/audit trả 200 — quyền RIÊNG cho TỪNG trang, không chỉ vào được /admin', async ({
+    browser,
+  }) => {
     const context = await browser.newContext({ baseURL: BASE_URL });
     const session = await createAdminSession(crypto.randomUUID(), ['audit:read']);
     await attachSession(context, session, BASE_URL);
@@ -93,7 +95,9 @@ test.describe('Phiên đăng nhập thật (fixture ghi thẳng DB)', () => {
     await context.close();
   });
 
-  test('đã đăng nhập nhưng KHÔNG có permission quản trị nào → /admin bị chặn (403)', async ({ browser }) => {
+  test('đã đăng nhập nhưng KHÔNG có permission quản trị nào → /admin bị chặn (403)', async ({
+    browser,
+  }) => {
     const context = await browser.newContext({ baseURL: BASE_URL });
     const session = await createLoggedInSession(crypto.randomUUID());
     await attachSession(context, session, BASE_URL);

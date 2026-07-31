@@ -98,7 +98,23 @@
   opacity: 0.6;
 }
 
+/*
+ * Khu vực phiên đăng nhập là một `<section class="stack">` LỒNG bên trong `.stack` ngoài
+ * cùng — hai tầng flex column, cả hai đều `align-items: flex-start` (globals.css).
+ *
+ * Vì sao cần class này chứ không chỉ sửa `.tableWrap`: đã đo ở viewport 390px sau khi thêm
+ * `align-self: stretch` cho riêng `.tableWrap` — trang VẪN tràn 542px, vì khung bảng lúc đó
+ * giãn đúng theo cha nó, mà chính CÁI CHA (`<section class="stack">`) mới là thứ đang rộng
+ * 522px theo nội dung. Sửa tầng con mà bỏ tầng cha thì chỉ dời chỗ tràn, không đóng được.
+ */
+.sessionsSection {
+  align-self: stretch;
+}
+
 .tableWrap {
+  /* Xem giải thích đầy đủ ở `admin/audit/page.module.css`. Đã đo: `min-width: 0` KHÔNG có
+     tác dụng, `align-self: stretch` mới đóng được — và phải đi kèm `.sessionsSection` ở trên. */
+  align-self: stretch;
   overflow-x: auto;
   border: var(--border-default);
   border-radius: var(--radius-card);

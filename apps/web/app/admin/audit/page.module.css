@@ -1,6 +1,16 @@
 /* Nhật ký kiểm toán. Chỉ dùng token từ globals.css. */
 
 .tableWrap {
+  /* `align-self: stretch` BẮT BUỘC, và không thay được bằng `min-width: 0`.
+     Khung này là con của `.stack` (globals.css) — một flex column có `align-items: flex-start`,
+     nghĩa là con KHÔNG giãn theo bề ngang cha mà tự lấy kích thước theo nội dung. Nội dung ở
+     đây là `.table` với `min-width: 720px`, nên trên màn 390px khung bị kéo rộng 722px và đẩy
+     cả TRANG tràn ngang, bất kể `overflow-x: auto` khai ngay bên dưới.
+     Đã ĐO trực tiếp trên bản production ở viewport 390px, không suy luận: `min-width: 0` giữ
+     nguyên 742px (không có tác dụng — sàn `min-width:auto` không phải nguyên nhân ở đây, khác
+     với ghi chú ở admin/roles), còn `align-self: stretch` đưa trang về đúng 390px và để khung
+     tự cuộn trong lòng nó (scrollWidth 720 / clientWidth 348). */
+  align-self: stretch;
   overflow-x: auto;
   border: var(--border-default);
   border-radius: var(--radius-card);
