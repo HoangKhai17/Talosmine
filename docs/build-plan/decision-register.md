@@ -528,6 +528,105 @@ gắn `account_id`, đã đọc được qua `/admin/survey/responses` từ 2026
   hay chỉ gửi email) — chưa thiết kế.
 - **Affected phase:** P3.
 
+### DEC-B17 — Hub được vận hành ứng dụng "hosted", không chỉ launch *(`proposed` 2026-07-31 — chờ chủ dự án)*
+
+> **Đây là đề xuất do agent soạn theo yêu cầu của chủ dự án, chưa được duyệt.** Nó **đảo một
+> nguyên tắc đã ghi** trong `phase-6-sample-data-plane-e2e.md`, nên không được coi là đã chốt
+> cho tới khi chủ dự án approve tường minh (DEC-G01). Chưa dòng code nào được viết theo nó.
+
+- **Đề xuất:** ngoài ứng dụng kiểu **`external_link`** như hiện nay (app chạy ở hạ tầng riêng,
+  Hub chỉ mở ra qua `launch_url`), Hub được phép vận hành thêm ứng dụng kiểu **`hosted`**: giao
+  diện nằm trong Talosmine, backend của Talosmine gọi API của nhà cung cấp thứ ba (HuggingFace
+  Inference/Spaces, hoặc nền tảng tương đương) rồi trả kết quả cho người dùng.
+- **Nguyên tắc bị đảo — nói thẳng để không ai tưởng đây là bổ sung vô hại:**
+  `phase-6` mục 2 điều 4 ghi *"Hub chỉ launch và quản lý, không proxy business traffic của
+  sample app"*, và mục 5 xếp *"bắt buộc API gateway hoặc chuyển business traffic qua Hub"* vào
+  **ngoài phạm vi**. Đề xuất này mâu thuẫn trực tiếp với cả hai câu. Nếu được duyệt thì
+  `phase-6` phải sửa, không phải để hai tài liệu nói ngược nhau.
+- **Lý do đề xuất:** dựng và duy trì pipeline deploy cho từng repo là chi phí lớn với mô hình
+  solo dev, và nó chặn việc làm danh mục phong phú. Loại `hosted` bỏ hẳn chi phí đó cho những
+  công cụ nhỏ.
+
+**Ba đánh đổi phải chấp nhận cùng lúc với quyết định này** (nếu chỉ chấp nhận lợi ích mà không
+chấp nhận ba mục dưới thì quyết định chưa hoàn chỉnh):
+
+1. **Hub trở thành điểm chết chung.** Với `external_link`, Hub chết thì người dùng vẫn mở app
+   trực tiếp được — Hub chết ≠ sản phẩm chết. Với `hosted`, Hub chết là **mọi công cụ chết**.
+   Đây là chuyển từ kiến trúc phân tán rủi ro sang kiến trúc tập trung rủi ro.
+2. **Hub chịu chi phí biến đổi theo lượt dùng.** Mỗi lần chạy tốn tiền thật của chủ dự án.
+   Chống lạm dụng và giới hạn chi phí trở thành yêu cầu **ngay từ ứng dụng hosted đầu tiên**,
+   không phải việc để dành tới P5.
+3. **Bề mặt bảo mật mới, khác loại với những gì P2 đã làm.** Toàn bộ công sức bảo mật hiện có
+   là về *người dùng đi vào*. Cái này là *hệ thống đi ra Internet* và *hệ thống giữ khoá API của
+   bên thứ ba* — hai loại rủi ro chưa từng tồn tại trong dự án.
+
+**Hai thứ quyết định này làm ĐƠN GIẢN HƠN** (không phải chỉ thêm việc):
+
+- **Hạn mức mạnh hơn và đơn giản hơn.** Mô hình `reserve → commit/cancel` hai pha ở P5 sinh ra
+  vì data plane chạy ở máy người khác nên Hub buộc phải tin nó tự khai báo. Với `hosted`, Hub
+  **là** bên gọi: kiểm hạn mức trước khi tiêu tiền, trong cùng một tiến trình và một
+  transaction. Không cần hai pha, không phải tin ai. Mô hình hai pha **vẫn phải giữ** cho
+  `external_link` và P7.
+- **DEC-B05 (đơn vị đo `usage_metrics`) tự có câu trả lời** cho app hosted: đơn vị chính là thứ
+  nhà cung cấp tính tiền (token, giây GPU, ảnh) — đo được, đối chiếu được với hoá đơn thật, thay
+  vì phải chọn một đơn vị trừu tượng. Không tự động giải DEC-B05 cho `external_link`.
+
+**Bốn câu còn `open`, cần chủ dự án trả lời trước khi có app hosted đầu tiên:**
+
+1. **Nhà cung cấp nào được duyệt?** Danh sách đóng, giống tinh thần allowlist host. Không để
+   agent tự thêm.
+2. **Trần chi phí là bao nhiêu, và chạm trần thì làm gì?** (chặn, hay xuống hàng đợi chậm, hay
+   báo chủ dự án). Không có câu trả lời thì không có cách hiện thực đúng.
+3. **Nhà cung cấp chết thì người dùng thấy gì?** Free HF Space ngủ sau thời gian không dùng,
+   Inference API có rate limit, model bị gỡ khỏi nền tảng. Đây là trạng thái bình thường sẽ xảy
+   ra thường xuyên, không phải sự cố hiếm.
+4. **Giấy phép model.** Nhiều model trên HuggingFace **cấm dùng thương mại**. Nếu Talosmine thu
+   phí thì phải kiểm giấy phép **từng model**, và kiểm lại khi model đổi phiên bản. Cần một
+   người chịu trách nhiệm việc này — agent không tự phán quyết vấn đề pháp lý.
+
+- **Không thay đổi:** loại `external_link` vẫn tồn tại nguyên vẹn; P7 (onboard các app còn lại)
+  vẫn cần mô hình phân tán với `service_identities` và entitlement/quota hai pha. Đề xuất này
+  **thêm** một loại, không thay thế loại nào.
+- **Affected phase:** P3 (schema catalog + UI), P4, P5 (đơn giản hoá cho nhánh hosted, giữ
+  nguyên cho nhánh external), P6 (đảo phạm vi — phải sửa tài liệu), P7, P8 (vận hành, chi phí).
+
+### DEC-T27 — Hình hài kỹ thuật của ứng dụng `hosted` *(`proposed` 2026-07-31 — phụ thuộc DEC-B17)*
+
+> Chỉ có nghĩa nếu DEC-B17 được duyệt. Ghi ở đây để phần kỹ thuật được soi cùng lúc với phần
+> nghiệp vụ, thay vì chốt hướng xong mới phát hiện cái giá kỹ thuật.
+
+- **Phân loại ở tầng dữ liệu, không rải điều kiện khắp code.** Thêm cột `kind` vào
+  `applications`: `NOT NULL`, ràng buộc `CHECK (kind IN ('external_link','hosted'))`, mặc định
+  `'external_link'` để migration không phá dữ liệu cũ. Rải `if (kind === …)` khắp service là
+  cách chắc chắn nhất để hai mô hình mục ruỗng lẫn nhau sau vài tháng.
+- **Nới `launch_url`, không bỏ.** Cột đang `NOT NULL`; app `hosted` không có URL ra ngoài. Đổi
+  thành nullable kèm `CHECK (kind <> 'external_link' OR launch_url IS NOT NULL)` — ràng buộc
+  vẫn cứng đúng chỗ cần cứng. **Đây là ràng buộc đã tồn tại DUY NHẤT phải sửa**; mọi thứ còn
+  lại là migration thuần cộng thêm.
+- **Credential nhà cung cấp là bảng MỚI, tuyệt đối không nhét vào `service_identities`.** Hai lý
+  do độc lập, mỗi lý do tự nó đã đủ: (1) bảng đó **cố ý** không có cột nào cho secret — xem A7
+  của `pending-work.md`; (2) ngữ nghĩa **ngược chiều**: `service_identities` mô tả bên ngoài
+  *gọi vào* Hub, còn đây là Hub *gọi ra*. Gộp hai khái niệm ngược chiều vào một bảng là mở đường
+  cho nhầm lẫn phân quyền. Cần: mã hoá at-rest, xoay khoá, và bảo đảm không rò vào log/audit —
+  **hiện repo chưa có gì làm việc này**.
+- **Hàng đợi job.** Suy luận AI có cold start và có thể chạy vài phút; không giữ trong một
+  request HTTP được. `main-worker.ts` đã có khung nhưng comment ghi thẳng *"chưa có job nào —
+  job đầu tiên ở P5"*, và **không có bảng job/queue nào trong database**. Đây là công việc thật,
+  không phải cấu hình.
+- **TIỀN ĐỀ BẮT BUỘC — trả nợ trước khi vay thêm:** `checkResolvedAddresses` trong
+  `apps/control-plane/src/shared/url-policy.ts` (kiểm DNS, chặn URL trỏ về dải nội bộ) **đã viết
+  xong, có test, nhưng chưa được gọi ở bất kỳ đâu trong `apps/`** — nên cờ `!internal` của
+  allowlist hiện **vô tác dụng**. Hôm nay chưa thành lỗ hổng vì allowlist là cửa thật và không
+  có lời gọi outbound nào. Ngay khi Hub bắt đầu tự gọi ra Internet thì nó thành lỗ hổng thật.
+  **Phải nối vào trước lời gọi outbound đầu tiên**, không phải sau.
+- **App `hosted` không được đi tắt.** Chạy trong nhà không phải lý do để bỏ qua session, RBAC
+  hay audit. Mọi lượt chạy vẫn phải để lại dấu vết như một thao tác bình thường.
+- **Chưa quyết, cần chốt khi hiện thực:** dùng thư viện hàng đợi hay tự dựng trên PostgreSQL
+  (`SELECT … FOR UPDATE SKIP LOCKED`); cơ chế mã hoá credential (pgcrypto / KMS ngoài / thư viện
+  ứng dụng). Cả hai đều là quyết định tooling — thuộc phạm vi agent được uỷ quyền ở nhóm A,
+  nhưng chỉ mở sau khi DEC-B17 được duyệt.
+- **Affected phase:** P3, P5, P6.
+
 ### DEC-T14 — Cấu trúc Auth0 topology *(`proposed` — chờ DEC-B03)*
 
 Đây là **đề xuất cấu trúc**, không phải cấu hình thật. Không có giá trị nào ở đây là secret.
