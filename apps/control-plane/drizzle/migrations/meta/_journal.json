@@ -120,6 +120,13 @@
       "when": 1784201500000,
       "tag": "0016_survey_response_self_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1784201600000,
+      "tag": "0017_hosted_apps",
+      "breakpoints": true
     }
   ]
 }

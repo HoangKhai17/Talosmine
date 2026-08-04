@@ -8,6 +8,13 @@ import {
   ApiError,
   api,
 } from '../../../../lib/api-client';
+import {
+  AdminTable,
+  AdminTableBodyRow,
+  AdminTableCaption,
+  AdminTableCell,
+  AdminTableHeadCell,
+} from '../../_components/admin-table';
 import styles from './page.module.css';
 
 /**
@@ -223,37 +230,35 @@ export default function AdminAccountDetailPage({
                 Không có phiên nào, hoặc bạn không có quyền xem phần này.
               </p>
             ) : (
-              <div className={styles.tableWrap}>
-                <table className={`typeBodySmall ${styles.table}`}>
-                  <caption className="typeBodySmall">
+              <AdminTable minWidth="narrow">
+                  <AdminTableCaption className="typeBodySmall">
                     {activeSessions} phiên còn hiệu lực trên tổng số {sessions.length}
-                  </caption>
+                  </AdminTableCaption>
                   <thead>
                     <tr>
-                      <th scope="col">Tạo lúc</th>
-                      <th scope="col">Hoạt động gần nhất</th>
-                      <th scope="col">Hết hạn</th>
-                      <th scope="col">Trạng thái</th>
+                      <AdminTableHeadCell scope="col">Tạo lúc</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Hoạt động gần nhất</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Hết hạn</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {sessions.map((session) => (
-                      <tr key={session.id}>
-                        <td>{formatDateTime(session.createdAt)}</td>
-                        <td>{formatDateTime(session.lastSeenAt)}</td>
-                        <td>{formatDateTime(session.expiresAt)}</td>
-                        <td>
+                      <AdminTableBodyRow key={session.id}>
+                        <AdminTableCell>{formatDateTime(session.createdAt)}</AdminTableCell>
+                        <AdminTableCell>{formatDateTime(session.lastSeenAt)}</AdminTableCell>
+                        <AdminTableCell>{formatDateTime(session.expiresAt)}</AdminTableCell>
+                        <AdminTableCell>
                           {session.revokedAt ? (
                             <span className={styles.revoked}>Đã thu hồi</span>
                           ) : (
                             'Đang hoạt động'
                           )}
-                        </td>
-                      </tr>
+                        </AdminTableCell>
+                      </AdminTableBodyRow>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </AdminTable>
             )}
           </section>
         </>

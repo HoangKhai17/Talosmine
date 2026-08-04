@@ -7,6 +7,13 @@ import {
   ApiError,
   api,
 } from '../../../lib/api-client';
+import {
+  AdminTable,
+  AdminTableBodyRow,
+  AdminTableCaption,
+  AdminTableCell,
+  AdminTableHeadCell,
+} from '../_components/admin-table';
 import styles from './page.module.css';
 
 /**
@@ -137,24 +144,27 @@ export default function AdminRolesPage() {
             {roles.length === 0 ? (
               <p className={`typeBody ${styles.empty}`}>Chưa có vai trò nào.</p>
             ) : (
-              <div className={styles.tableWrap}>
-                <table className={`typeBodySmall ${styles.table}`}>
-                  <caption className="typeBodySmall">{roles.length} vai trò</caption>
+              <AdminTable>
+                  <AdminTableCaption className="typeBodySmall">
+                    {roles.length} vai trò
+                  </AdminTableCaption>
                   <thead>
                     <tr>
-                      <th scope="col">Mã</th>
-                      <th scope="col">Tên hiển thị</th>
-                      <th scope="col">Trạng thái</th>
-                      <th scope="col">Quyền</th>
+                      <AdminTableHeadCell scope="col">Mã</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Quyền</AdminTableHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {roles.map((role) => (
-                      <tr key={role.id}>
-                        <td className={styles.mono}>{role.key}</td>
-                        <td>{role.displayName}</td>
-                        <td>{role.status === 'active' ? 'Đang dùng' : 'Vô hiệu hoá'}</td>
-                        <td>
+                      <AdminTableBodyRow key={role.id}>
+                        <AdminTableCell className={styles.mono}>{role.key}</AdminTableCell>
+                        <AdminTableCell>{role.displayName}</AdminTableCell>
+                        <AdminTableCell>
+                          {role.status === 'active' ? 'Đang dùng' : 'Vô hiệu hoá'}
+                        </AdminTableCell>
+                        <AdminTableCell>
                           <span className={styles.permList}>
                             {role.permissions.map((permission) => (
                               <span key={permission} className={`typeCaption ${styles.perm}`}>
@@ -162,12 +172,11 @@ export default function AdminRolesPage() {
                               </span>
                             ))}
                           </span>
-                        </td>
-                      </tr>
+                        </AdminTableCell>
+                      </AdminTableBodyRow>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </AdminTable>
             )}
           </section>
 
@@ -244,39 +253,43 @@ export default function AdminRolesPage() {
             {assignments.length === 0 ? (
               <p className={`typeBody ${styles.empty}`}>Chưa cấp vai trò cho ai.</p>
             ) : (
-              <div className={styles.tableWrap}>
-                <table className={`typeBodySmall ${styles.table}`}>
-                  <caption className="typeBodySmall">
+              <AdminTable>
+                  <AdminTableCaption className="typeBodySmall">
                     {assignments.filter((a) => a.revokedAt === null).length} đang hiệu lực trên tổng
                     số {assignments.length}
-                  </caption>
+                  </AdminTableCaption>
                   <thead>
                     <tr>
-                      <th scope="col">Tài khoản</th>
-                      <th scope="col">Vai trò</th>
-                      <th scope="col">Từ</th>
-                      <th scope="col">Trạng thái</th>
-                      <th scope="col">
+                      <AdminTableHeadCell scope="col">Tài khoản</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Vai trò</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Từ</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">
                         <span className="visuallyHidden">Hành động</span>
-                      </th>
+                      </AdminTableHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {assignments.map((assignment) => {
                       const revoked = assignment.revokedAt !== null;
                       return (
-                        <tr key={assignment.id} className={revoked ? styles.revoked : ''}>
-                          <td>
+                        <AdminTableBodyRow
+                          key={assignment.id}
+                          className={revoked ? styles.revoked : ''}
+                        >
+                          <AdminTableCell>
                             {assignment.accountEmail ?? assignment.accountDisplayName ?? (
                               <span className={styles.mono}>
                                 {assignment.accountId.slice(0, 8)}…
                               </span>
                             )}
-                          </td>
-                          <td className={styles.mono}>{assignment.roleKey}</td>
-                          <td>{formatDate(assignment.validFrom)}</td>
-                          <td>{revoked ? 'Đã thu hồi' : 'Đang hiệu lực'}</td>
-                          <td>
+                          </AdminTableCell>
+                          <AdminTableCell className={styles.mono}>
+                            {assignment.roleKey}
+                          </AdminTableCell>
+                          <AdminTableCell>{formatDate(assignment.validFrom)}</AdminTableCell>
+                          <AdminTableCell>{revoked ? 'Đã thu hồi' : 'Đang hiệu lực'}</AdminTableCell>
+                          <AdminTableCell>
                             {revoked ? null : (
                               <button
                                 type="button"
@@ -287,13 +300,12 @@ export default function AdminRolesPage() {
                                 {pending === assignment.id ? 'Đang thu hồi…' : 'Thu hồi'}
                               </button>
                             )}
-                          </td>
-                        </tr>
+                          </AdminTableCell>
+                        </AdminTableBodyRow>
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
+              </AdminTable>
             )}
           </section>
         </>

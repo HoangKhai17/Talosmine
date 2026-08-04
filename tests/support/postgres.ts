@@ -136,6 +136,7 @@ const ROLLBACK_DIR = new URL('../../apps/control-plane/drizzle/rollback/', impor
  * cách những file đó mục nát cho tới đêm sự cố.
  */
 const ROLLBACK_ORDER = [
+  '0017_hosted_apps.down.sql',
   '0016_survey_response_self_delete.down.sql',
   '0015_site_logo_upload.down.sql',
   '0014_legal_slots.down.sql',
@@ -159,12 +160,26 @@ export async function applyRollbackToP2(sql: Sql): Promise<number> {
   let count = 0;
 
   for (const file of ROLLBACK_ORDER) {
-    const raw = await readFile(new URL(file, ROLLBACK_DIR), 'utf8');
-    for (const statement of splitStatements(raw)) {
-      await sql.unsafe(statement);
-      count += 1;
-    }
+    count += await applyRollbackFile(sql, file);
   }
 
+  return count;
+}
+
+/**
+ * Chạy MỘT file rollback duy nhất.
+ *
+ * Tách ra vì gỡ hết về P2 không phải kịch bản thường gặp nhất — kịch bản thật là **gỡ đúng
+ * migration vừa phát hành** khi nó gây sự cố. Hai việc đó kiểm những thứ khác nhau: gỡ toàn
+ * bộ chỉ chứng minh thứ tự đúng, còn gỡ một file chứng minh file đó tự nó đưa schema về
+ * đúng trạng thái NGAY TRƯỚC nó — gồm cả việc khôi phục những ràng buộc mà nó đã nới.
+ */
+export async function applyRollbackFile(sql: Sql, file: string): Promise<number> {
+  const raw = await readFile(new URL(file, ROLLBACK_DIR), 'utf8');
+  let count = 0;
+  for (const statement of splitStatements(raw)) {
+    await sql.unsafe(statement);
+    count += 1;
+  }
   return count;
 }

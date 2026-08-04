@@ -111,44 +111,6 @@
   align-self: stretch;
 }
 
-.tableWrap {
-  /* Xem giải thích đầy đủ ở `admin/audit/page.module.css`. Đã đo: `min-width: 0` KHÔNG có
-     tác dụng, `align-self: stretch` mới đóng được — và phải đi kèm `.sessionsSection` ở trên. */
-  align-self: stretch;
-  overflow-x: auto;
-  border: var(--border-default);
-  border-radius: var(--radius-card);
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 520px;
-}
-
-.table caption {
-  text-align: left;
-  padding: var(--space-4) var(--space-5);
-  color: var(--color-text-secondary);
-  border-bottom: var(--border-default);
-}
-
-.table th,
-.table td {
-  text-align: left;
-  padding: var(--space-4) var(--space-5);
-  border-bottom: var(--border-default);
-}
-
-.table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.table th {
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
 .revoked {
   color: var(--color-text-tertiary);
 }

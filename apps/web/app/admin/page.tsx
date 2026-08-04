@@ -3,6 +3,13 @@
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
 import { type AdminAccountView, ApiError, api } from '../../lib/api-client';
+import {
+  AdminTable,
+  AdminTableBodyRow,
+  AdminTableCaption,
+  AdminTableCell,
+  AdminTableHeadCell,
+} from './_components/admin-table';
 import styles from './page.module.css';
 
 /**
@@ -84,39 +91,39 @@ export default function AdminAccountsPage() {
       </div>
 
       {results !== null && results.length > 0 ? (
-        <div className={styles.tableWrap}>
-          <table className={`typeBodySmall ${styles.table}`}>
-            <caption className="typeBodySmall">{results.length} kết quả</caption>
+        <AdminTable>
+            <AdminTableCaption className="typeBodySmall">
+              {results.length} kết quả
+            </AdminTableCaption>
             <thead>
               <tr>
-                <th scope="col">Email</th>
-                <th scope="col">Tên hiển thị</th>
-                <th scope="col">Trạng thái</th>
-                <th scope="col">Ngày tạo</th>
-                <th scope="col">
+                <AdminTableHeadCell scope="col">Email</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Ngày tạo</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">
                   <span className="visuallyHidden">Hành động</span>
-                </th>
+                </AdminTableHeadCell>
               </tr>
             </thead>
             <tbody>
               {results.map((account) => (
-                <tr key={account.id}>
-                  <td className={styles.mono}>{account.email ?? '—'}</td>
-                  <td>{account.displayName ?? '—'}</td>
-                  <td>
+                <AdminTableBodyRow key={account.id}>
+                  <AdminTableCell className={styles.mono}>{account.email ?? '—'}</AdminTableCell>
+                  <AdminTableCell>{account.displayName ?? '—'}</AdminTableCell>
+                  <AdminTableCell>
                     <span className={styles.tag}>{statusLabel(account.status)}</span>
-                  </td>
-                  <td>{formatDate(account.createdAt)}</td>
-                  <td>
+                  </AdminTableCell>
+                  <AdminTableCell>{formatDate(account.createdAt)}</AdminTableCell>
+                  <AdminTableCell>
                     <Link className="typeBodySmall" href={`/admin/accounts/${account.id}`}>
                       Xem chi tiết
                     </Link>
-                  </td>
-                </tr>
+                  </AdminTableCell>
+                </AdminTableBodyRow>
               ))}
             </tbody>
-          </table>
-        </div>
+        </AdminTable>
       ) : null}
     </div>
   );

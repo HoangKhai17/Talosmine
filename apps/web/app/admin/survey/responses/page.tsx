@@ -7,6 +7,13 @@ import {
   type SurveyResponseRecordView,
   type SurveySummaryView,
 } from '../../../../lib/api-client';
+import {
+  AdminTable,
+  AdminTableBodyRow,
+  AdminTableCaption,
+  AdminTableCell,
+  AdminTableHeadCell,
+} from '../../_components/admin-table';
 import forms from '../../admin-forms.module.css';
 import { useAdminScreen } from '../../use-admin-screen';
 import styles from './page.module.css';
@@ -244,31 +251,32 @@ function ResponseList() {
 
       {items.length > 0 ? (
         <>
-          <div className={styles.tableScroll}>
-            <table className={`typeBodySmall ${styles.table}`}>
-              <caption className="typeCaption textSecondary">
+          <AdminTable minWidth="content" presentation="plain">
+              <AdminTableCaption className="typeCaption textSecondary" unstyled>
                 Đang hiển thị {items.length} lượt
-              </caption>
+              </AdminTableCaption>
               <thead>
                 <tr>
-                  <th scope="col">Thời điểm</th>
-                  <th scope="col">Tài khoản</th>
-                  <th scope="col">Trạng thái</th>
-                  <th scope="col">Ngôn ngữ</th>
-                  <th scope="col">Lựa chọn</th>
+                  <AdminTableHeadCell scope="col" compact>Thời điểm</AdminTableHeadCell>
+                  <AdminTableHeadCell scope="col" compact>Tài khoản</AdminTableHeadCell>
+                  <AdminTableHeadCell scope="col" compact>Trạng thái</AdminTableHeadCell>
+                  <AdminTableHeadCell scope="col" compact>Ngôn ngữ</AdminTableHeadCell>
+                  <AdminTableHeadCell scope="col" compact>Lựa chọn</AdminTableHeadCell>
                 </tr>
               </thead>
               <tbody>
                 {items.map((row) => (
-                  <tr key={row.id}>
-                    <td>{formatDateTime(row.createdAt)}</td>
-                    <td className={styles.mono}>
+                  <AdminTableBodyRow key={row.id}>
+                    <AdminTableCell compact>{formatDateTime(row.createdAt)}</AdminTableCell>
+                    <AdminTableCell className={styles.mono} compact>
                       {/* Rút gọn id: đủ để đối chiếu, không biến bảng thành bức tường ký tự. */}
                       <code>{row.accountId.slice(0, 8)}…</code>
-                    </td>
-                    <td>{row.status === 'completed' ? 'Hoàn tất' : 'Bỏ qua'}</td>
-                    <td>{row.locale}</td>
-                    <td className={styles.mono}>
+                    </AdminTableCell>
+                    <AdminTableCell compact>
+                      {row.status === 'completed' ? 'Hoàn tất' : 'Bỏ qua'}
+                    </AdminTableCell>
+                    <AdminTableCell compact>{row.locale}</AdminTableCell>
+                    <AdminTableCell className={styles.mono} compact>
                       {row.answers.length === 0 ? (
                         <span className="textSecondary">—</span>
                       ) : (
@@ -278,12 +286,11 @@ function ResponseList() {
                           </div>
                         ))
                       )}
-                    </td>
-                  </tr>
+                    </AdminTableCell>
+                  </AdminTableBodyRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </AdminTable>
 
           <div className={styles.pager}>
             <button

@@ -3,6 +3,13 @@
 import Link from 'next/link';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { type AdminApplicationView, ApiError, api } from '../../../lib/api-client';
+import {
+  AdminTable,
+  AdminTableBodyRow,
+  AdminTableCaption,
+  AdminTableCell,
+  AdminTableHeadCell,
+} from '../_components/admin-table';
 import styles from './page.module.css';
 import { StatusBadge } from './status-badge';
 
@@ -133,48 +140,48 @@ export default function AdminCatalogPage() {
                 Chưa có ứng dụng nào. Danh sách ứng dụng của Hub còn chờ chủ dự án chốt.
               </p>
             ) : (
-              <div className={styles.tableWrap}>
-                <table className={`typeBodySmall ${styles.table}`}>
-                  <caption className="typeBodySmall">
+              <AdminTable minWidth="wide">
+                  <AdminTableCaption className="typeBodySmall">
                     {applications.length} ứng dụng ·{' '}
                     {applications.filter((a) => a.status === 'active').length} đang hoạt động
-                  </caption>
+                  </AdminTableCaption>
                   <thead>
                     <tr>
-                      <th scope="col">Mã</th>
-                      <th scope="col">Tên hiển thị</th>
-                      <th scope="col">Trạng thái</th>
-                      <th scope="col">URL mở ứng dụng</th>
-                      <th scope="col">
+                      <AdminTableHeadCell scope="col">Mã</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">URL mở ứng dụng</AdminTableHeadCell>
+                      <AdminTableHeadCell scope="col">
                         <span className="visuallyHidden">Hành động</span>
-                      </th>
+                      </AdminTableHeadCell>
                     </tr>
                   </thead>
                   <tbody>
                     {applications.map((application) => (
-                      <tr key={application.id}>
-                        <td className={styles.mono}>{application.key}</td>
-                        <td>{application.displayName}</td>
-                        <td>
+                      <AdminTableBodyRow key={application.id}>
+                        <AdminTableCell className={styles.mono}>
+                          {application.key}
+                        </AdminTableCell>
+                        <AdminTableCell>{application.displayName}</AdminTableCell>
+                        <AdminTableCell>
                           <StatusBadge status={application.status} />
-                        </td>
+                        </AdminTableCell>
                         {/* URL dài không được đẩy bảng tràn ngang — xem `.urlCell`. */}
-                        <td className={`${styles.mono} ${styles.urlCell}`}>
+                        <AdminTableCell className={`${styles.mono} ${styles.urlCell}`}>
                           {application.launchUrl}
-                        </td>
-                        <td>
+                        </AdminTableCell>
+                        <AdminTableCell>
                           <Link
                             className={`typeBodySmall ${styles.link}`}
                             href={`/admin/catalog/${application.id}`}
                           >
                             Quản lý
                           </Link>
-                        </td>
-                      </tr>
+                        </AdminTableCell>
+                      </AdminTableBodyRow>
                     ))}
                   </tbody>
-                </table>
-              </div>
+              </AdminTable>
             )}
           </section>
 

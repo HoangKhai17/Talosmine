@@ -8,6 +8,9 @@ import { CATALOG_LOOKUP_PORT } from './catalog-lookup.port.js';
 import { CatalogLookupService } from './catalog-lookup.service.js';
 import { CatalogSubresourceController } from './catalog-subresource.controller.js';
 import { FeatureService } from './feature.service.js';
+import { HostedBindingService } from './hosted-binding.service.js';
+import { HostedRunController } from './hosted-run.controller.js';
+import { HostedRunService } from './hosted-run.service.js';
 import { RedirectUriService } from './redirect-uri.service.js';
 
 /**
@@ -32,11 +35,23 @@ import { RedirectUriService } from './redirect-uri.service.js';
   // `CatalogSubresourceController` khai các route con dưới nó. Fastify khớp theo thứ tự
   // đăng ký, nên controller cụ thể hơn phải đứng sau — nếu không `/features` sẽ bị khớp
   // thành một `applicationId`.
-  controllers: [CatalogController, CatalogAdminController, CatalogSubresourceController],
+  //
+  // `HostedRunController` đứng TRƯỚC `CatalogController`: cả hai dùng prefix
+  // `catalog/applications`, mà `CatalogController` có route `:key` bắt mọi đoạn đơn. Route
+  // `:key/run` cụ thể hơn nên phải đăng ký trước, nếu không Fastify khớp `POST` vào chỗ
+  // khác và endpoint chạy app không bao giờ tới nơi.
+  controllers: [
+    HostedRunController,
+    CatalogController,
+    CatalogAdminController,
+    CatalogSubresourceController,
+  ],
   providers: [
     CatalogService,
     RedirectUriService,
     FeatureService,
+    HostedBindingService,
+    HostedRunService,
     // Cổng khai bằng TOKEN, không phải bằng class: consumer phụ thuộc vào hợp đồng
     // (`CatalogLookupPort`), không phụ thuộc vào cách hiện thực nó.
     { provide: CATALOG_LOOKUP_PORT, useClass: CatalogLookupService },

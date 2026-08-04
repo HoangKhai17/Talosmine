@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, type AuditEventView, api } from '../../../lib/api-client';
+import {
+  AdminTable,
+  AdminTableBodyRow,
+  AdminTableCaption,
+  AdminTableCell,
+  AdminTableHeadCell,
+} from '../_components/admin-table';
 import styles from './page.module.css';
 
 /**
@@ -76,39 +83,41 @@ export default function AdminAuditPage() {
 
       {events.length > 0 ? (
         <>
-          <div className={styles.tableWrap}>
-            <table className={`typeBodySmall ${styles.table}`}>
-              <caption className="typeBodySmall">Đang hiển thị {events.length} sự kiện</caption>
+          <AdminTable minWidth="wide">
+              <AdminTableCaption className="typeBodySmall">
+                Đang hiển thị {events.length} sự kiện
+              </AdminTableCaption>
               <thead>
                 <tr>
-                  <th scope="col">Thời điểm</th>
-                  <th scope="col">Hành động</th>
-                  <th scope="col">Người thực hiện</th>
-                  <th scope="col">Đối tượng</th>
-                  <th scope="col">Lý do</th>
+                  <AdminTableHeadCell scope="col">Thời điểm</AdminTableHeadCell>
+                  <AdminTableHeadCell scope="col">Hành động</AdminTableHeadCell>
+                  <AdminTableHeadCell scope="col">Người thực hiện</AdminTableHeadCell>
+                  <AdminTableHeadCell scope="col">Đối tượng</AdminTableHeadCell>
+                  <AdminTableHeadCell scope="col">Lý do</AdminTableHeadCell>
                 </tr>
               </thead>
               <tbody>
                 {events.map((event) => (
-                  <tr key={event.id}>
-                    <td>{formatDateTime(event.createdAt)}</td>
-                    <td>
+                  <AdminTableBodyRow key={event.id}>
+                    <AdminTableCell>{formatDateTime(event.createdAt)}</AdminTableCell>
+                    <AdminTableCell>
                       <span className={styles.action}>{event.action}</span>
-                    </td>
-                    <td>{actorLabel(event)}</td>
-                    <td className={styles.mono}>
+                    </AdminTableCell>
+                    <AdminTableCell>{actorLabel(event)}</AdminTableCell>
+                    <AdminTableCell className={styles.mono}>
                       {event.targetId ? (
                         `${event.targetType} · ${event.targetId.slice(0, 8)}…`
                       ) : (
                         <span className={styles.muted}>{event.targetType}</span>
                       )}
-                    </td>
-                    <td>{event.reason ?? <span className={styles.muted}>—</span>}</td>
-                  </tr>
+                    </AdminTableCell>
+                    <AdminTableCell>
+                      {event.reason ?? <span className={styles.muted}>—</span>}
+                    </AdminTableCell>
+                  </AdminTableBodyRow>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </AdminTable>
 
           <div className={styles.toolbar}>
             <button

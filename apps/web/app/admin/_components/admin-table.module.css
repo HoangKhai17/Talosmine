@@ -1,0 +1,72 @@
+.wrapper {
+  align-self: stretch;
+  min-width: 0;
+  position: relative;
+  overflow-x: auto;
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+}
+
+.plain {
+  border: none;
+  border-radius: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.narrow {
+  min-width: var(--admin-table-min-width-narrow);
+}
+
+.standard {
+  min-width: var(--admin-table-min-width-standard);
+}
+
+.wide {
+  min-width: var(--admin-table-min-width-wide);
+}
+
+.content {
+  min-width: var(--admin-table-min-width-content);
+}
+
+.caption {
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-text-secondary);
+  border-bottom: var(--border-default);
+}
+
+.cell {
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-default);
+  vertical-align: baseline;
+}
+
+.bodyRow:last-child .cell {
+  border-bottom: none;
+}
+
+.headCell {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.compactCell {
+  text-align: start;
+  vertical-align: top;
+  padding: var(--space-2) var(--space-3);
+}
+
+.bodyRow:last-child .compactCell {
+  border-bottom: var(--border-default);
+}
+
+.compactHeadCell {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}

@@ -7,47 +7,6 @@
   width: 100%;
 }
 
-.tableWrap {
-  /* `min-width: 0` bắt buộc: `.tableWrap` là con của một flex column (`.section`), mà mặc
-     định flex item không co dưới kích thước nội dung của nó (`min-width: auto`) — nghĩa là
-     nó bị ép rộng ít nhất bằng `.table` (640px) bất kể `overflow-x: auto` khai ở đây, đẩy cả
-     TRANG tràn ngang trên màn hình hẹp thay vì tự cuộn trong khung của chính nó. */
-  min-width: 0;
-  overflow-x: auto;
-  border: var(--border-default);
-  border-radius: var(--radius-card);
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 640px;
-}
-
-.table caption {
-  text-align: left;
-  padding: var(--space-4) var(--space-5);
-  color: var(--color-text-secondary);
-  border-bottom: var(--border-default);
-}
-
-.table th,
-.table td {
-  text-align: left;
-  padding: var(--space-4) var(--space-5);
-  border-bottom: var(--border-default);
-  vertical-align: baseline;
-}
-
-.table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.table th {
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
 .permList {
   display: flex;
   flex-wrap: wrap;

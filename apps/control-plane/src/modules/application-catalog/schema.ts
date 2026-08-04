@@ -1,4 +1,12 @@
-import { foreignKey, index, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  foreignKey,
+  index,
+  integer,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { controlPlane } from '../account/schema.js';
 
 /**
@@ -17,6 +25,19 @@ export type CatalogStatus = (typeof CATALOG_STATUSES)[number];
 export const REDIRECT_PURPOSES = ['login', 'logout'] as const;
 export type RedirectPurpose = (typeof REDIRECT_PURPOSES)[number];
 
+/**
+ * Loại ứng dụng — DEC-B17. Danh mục ĐÓNG, khớp `applications_kind_check` (migration 0017).
+ *
+ * `external_link` — app chạy ở hạ tầng riêng, Hub mở ra qua `launchUrl`.
+ * `hosted`        — giao diện trong Talosmine, backend gọi API nhà cung cấp thứ ba.
+ */
+export const APPLICATION_KINDS = ['external_link', 'hosted'] as const;
+export type ApplicationKind = (typeof APPLICATION_KINDS)[number];
+
+/** Nhà cung cấp được duyệt. Danh mục ĐÓNG — thêm nhà cung cấp là một migration (DEC-B17 câu 1). */
+export const HOSTED_PROVIDERS = ['huggingface'] as const;
+export type HostedProvider = (typeof HOSTED_PROVIDERS)[number];
+
 export const applications = controlPlane.table(
   'applications',
   {
@@ -27,7 +48,13 @@ export const applications = controlPlane.table(
     description: text('description'),
     /** Chỉ URL, không binary. Ảnh nằm trên object storage (DEC-T12). */
     imageUrl: text('image_url'),
-    launchUrl: text('launch_url').notNull(),
+    /**
+     * NULL với app `hosted` — loại đó không có URL ra ngoài (migration 0017).
+     * Ràng buộc "external_link BẮT BUỘC có launchUrl" nằm ở CHECK trong database, không
+     * biểu diễn được bằng kiểu ở đây.
+     */
+    launchUrl: text('launch_url'),
+    kind: text('kind').notNull(),
     status: text('status').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -62,6 +89,30 @@ export const applicationRedirectUris = controlPlane.table(
 );
 
 export type ApplicationRedirectUriRow = typeof applicationRedirectUris.$inferSelect;
+
+/**
+ * Cấu hình nhà cung cấp cho app `hosted` (migration 0017, DEC-T27).
+ *
+ * Quan hệ 1–1 với `applications`: `applicationId` vừa là khoá chính vừa là khoá ngoại, nên
+ * một app không thể có hai binding mâu thuẫn — database bảo đảm, không phải code.
+ *
+ * KHÔNG có cột secret. Khoá API đọc từ biến môi trường ở lượt này; bảng credential mã hoá
+ * là việc riêng đã ghi ở DEC-T27.
+ */
+export const applicationHostedBindings = controlPlane.table('application_hosted_bindings', {
+  applicationId: uuid('application_id')
+    .primaryKey()
+    .references(() => applications.id, { onDelete: 'restrict' }),
+  provider: text('provider').notNull(),
+  /** Đã canonicalize và đã qua url-policy trước khi ghi. */
+  endpointUrl: text('endpoint_url').notNull(),
+  model: text('model'),
+  timeoutMs: integer('timeout_ms').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ApplicationHostedBindingRow = typeof applicationHostedBindings.$inferSelect;
 
 export const features = controlPlane.table(
   'features',

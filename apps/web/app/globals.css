@@ -122,6 +122,14 @@
   --border-default: 1px solid var(--color-border-default);
   --border-hover: 1px solid var(--color-border-hover);
 
+  /* Technical floors preserved from the measured admin table implementations in
+   * account detail (520px), account/role lookup (640px), and catalog/audit (720px).
+   * They keep columns readable while the table's own wrapper handles horizontal overflow. */
+  --admin-table-min-width-narrow: 520px;
+  --admin-table-min-width-standard: 640px;
+  --admin-table-min-width-wide: 720px;
+  --admin-table-min-width-content: 60ch;
+
   /* ── Font ─────────────────────────────────────────────────────────────────
    * Biến do next/font đặt trong layout.tsx (self-host, không gọi Google CDN
    * nên không phải nới CSP font-src). */

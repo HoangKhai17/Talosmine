@@ -358,6 +358,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalog/applications/{key}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chay mot ung dung `hosted`
+         * @description DEC-B17. Hub goi API cua nha cung cap thu ba roi tra ket qua — day la endpoint DUY
+         *     NHAT lam viec do.
+         *
+         *     CHI chap nhan app dong thoi `status='active'` VA `kind='hosted'`. App `draft`,
+         *     `inactive`, hoac app `external_link` deu tra 404 GIONG HET app khong ton tai, cung
+         *     bat bien voi `getPublicApplication`: phan biet cac truong hop cho phep do trang thai
+         *     he thong.
+         *
+         *     CHUA TRU DIEM TIN DUNG. DEC-B18 da chot huong nhung co che sub chua chot; luot chay
+         *     hien chi ghi `audit_events`, khong ghi `usage_metrics` (chan boi DEC-B05).
+         *
+         *     Loi cua nha cung cap KHONG duoc vong nguyen van ra ngoai — chung co the chua chi
+         *     tiet cau hinh noi bo.
+         */
+        post: operations["runHostedApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/catalog/applications/{applicationId}/hosted-binding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cau hinh nha cung cap cua mot app `hosted`
+         * @description Yeu cau `catalog:read`.
+         */
+        get: operations["adminGetHostedBinding"];
+        /**
+         * Dat hoac cap nhat cau hinh nha cung cap
+         * @description Yeu cau `catalog:manage`. Idempotent: goi lai voi cung noi dung cho cung ket qua.
+         *
+         *     CHI ap dung cho app `kind='hosted'`. Dat binding cho app `external_link` bi tu choi
+         *     — hai loai app co hai duong chay khac han, tron lan la nguon loi cau hinh am tham.
+         *
+         *     `endpointUrl` di qua CUNG chinh sach URL nhu `launchUrl`: https, khong userinfo,
+         *     host phai nam trong `CATALOG_ALLOWED_HOSTS`, va duoc luu o dang chuan hoa.
+         */
+        put: operations["adminUpsertHostedBinding"];
+        post?: never;
+        /**
+         * Go cau hinh nha cung cap
+         * @description Yeu cau `catalog:manage`. Sau khi go, app `hosted` do khong chay duoc nua — endpoint
+         *     `run` tra 404. Day la hanh vi dung: khong co cau hinh thi khong co gi de goi.
+         */
+        delete: operations["adminDeleteHostedBinding"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/catalog/applications": {
         parameters: {
             query?: never;
@@ -1722,29 +1789,94 @@ export interface components {
             /** Format: uuid */
             id: string;
             key: string;
+            kind: components["schemas"]["ApplicationKind"];
             displayName: string;
             description: string | null;
             imageUrl: string | null;
             /**
              * @description Da qua chinh sach URL va da chuan hoa. Frontend dung NGUYEN chuoi nay, khong
              *     ghep host/path tu input nguoi dung.
+             *
+             *     NULL khi `kind` la `hosted`: loai do khong co URL ra ngoai, no chay ngay trong
+             *     Hub. Frontend phai phan nhanh theo `kind`, khong duoc doan tu viec truong nay
+             *     co gia tri hay khong.
              */
-            launchUrl: string;
+            launchUrl: string | null;
         };
+        /**
+         * @description DEC-B17. Danh muc DONG — them loai moi la mot migration.
+         *
+         *     `external_link` — app chay o ha tang rieng, Hub mo ra qua `launchUrl`.
+         *     `hosted`        — giao dien trong Hub, backend Hub goi API nha cung cap thu ba.
+         * @enum {string}
+         */
+        ApplicationKind: "external_link" | "hosted";
         AdminApplication: {
             /** Format: uuid */
             id: string;
             key: string;
+            kind: components["schemas"]["ApplicationKind"];
             displayName: string;
             description: string | null;
             imageUrl: string | null;
-            launchUrl: string;
+            /** @description NULL khi `kind` la `hosted`. Bat buoc khi `kind` la `external_link`. */
+            launchUrl: string | null;
             /** @enum {string} */
             status: "draft" | "active" | "inactive";
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        /**
+         * @description Cau hinh nha cung cap cho app `hosted` (DEC-T27). Quan he 1-1 voi application.
+         *
+         *     KHONG co truong nao chua secret, cung nguyen tac `ServiceIdentity`. Khoa API doc tu
+         *     bien moi truong o phia server va khong bao gio roi khoi Control Plane.
+         */
+        HostedBinding: {
+            /** Format: uuid */
+            applicationId: string;
+            /**
+             * @description Danh muc DONG. Them nha cung cap la mot migration (DEC-B17 cau 1).
+             * @enum {string}
+             */
+            provider: "huggingface";
+            /**
+             * @description Da chuan hoa va da qua chinh sach URL. Host phai nam trong
+             *     `CATALOG_ALLOWED_HOSTS` — khoa API khong thay the allowlist.
+             */
+            endpointUrl: string;
+            model: string | null;
+            timeoutMs: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        HostedBindingInput: {
+            /** @enum {string} */
+            provider: "huggingface";
+            endpointUrl: string;
+            model?: string | null;
+            /**
+             * @description Tran 300s co chu dich: dai hon the thi do la tac vu can hang doi, khong phai
+             *     mot request HTTP.
+             * @default 60000
+             */
+            timeoutMs: number;
+        };
+        HostedRunRequest: {
+            /** @description Dau vao tho, chuyen nguyen ven toi nha cung cap. */
+            input: string;
+        };
+        /**
+         * @description CHUA co truong nao ve diem tin dung. DEC-B18 da chot huong nhung co che sub chua
+         *     chot, nen luot chay hien KHONG tru diem va khong ghi `usage_metrics`.
+         */
+        HostedRunResult: {
+            /** @description Phan hoi tho tu nha cung cap, da qua tran kich thuoc. */
+            output: string;
         };
         RedirectUri: {
             /** Format: uuid */
@@ -2526,6 +2658,215 @@ export interface operations {
             };
         };
     };
+    runHostedApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostedRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Ket qua tu nha cung cap. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedRunResult"];
+                };
+            };
+            /** @description Dau vao khong hop le. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu phien hoac phien khong hop le. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Khong tim thay, chua phat hanh, hoac khong phai app `hosted`. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /**
+             * @description Nha cung cap tu choi, khong phan hoi kip, hoac tra ve thu khong dung hop dong.
+             *     Cung bao gom truong hop endpoint tra ve chuyen huong — Hub co y KHONG di theo
+             *     redirect vi dich cuoi cung se khong di qua chinh sach URL.
+             */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Chua cau hinh khoa API cho nha cung cap cua app nay. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminGetHostedBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cau hinh hien tai. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedBinding"];
+                };
+            };
+            /** @description Thieu permission `catalog:read`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description App khong ton tai hoac chua co binding. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminUpsertHostedBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostedBindingInput"];
+            };
+        };
+        responses: {
+            /** @description Cau hinh sau khi dat. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostedBinding"];
+                };
+            };
+            /**
+             * @description URL bi chinh sach tu choi, nha cung cap khong nam trong danh muc duoc duyet,
+             *     hoac app khong phai `hosted`.
+             */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Thieu permission `catalog:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description App khong ton tai. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    adminDeleteHostedBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                applicationId: components["parameters"]["ApplicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Da go. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Thieu permission `catalog:manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description App khong ton tai hoac chua co binding. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
     adminListApplications: {
         parameters: {
             query?: never;
@@ -2570,10 +2911,22 @@ export interface operations {
                      *     usage tham chieu no. Khong co duong sua sau khi tao, ke ca cho quan tri.
                      */
                     key: string;
+                    /**
+                     * @description Mac dinh `external_link` de moi caller cu van dung. Chon `hosted` thi
+                     *     `launchUrl` PHAI vang mat, va cau hinh nha cung cap dat rieng qua
+                     *     `PUT .../hosted-binding`.
+                     * @default external_link
+                     */
+                    kind?: components["schemas"]["ApplicationKind"];
                     displayName: string;
                     description?: string | null;
                     imageUrl?: string | null;
-                    launchUrl: string;
+                    /**
+                     * @description BAT BUOC khi `kind` la `external_link`, va PHAI vang mat khi `kind` la
+                     *     `hosted` — app hosted khong co URL ra ngoai. Gui ca hai la loi 400 chu
+                     *     khong phai duoc bo qua im lang.
+                     */
+                    launchUrl?: string;
                     /** @description Bat buoc — ghi vao nhat ky kiem toan. */
                     reason: string;
                 };

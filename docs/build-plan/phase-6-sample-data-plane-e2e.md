@@ -14,7 +14,12 @@
 1. Chứng minh hợp đồng Control Plane–Data Plane hoạt động end-to-end với một ứng dụng đại diện thật.
 2. Chặn mọi đường truy cập được bảo vệ tại backend, kể cả URL trực tiếp, API, action và worker.
 3. Chứng minh hard quota không bị bypass, double-spend hoặc tính hai lần khi retry/timeout.
-4. Chứng minh Hub chỉ launch và quản lý, không proxy business traffic của sample app.
+4. ~~Chứng minh Hub chỉ launch và quản lý, không proxy business traffic của sample app.~~
+   **SỬA 2026-07-31 theo DEC-B17 (đã duyệt):** nguyên tắc này chỉ còn áp cho ứng dụng kiểu
+   **`external_link`**. Ứng dụng kiểu **`hosted`** thì Hub CHÍNH LÀ nơi chạy: giao diện nằm
+   trong Talosmine và backend Talosmine gọi API nhà cung cấp thứ ba. Mục tiêu đúng của P6 là
+   chứng minh hợp đồng Control Plane–Data Plane cho **loại `external_link`**; loại `hosted`
+   không có data plane riêng nên không thuộc phạm vi này.
 5. Tạo mẫu onboarding có thể kiểm chứng cho Phase 7 mà không nhúng plan name, quota cục bộ hoặc policy thương mại vào app.
 
 ## 3. Prerequisites và human decisions
@@ -52,7 +57,12 @@ Thiếu bất kỳ quyết định nào ảnh hưởng hành vi thì Phase 6 ti�
 
 - Onboard đồng loạt các app còn lại; việc đó thuộc Phase 7.
 - Billing, payment provider, giá, refund hoặc paid subscription automation.
-- Bắt buộc API gateway hoặc chuyển business traffic qua Hub.
+- ~~Bắt buộc API gateway hoặc chuyển business traffic qua Hub.~~
+  **SỬA 2026-07-31 theo DEC-B17 (đã duyệt).** Câu này vẫn đúng cho ứng dụng `external_link`:
+  KHÔNG bắt buộc app bên ngoài đi qua Hub. Nhưng nó KHÔNG còn là lệnh cấm tuyệt đối —
+  ứng dụng `hosted` đi qua Hub theo đúng thiết kế. Phân biệt: cấm ở đây là cấm **ép** app có
+  hạ tầng riêng phải proxy qua Hub, không phải cấm Hub tự vận hành công cụ của chính nó.
+  Hiện thực đã có: migration 0017, `POST /v1/catalog/applications/{key}/run`.
 - Đưa dữ liệu domain của app vào Control Plane hoặc để Hub xử lý nghiệp vụ app.
 - Tự chọn sample app/runtime/framework, quota, plan, metric, timeout, retry hay outage default.
 - Tạo local quota ledger, sao chép policy/plan name vào adapter, hoặc tin entitlement/quota do browser gửi.

@@ -657,6 +657,184 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
 
+  /v1/catalog/applications/{key}/run:
+    post:
+      tags: [catalog]
+      operationId: runHostedApplication
+      summary: Chay mot ung dung `hosted`
+      description: |
+        DEC-B17. Hub goi API cua nha cung cap thu ba roi tra ket qua — day la endpoint DUY
+        NHAT lam viec do.
+
+        CHI chap nhan app dong thoi `status='active'` VA `kind='hosted'`. App `draft`,
+        `inactive`, hoac app `external_link` deu tra 404 GIONG HET app khong ton tai, cung
+        bat bien voi `getPublicApplication`: phan biet cac truong hop cho phep do trang thai
+        he thong.
+
+        CHUA TRU DIEM TIN DUNG. DEC-B18 da chot huong nhung co che sub chua chot; luot chay
+        hien chi ghi `audit_events`, khong ghi `usage_metrics` (chan boi DEC-B05).
+
+        Loi cua nha cung cap KHONG duoc vong nguyen van ra ngoai — chung co the chua chi
+        tiet cau hinh noi bo.
+      security:
+        - webSession: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HostedRunRequest'
+      responses:
+        '200':
+          description: Ket qua tu nha cung cap.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedRunResult'
+        '400':
+          description: Dau vao khong hop le.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Thieu phien hoac phien khong hop le.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Khong tim thay, chua phat hanh, hoac khong phai app `hosted`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '502':
+          description: |
+            Nha cung cap tu choi, khong phan hoi kip, hoac tra ve thu khong dung hop dong.
+            Cung bao gom truong hop endpoint tra ve chuyen huong — Hub co y KHONG di theo
+            redirect vi dich cuoi cung se khong di qua chinh sach URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Chua cau hinh khoa API cho nha cung cap cua app nay.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /v1/admin/catalog/applications/{applicationId}/hosted-binding:
+    get:
+      tags: [admin]
+      operationId: adminGetHostedBinding
+      summary: Cau hinh nha cung cap cua mot app `hosted`
+      description: Yeu cau `catalog:read`.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        '200':
+          description: Cau hinh hien tai.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedBinding'
+        '403':
+          description: Thieu permission `catalog:read`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: App khong ton tai hoac chua co binding.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    put:
+      tags: [admin]
+      operationId: adminUpsertHostedBinding
+      summary: Dat hoac cap nhat cau hinh nha cung cap
+      description: |
+        Yeu cau `catalog:manage`. Idempotent: goi lai voi cung noi dung cho cung ket qua.
+
+        CHI ap dung cho app `kind='hosted'`. Dat binding cho app `external_link` bi tu choi
+        — hai loai app co hai duong chay khac han, tron lan la nguon loi cau hinh am tham.
+
+        `endpointUrl` di qua CUNG chinh sach URL nhu `launchUrl`: https, khong userinfo,
+        host phai nam trong `CATALOG_ALLOWED_HOSTS`, va duoc luu o dang chuan hoa.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HostedBindingInput'
+      responses:
+        '200':
+          description: Cau hinh sau khi dat.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HostedBinding'
+        '400':
+          description: |
+            URL bi chinh sach tu choi, nha cung cap khong nam trong danh muc duoc duyet,
+            hoac app khong phai `hosted`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Thieu permission `catalog:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: App khong ton tai.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      tags: [admin]
+      operationId: adminDeleteHostedBinding
+      summary: Go cau hinh nha cung cap
+      description: |
+        Yeu cau `catalog:manage`. Sau khi go, app `hosted` do khong chay duoc nua — endpoint
+        `run` tra 404. Day la hanh vi dung: khong co cau hinh thi khong co gi de goi.
+      security:
+        - webSession: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        '204':
+          description: Da go.
+        '403':
+          description: Thieu permission `catalog:manage`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: App khong ton tai hoac chua co binding.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /v1/admin/catalog/applications:
     get:
       tags: [admin]
@@ -700,7 +878,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [key, displayName, launchUrl, reason]
+              required: [key, displayName, reason]
               properties:
                 key:
                   type: string
@@ -709,10 +887,24 @@ paths:
                   description: |
                     Machine key ON DINH va BAT BIEN. Policy request, plan grant va du lieu
                     usage tham chieu no. Khong co duong sua sau khi tao, ke ca cho quan tri.
+                kind:
+                  allOf:
+                    - $ref: '#/components/schemas/ApplicationKind'
+                  default: external_link
+                  description: |
+                    Mac dinh `external_link` de moi caller cu van dung. Chon `hosted` thi
+                    `launchUrl` PHAI vang mat, va cau hinh nha cung cap dat rieng qua
+                    `PUT .../hosted-binding`.
                 displayName: { type: string, maxLength: 120 }
                 description: { type: [string, 'null'], maxLength: 2000 }
                 imageUrl: { type: [string, 'null'], maxLength: 2048 }
-                launchUrl: { type: string, maxLength: 2048 }
+                launchUrl:
+                  type: string
+                  maxLength: 2048
+                  description: |
+                    BAT BUOC khi `kind` la `external_link`, va PHAI vang mat khi `kind` la
+                    `hosted` — app hosted khong co URL ra ngoai. Gui ca hai la loi 400 chu
+                    khong phai duoc bo qua im lang.
                 reason:
                   type: string
                   minLength: 1
@@ -3147,35 +3339,115 @@ components:
 
     PublicApplication:
       type: object
-      required: [id, key, displayName, description, imageUrl, launchUrl]
+      required: [id, key, kind, displayName, description, imageUrl, launchUrl]
       description: |
         View cho nguoi dung cuoi. CO Y khong co `status`: nguoi dung chi thay app `active`,
         nen truong do khong mang thong tin gi ngoai viec lo ra he thong co trang thai khac.
       properties:
         id: { type: string, format: uuid }
         key: { type: string }
+        kind:
+          $ref: '#/components/schemas/ApplicationKind'
         displayName: { type: string }
         description: { type: [string, 'null'] }
         imageUrl: { type: [string, 'null'] }
         launchUrl:
-          type: string
+          type: [string, 'null']
           description: |
             Da qua chinh sach URL va da chuan hoa. Frontend dung NGUYEN chuoi nay, khong
             ghep host/path tu input nguoi dung.
 
+            NULL khi `kind` la `hosted`: loai do khong co URL ra ngoai, no chay ngay trong
+            Hub. Frontend phai phan nhanh theo `kind`, khong duoc doan tu viec truong nay
+            co gia tri hay khong.
+
+    ApplicationKind:
+      type: string
+      enum: [external_link, hosted]
+      description: |
+        DEC-B17. Danh muc DONG — them loai moi la mot migration.
+
+        `external_link` — app chay o ha tang rieng, Hub mo ra qua `launchUrl`.
+        `hosted`        — giao dien trong Hub, backend Hub goi API nha cung cap thu ba.
+
     AdminApplication:
       type: object
-      required: [id, key, displayName, description, imageUrl, launchUrl, status, createdAt, updatedAt]
+      required: [id, key, kind, displayName, description, imageUrl, launchUrl, status, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         key: { type: string }
+        kind:
+          $ref: '#/components/schemas/ApplicationKind'
         displayName: { type: string }
         description: { type: [string, 'null'] }
         imageUrl: { type: [string, 'null'] }
-        launchUrl: { type: string }
+        launchUrl:
+          type: [string, 'null']
+          description: NULL khi `kind` la `hosted`. Bat buoc khi `kind` la `external_link`.
         status: { type: string, enum: [draft, active, inactive] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    HostedBinding:
+      type: object
+      required: [applicationId, provider, endpointUrl, model, timeoutMs, createdAt, updatedAt]
+      description: |
+        Cau hinh nha cung cap cho app `hosted` (DEC-T27). Quan he 1-1 voi application.
+
+        KHONG co truong nao chua secret, cung nguyen tac `ServiceIdentity`. Khoa API doc tu
+        bien moi truong o phia server va khong bao gio roi khoi Control Plane.
+      properties:
+        applicationId: { type: string, format: uuid }
+        provider:
+          type: string
+          enum: [huggingface]
+          description: Danh muc DONG. Them nha cung cap la mot migration (DEC-B17 cau 1).
+        endpointUrl:
+          type: string
+          description: |
+            Da chuan hoa va da qua chinh sach URL. Host phai nam trong
+            `CATALOG_ALLOWED_HOSTS` — khoa API khong thay the allowlist.
+        model: { type: [string, 'null'] }
+        timeoutMs: { type: integer, minimum: 1000, maximum: 300000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    HostedBindingInput:
+      type: object
+      required: [provider, endpointUrl]
+      properties:
+        provider: { type: string, enum: [huggingface] }
+        endpointUrl: { type: string, minLength: 1 }
+        model: { type: [string, 'null'] }
+        timeoutMs:
+          type: integer
+          minimum: 1000
+          maximum: 300000
+          default: 60000
+          description: |
+            Tran 300s co chu dich: dai hon the thi do la tac vu can hang doi, khong phai
+            mot request HTTP.
+
+    HostedRunRequest:
+      type: object
+      required: [input]
+      properties:
+        input:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Dau vao tho, chuyen nguyen ven toi nha cung cap.
+
+    HostedRunResult:
+      type: object
+      required: [output]
+      description: |
+        CHUA co truong nao ve diem tin dung. DEC-B18 da chot huong nhung co che sub chua
+        chot, nen luot chay hien KHONG tru diem va khong ghi `usage_metrics`.
+      properties:
+        output:
+          type: string
+          description: Phan hoi tho tu nha cung cap, da qua tran kich thuoc.
 
     RedirectUri:
       type: object

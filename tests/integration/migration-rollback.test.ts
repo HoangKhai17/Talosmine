@@ -2,6 +2,7 @@ import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   applyAllMigrations,
+  applyRollbackFile,
   applyRollbackToP2,
   connect,
   type Sql,
@@ -63,6 +64,9 @@ describe('diễn tập rollback về trạng thái cuối P2', () => {
     for (const table of [
       'applications',
       'application_redirect_uris',
+      // Migration 0017 — ứng dụng `hosted` (DEC-B17). Có mặt ở đây để bài diễn tập không
+      // lặng lẽ bỏ qua file `.down.sql` mới nhất.
+      'application_hosted_bindings',
       'features',
       'usage_metrics',
       'service_identities',
@@ -75,14 +79,18 @@ describe('diễn tập rollback về trạng thái cuối P2', () => {
       'survey_questions',
       'survey_responses',
       'content_slots',
-      // Migration 0010 — điều hướng site. Có mặt ở đây để bài diễn tập không lặng lẽ bỏ qua
-      // file `.down.sql` mới nhất.
       'nav_menus',
       'nav_items',
       'nav_item_translations',
     ]) {
       expect(await tableExists(table), `bảng ${table} phải tồn tại sau khi migrate`).toBe(true);
     }
+
+    const kindBefore = await sql<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM information_schema.columns
+      WHERE table_schema = 'control_plane' AND table_name = 'applications' AND column_name = 'kind'
+    `;
+    expect(kindBefore[0]?.n, 'cột `kind` của migration 0017 phải có mặt').toBe(1);
 
     const actorCheck = await constraintSource('audit_events_actor_check');
     expect(actorCheck).toContain('service');
@@ -99,6 +107,7 @@ describe('diễn tập rollback về trạng thái cuối P2', () => {
     for (const table of [
       'applications',
       'application_redirect_uris',
+      'application_hosted_bindings',
       'features',
       'usage_metrics',
       'service_identities',
@@ -209,5 +218,98 @@ describe('diễn tập rollback về trạng thái cuối P2', () => {
       WHERE permission LIKE 'catalog:%'
     `;
     expect(Number(rows[0]?.count)).toBe(0);
+  });
+});
+
+/**
+ * Gỡ RIÊNG migration 0017 — kịch bản thật hơn bài gỡ toàn bộ ở trên.
+ *
+ * Khi một bản phát hành gây sự cố, việc người ta làm là gỡ ĐÚNG migration vừa lên, không
+ * phải xoá sạch về P2. Hai bài kiểm hai thứ khác nhau: gỡ toàn bộ chứng minh THỨ TỰ đúng,
+ * còn bài này chứng minh file `0017.down.sql` tự nó đưa schema về đúng trạng thái ngay
+ * trước nó.
+ *
+ * 0017 là migration ĐẦU TIÊN của dự án SỬA một ràng buộc đã có (`launch_url` từ NOT NULL
+ * thành nullable) thay vì chỉ thêm bảng mới. Gỡ mà quên khôi phục ràng buộc đó sẽ để lại
+ * một schema "gần đúng" — loại hỏng khó thấy nhất, vì mọi bảng đều ở đúng chỗ và mọi truy
+ * vấn vẫn chạy, chỉ có một bất biến âm thầm biến mất.
+ */
+describe('gỡ riêng migration 0017 (hosted apps)', () => {
+  let container: StartedPostgreSqlContainer;
+  let sql: Sql;
+
+  beforeAll(async () => {
+    container = await startPostgres();
+    sql = connect(container);
+    await applyAllMigrations(sql);
+  }, 120_000);
+
+  afterAll(async () => {
+    await sql?.end();
+    await container?.stop();
+  });
+
+  it('app `external_link` đã có SỐNG SÓT qua bài gỡ', async () => {
+    const id = crypto.randomUUID();
+    await sql`
+      INSERT INTO control_plane.applications (id, key, kind, display_name, launch_url, status)
+      VALUES (${id}, 'app-cu', 'external_link', 'App cũ', 'https://a.example.com/x', 'active')
+    `;
+    // App `hosted` CỐ Ý được tạo để bài gỡ phải thật sự xử lý nó — file `.down.sql` xoá
+    // chúng, và đó là mất dữ liệu có chủ đích đã ghi trong chính file đó.
+    await sql`
+      INSERT INTO control_plane.applications (id, key, kind, display_name, launch_url, status)
+      VALUES (${crypto.randomUUID()}, 'app-hosted', 'hosted', 'App hosted', NULL, 'draft')
+    `;
+
+    await applyRollbackFile(sql, '0017_hosted_apps.down.sql');
+
+    const rows = await sql<{ key: string }[]>`
+      SELECT key FROM control_plane.applications ORDER BY key
+    `;
+    expect(rows.map((r) => r.key)).toEqual(['app-cu']);
+  });
+
+  it('schema quay về đúng trạng thái sau 0016', async () => {
+    const kind = await sql<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM information_schema.columns
+      WHERE table_schema = 'control_plane' AND table_name = 'applications' AND column_name = 'kind'
+    `;
+    expect(kind[0]?.n, 'cột `kind` phải bị gỡ').toBe(0);
+
+    const launchUrl = await sql<{ is_nullable: string }[]>`
+      SELECT is_nullable FROM information_schema.columns
+      WHERE table_schema = 'control_plane' AND table_name = 'applications'
+        AND column_name = 'launch_url'
+    `;
+    expect(launchUrl[0]?.is_nullable, '`launch_url` phải trở lại NOT NULL').toBe('NO');
+
+    const binding = await sql<{ exists: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'control_plane' AND table_name = 'application_hosted_bindings'
+      ) AS exists
+    `;
+    expect(binding[0]?.exists, 'bảng binding phải bị gỡ').toBe(false);
+
+    const constraints = await sql<{ conname: string }[]>`
+      SELECT conname FROM pg_constraint
+      WHERE conrelid = 'control_plane.applications'::regclass AND contype = 'c'
+      ORDER BY conname
+    `;
+    const names = constraints.map((c) => c.conname);
+    expect(names).not.toContain('applications_kind_check');
+    expect(names).not.toContain('applications_launch_url_required_for_external_check');
+    // CHECK cũ phải được KHÔI PHỤC, không chỉ là bị xoá — 0017 đã thay nó bằng bản nới lỏng.
+    expect(names).toContain('applications_launch_url_check');
+  });
+
+  it('ràng buộc NOT NULL đã khôi phục có HIỆU LỰC THẬT, không chỉ có tên', async () => {
+    await expect(
+      sql`
+        INSERT INTO control_plane.applications (id, key, display_name, launch_url, status)
+        VALUES (${crypto.randomUUID()}, 'khong-co-url', 'X', NULL, 'draft')
+      `,
+    ).rejects.toThrow();
   });
 });

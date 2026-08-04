@@ -528,11 +528,12 @@ gắn `account_id`, đã đọc được qua `/admin/survey/responses` từ 2026
   hay chỉ gửi email) — chưa thiết kế.
 - **Affected phase:** P3.
 
-### DEC-B17 — Hub được vận hành ứng dụng "hosted", không chỉ launch *(`proposed` 2026-07-31 — chờ chủ dự án)*
+### DEC-B17 — Hub được vận hành ứng dụng "hosted", không chỉ launch *(`approved` 2026-07-31)*
 
-> **Đây là đề xuất do agent soạn theo yêu cầu của chủ dự án, chưa được duyệt.** Nó **đảo một
-> nguyên tắc đã ghi** trong `phase-6-sample-data-plane-e2e.md`, nên không được coi là đã chốt
-> cho tới khi chủ dự án approve tường minh (DEC-G01). Chưa dòng code nào được viết theo nó.
+> **Chủ dự án đã duyệt ngày 2026-07-31**, kèm một bổ sung về cơ chế hạn mức — xem DEC-B18.
+> Quyết định này **đảo một nguyên tắc đã ghi** trong `phase-6-sample-data-plane-e2e.md`, nên
+> tài liệu đó **phải được sửa cho khớp** (mục 2 điều 4 và mục 5); để hai file nói ngược nhau là
+> tình trạng không chấp nhận được.
 
 - **Đề xuất:** ngoài ứng dụng kiểu **`external_link`** như hiện nay (app chạy ở hạ tầng riêng,
   Hub chỉ mở ra qua `launch_url`), Hub được phép vận hành thêm ứng dụng kiểu **`hosted`**: giao
@@ -571,18 +572,20 @@ chấp nhận ba mục dưới thì quyết định chưa hoàn chỉnh):
   nhà cung cấp tính tiền (token, giây GPU, ảnh) — đo được, đối chiếu được với hoá đơn thật, thay
   vì phải chọn một đơn vị trừu tượng. Không tự động giải DEC-B05 cho `external_link`.
 
-**Bốn câu còn `open`, cần chủ dự án trả lời trước khi có app hosted đầu tiên:**
+**Bốn câu phụ — câu 2 đã được trả lời bởi DEC-B18, ba câu còn lại vẫn `open`:**
 
-1. **Nhà cung cấp nào được duyệt?** Danh sách đóng, giống tinh thần allowlist host. Không để
-   agent tự thêm.
-2. **Trần chi phí là bao nhiêu, và chạm trần thì làm gì?** (chặn, hay xuống hàng đợi chậm, hay
-   báo chủ dự án). Không có câu trả lời thì không có cách hiện thực đúng.
-3. **Nhà cung cấp chết thì người dùng thấy gì?** Free HF Space ngủ sau thời gian không dùng,
-   Inference API có rate limit, model bị gỡ khỏi nền tảng. Đây là trạng thái bình thường sẽ xảy
-   ra thường xuyên, không phải sự cố hiếm.
-4. **Giấy phép model.** Nhiều model trên HuggingFace **cấm dùng thương mại**. Nếu Talosmine thu
-   phí thì phải kiểm giấy phép **từng model**, và kiểm lại khi model đổi phiên bản. Cần một
-   người chịu trách nhiệm việc này — agent không tự phán quyết vấn đề pháp lý.
+1. **Nhà cung cấp nào được duyệt?** `open`. Danh sách đóng, giống tinh thần allowlist host.
+   Không để agent tự thêm.
+2. ~~Trần chi phí là bao nhiêu, chạm trần thì làm gì?~~ — **ĐÃ TRẢ LỜI: hạn mức của người dùng
+   do điểm tín dụng họ đăng ký trên Hub quyết định.** Xem DEC-B18.
+3. **Nhà cung cấp chết thì người dùng thấy gì?** `open`. Free HF Space ngủ sau thời gian không
+   dùng, Inference API có rate limit, model bị gỡ khỏi nền tảng. Đây là trạng thái bình thường
+   sẽ xảy ra thường xuyên, không phải sự cố hiếm. **DEC-B18 làm câu này gấp hơn**: khi lượt chạy
+   hỏng vì lỗi của nhà cung cấp, điểm đã trừ của người dùng xử lý ra sao là câu hỏi về tiền, không
+   phải về giao diện.
+4. **Giấy phép model.** `open`. Nhiều model trên HuggingFace **cấm dùng thương mại**. Nếu
+   Talosmine thu phí thì phải kiểm giấy phép **từng model**, và kiểm lại khi model đổi phiên bản.
+   Cần một người chịu trách nhiệm việc này — agent không tự phán quyết vấn đề pháp lý.
 
 - **Không thay đổi:** loại `external_link` vẫn tồn tại nguyên vẹn; P7 (onboard các app còn lại)
   vẫn cần mô hình phân tán với `service_identities` và entitlement/quota hai pha. Đề xuất này
@@ -590,10 +593,10 @@ chấp nhận ba mục dưới thì quyết định chưa hoàn chỉnh):
 - **Affected phase:** P3 (schema catalog + UI), P4, P5 (đơn giản hoá cho nhánh hosted, giữ
   nguyên cho nhánh external), P6 (đảo phạm vi — phải sửa tài liệu), P7, P8 (vận hành, chi phí).
 
-### DEC-T27 — Hình hài kỹ thuật của ứng dụng `hosted` *(`proposed` 2026-07-31 — phụ thuộc DEC-B17)*
+### DEC-T27 — Hình hài kỹ thuật của ứng dụng `hosted` *(`approved` 2026-07-31)*
 
-> Chỉ có nghĩa nếu DEC-B17 được duyệt. Ghi ở đây để phần kỹ thuật được soi cùng lúc với phần
-> nghiệp vụ, thay vì chốt hướng xong mới phát hiện cái giá kỹ thuật.
+> Duyệt cùng DEC-B17 ngày 2026-07-31. Phần sổ cái điểm tín dụng nằm ở DEC-B18, không lặp lại ở
+> đây.
 
 - **Phân loại ở tầng dữ liệu, không rải điều kiện khắp code.** Thêm cột `kind` vào
   `applications`: `NOT NULL`, ràng buộc `CHECK (kind IN ('external_link','hosted'))`, mặc định
@@ -623,9 +626,68 @@ chấp nhận ba mục dưới thì quyết định chưa hoàn chỉnh):
   hay audit. Mọi lượt chạy vẫn phải để lại dấu vết như một thao tác bình thường.
 - **Chưa quyết, cần chốt khi hiện thực:** dùng thư viện hàng đợi hay tự dựng trên PostgreSQL
   (`SELECT … FOR UPDATE SKIP LOCKED`); cơ chế mã hoá credential (pgcrypto / KMS ngoài / thư viện
-  ứng dụng). Cả hai đều là quyết định tooling — thuộc phạm vi agent được uỷ quyền ở nhóm A,
-  nhưng chỉ mở sau khi DEC-B17 được duyệt.
+  ứng dụng). Cả hai đều là quyết định tooling — thuộc phạm vi agent được uỷ quyền ở nhóm A, và
+  đã mở kể từ khi DEC-B17 được duyệt (2026-07-31). Sẽ chốt kèm bằng chứng đo thật khi hiện thực,
+  không chốt trước bằng suy đoán.
 - **Affected phase:** P3, P5, P6.
+
+### DEC-B18 — Hạn mức người dùng tính bằng điểm tín dụng trên Hub *(`approved` một phần 2026-07-31)*
+
+- **ĐÃ CHỐT:** giới hạn sử dụng của một người dùng **do điểm tín dụng họ đăng ký trên Hub quyết
+  định** — không phải do rate limit của nhà cung cấp thứ ba, không phải do giới hạn riêng của
+  từng công cụ.
+- **Vì sao đây là quyết định lớn chứ không phải chi tiết:** nó **tách hẳn hai thứ đo đếm**.
+  Người dùng chỉ nhìn thấy **một** đại lượng duy nhất là điểm tín dụng, dùng chung cho mọi công
+  cụ trong Hub. Còn việc nhà cung cấp tính tiền bằng token, giây GPU hay số ảnh trở thành
+  **vấn đề nội bộ của Hub**, người dùng không cần biết và không bị ảnh hưởng khi ta đổi nhà cung
+  cấp. Đây chính là thứ biến "hub đóng ~10 app" thành **một gói dùng chung** thay vì mười sản
+  phẩm rời — khớp với DEC-B01.
+
+**Hệ quả bắt buộc — sổ cái điểm phải chính xác như sổ cái tiền:**
+
+- Số dư điểm là **tiền của người dùng**, nên mọi thao tác trừ/hoàn phải chống được chạy song
+  song. Không được đọc số dư rồi ghi đè; phải khoá dòng (`SELECT … FOR UPDATE`) hoặc dùng phép
+  cộng nguyên tử trong một transaction.
+- **Đã có sẵn nền:** `tests/concurrency/row-lock.test.ts` hiện test khoá dòng cho quota/balance
+  ở dạng generic — viết từ trước khi có quyết định này, và giờ nó có đúng đối tượng để áp.
+- Phải là **sổ cái ghi thêm (append-only ledger)**, không phải một cột `balance` bị sửa tại chỗ.
+  Số dư là kết quả cộng dồn của các bút toán. Lý do giống hệt `audit_events`: khi người dùng khiếu
+  nại "sao tôi bị trừ điểm", một con số hiện tại không trả lời được câu hỏi nào; một danh sách bút
+  toán thì trả lời được.
+
+**DEC-B05 (đơn vị đo `usage_metrics`) — đính chính so với ghi chú trong DEC-B17.** Trước đó ghi
+rằng mô hình hosted "tự có câu trả lời" cho DEC-B05. **Chưa đủ.** Với DEC-B18 thì có **hai tầng
+đo, không phải một**:
+
+| Tầng | Đại lượng | Ai thấy |
+|---|---|---|
+| Đối ngoại | Điểm tín dụng | Người dùng |
+| Đối nội | Đơn vị nhà cung cấp tính tiền (token, giây GPU, ảnh) | Chỉ Hub |
+
+Nên vẫn cần một **bảng quy đổi** giữa hai tầng, và bảng đó là quyết định nghiệp vụ (nó chính là
+giá bán), không phải hằng số kỹ thuật. `counting_point` và `failure_treatment` — hai cột đã tồn
+tại trong `usage_metrics` và cố ý để trống từ P3 — nay có đúng ngữ cảnh để chốt.
+
+**Năm câu còn `open`, mỗi câu đổi lược đồ dữ liệu theo hướng khác nhau:**
+
+1. **Trả trước hay theo gói tháng?** Điểm mua trước rồi trừ dần (kiểu ví), hay hạn mức tháng
+   được cấp lại theo chu kỳ (kiểu subscription), hay cả hai cùng tồn tại? Ba mô hình cho ba lược
+   đồ khác nhau — cái thứ ba khó nhất vì phải quyết tiêu điểm nào trước.
+2. **Điểm có hạn dùng không?** Có hạn thì sổ cái phải theo dõi từng lô điểm kèm ngày hết hạn,
+   không cộng chung một số dư được.
+3. **Mỗi công cụ tốn bao nhiêu điểm?** Đây là bảng giá — quyết định thương mại. Cần cả quy tắc
+   cho công cụ mới thêm về sau, không chỉ giá của những công cụ hiện có.
+4. **Trừ điểm ở thời điểm nào, và lượt chạy hỏng thì sao?** Chính là `counting_point` và
+   `failure_treatment`. Trừ trước khi gọi thì an toàn cho Hub nhưng phải hoàn khi lỗi; trừ sau
+   khi thành công thì công bằng cho người dùng nhưng Hub có thể mất tiền cho lượt chạy bị bỏ dở.
+   **Lỗi do nhà cung cấp (Space ngủ, rate limit) gần như chắc chắn phải hoàn điểm** — nếu không,
+   người dùng trả tiền cho sự cố mà họ không gây ra.
+5. **Có bậc miễn phí không?** Có thì cần chống lạm dụng bằng tài khoản rác — mà DEC-T23 (CAPTCHA)
+   vẫn đang `proposed`. Hai quyết định này liên quan nhau.
+
+- **Affected phase:** P4 (đây chính là lõi của entitlement), P5 (hard quota giờ là sổ cái điểm),
+  P3 (bảng quy đổi gắn với `usage_metrics`), P9 (nếu bán điểm bằng tiền thật thì chạm billing —
+  hiện đang deferred).
 
 ### DEC-T14 — Cấu trúc Auth0 topology *(`proposed` — chờ DEC-B03)*
 

@@ -12,16 +12,18 @@ import {
 } from '../../shared/url-policy.js';
 import type { AdminMutationContext } from '../admin/admin.service.js';
 import { appendAuditEvent } from '../audit/audit.js';
-import { applications, type CatalogStatus } from './schema.js';
+import { type ApplicationKind, applications, type CatalogStatus } from './schema.js';
 
 /** View đầy đủ — chỉ dành cho quản trị. Gồm cả app `draft` và `inactive`. */
 export interface AdminApplicationView {
   id: string;
   key: string;
+  kind: ApplicationKind;
   displayName: string;
   description: string | null;
   imageUrl: string | null;
-  launchUrl: string;
+  /** `null` với app `hosted` — loại đó không có URL ra ngoài (DEC-B17). */
+  launchUrl: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -36,10 +38,15 @@ export interface AdminApplicationView {
 export interface PublicApplicationView {
   id: string;
   key: string;
+  /**
+   * Frontend PHẢI phân nhánh theo trường này, không được đoán từ việc `launchUrl` có giá
+   * trị hay không: `hosted` chạy trong Hub, `external_link` mở ra ngoài.
+   */
+  kind: ApplicationKind;
   displayName: string;
   description: string | null;
   imageUrl: string | null;
-  launchUrl: string;
+  launchUrl: string | null;
 }
 
 /** Lỗi nghiệp vụ của catalog. Controller map sang HTTP; service không biết gì về HTTP. */
@@ -50,7 +57,8 @@ export class CatalogError extends Error {
       | 'KEY_TAKEN'
       | 'KEY_IMMUTABLE'
       | 'INVALID_URL'
-      | 'INVALID_STATUS_TRANSITION',
+      | 'INVALID_STATUS_TRANSITION'
+      | 'KIND_MISMATCH',
     message: string,
   ) {
     super(message);
@@ -60,10 +68,13 @@ export class CatalogError extends Error {
 
 export interface CreateApplicationInput {
   key: string;
+  /** Mặc định `external_link` để mọi caller cũ vẫn đúng (DEC-B17). */
+  kind?: ApplicationKind;
   displayName: string;
   description?: string | null;
   imageUrl?: string | null;
-  launchUrl: string;
+  /** Bắt buộc khi `kind` là `external_link`; phải vắng mặt khi `hosted`. */
+  launchUrl?: string;
 }
 
 export interface UpdateApplicationInput {
@@ -185,7 +196,23 @@ export class CatalogService {
    * (`catalog:publish`) và phải qua bước xem lại.
    */
   async create(input: CreateApplicationInput, ctx: AdminMutationContext): Promise<string> {
-    const launchUrl = this.requireValidUrl(input.launchUrl, 'launchUrl');
+    const kind: ApplicationKind = input.kind ?? 'external_link';
+
+    // Từ chối tường minh thay vì âm thầm bỏ qua: gửi `launchUrl` kèm `kind: 'hosted'` gần
+    // như chắc chắn là người gọi đang hiểu sai một trong hai trường. Bỏ qua im lặng sẽ tạo
+    // ra một app chạy khác hẳn ý định của người tạo mà không có tín hiệu nào.
+    if (kind === 'hosted' && input.launchUrl !== undefined) {
+      throw new CatalogError(
+        'KIND_MISMATCH',
+        'App `hosted` không có `launchUrl` — cấu hình nhà cung cấp đặt riêng qua hosted-binding.',
+      );
+    }
+    if (kind === 'external_link' && input.launchUrl === undefined) {
+      throw new CatalogError('KIND_MISMATCH', 'App `external_link` bắt buộc có `launchUrl`.');
+    }
+
+    const launchUrl =
+      input.launchUrl === undefined ? null : this.requireValidUrl(input.launchUrl, 'launchUrl');
     const imageUrl = input.imageUrl ? this.requireValidUrl(input.imageUrl, 'imageUrl') : null;
 
     const id = uuidv7();
@@ -195,6 +222,7 @@ export class CatalogService {
         await tx.insert(applications).values({
           id,
           key: input.key,
+          kind,
           displayName: input.displayName,
           description: input.description ?? null,
           imageUrl,
@@ -330,10 +358,23 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
+/**
+ * Ép `kind` từ `text` của database về kiểu hẹp.
+ *
+ * Database đã có CHECK khoá danh mục nên giá trị lạ không tồn tại được; hàm này chỉ để
+ * TypeScript biết điều đó. Giá trị không nhận ra rơi về `external_link` — hành vi an toàn
+ * hơn: một app bị hiểu nhầm thành external chỉ hỏng nút mở, còn hiểu nhầm thành `hosted` sẽ
+ * mở một đường gọi ra ngoài không ai chủ ý.
+ */
+function toKind(raw: string): ApplicationKind {
+  return raw === 'hosted' ? 'hosted' : 'external_link';
+}
+
 function toAdminView(row: typeof applications.$inferSelect): AdminApplicationView {
   return {
     id: row.id,
     key: row.key,
+    kind: toKind(row.kind),
     displayName: row.displayName,
     description: row.description,
     imageUrl: row.imageUrl,
@@ -348,6 +389,7 @@ function toPublicView(row: typeof applications.$inferSelect): PublicApplicationV
   return {
     id: row.id,
     key: row.key,
+    kind: toKind(row.kind),
     displayName: row.displayName,
     description: row.description,
     imageUrl: row.imageUrl,

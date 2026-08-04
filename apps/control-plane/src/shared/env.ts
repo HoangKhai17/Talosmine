@@ -102,6 +102,20 @@ const envSchema = z.object({
    * Nội dung cụ thể (host nào) phụ thuộc DEC-B01 — cơ chế thì không.
    */
   CATALOG_ALLOWED_HOSTS: z.string().optional(),
+
+  /**
+   * Khoá API HuggingFace cho ứng dụng `hosted` (DEC-B17, DEC-T27).
+   *
+   * TẠM THỜI ĐỌC TỪ ENV, có chủ đích: DEC-T27 chốt rằng credential nhà cung cấp cuối cùng
+   * phải nằm trong một bảng mã hoá at-rest. Dựng subsystem mã hoá trước khi có một lời gọi
+   * chạy được là làm ngược thứ tự, nên lượt này dùng đúng cách `OIDC_CLIENT_SECRET` đang
+   * dùng. Khoản nợ này được ghi trong `pending-work.md`, không giấu.
+   *
+   * Optional như `OIDC_*`: thiếu biến thì chỉ endpoint chạy app hosted báo lỗi rõ ràng,
+   * health và mọi thứ còn lại vẫn chạy. Một Control Plane không có app hosted nào thì không
+   * có lý do gì phải chết vì thiếu biến này.
+   */
+  HUGGINGFACE_API_TOKEN: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

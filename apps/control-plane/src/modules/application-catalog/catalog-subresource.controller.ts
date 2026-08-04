@@ -13,6 +13,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -23,6 +24,7 @@ import { AdminPermissionGuard, RequirePermission } from '../admin/admin-permissi
 import { type AuthenticatedRequest, WebSessionGuard } from '../identity/web-session.guard.js';
 import { CatalogError } from './catalog.service.js';
 import { FeatureService, type FeatureView } from './feature.service.js';
+import { HostedBindingService, type HostedBindingView } from './hosted-binding.service.js';
 import { RedirectUriService, type RedirectUriView } from './redirect-uri.service.js';
 
 const MAX_KEY = 64;
@@ -48,6 +50,7 @@ export class CatalogSubresourceController {
   constructor(
     @Inject(RedirectUriService) private readonly redirectUris: RedirectUriService,
     @Inject(FeatureService) private readonly featureService: FeatureService,
+    @Inject(HostedBindingService) private readonly hostedBindings: HostedBindingService,
   ) {}
 
   // ── Redirect URI ────────────────────────────────────────────────────────────
@@ -202,6 +205,76 @@ export class CatalogSubresourceController {
     }
   }
 
+  // ── Cấu hình nhà cung cấp cho app `hosted` (DEC-B17, DEC-T27) ───────────────
+
+  @Get('hosted-binding')
+  @RequirePermission('catalog:read')
+  async getHostedBinding(
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+  ): Promise<HostedBindingView> {
+    const binding = await this.hostedBindings.get(applicationId);
+    if (!binding) throw new NotFoundException('Ứng dụng chưa có cấu hình nhà cung cấp.');
+    return binding;
+  }
+
+  /**
+   * `PUT` chứ không phải `POST`: đây là một cấu hình DUY NHẤT cho mỗi app (quan hệ 1–1),
+   * không phải một bộ sưu tập để thêm phần tử. Gọi lại với cùng nội dung cho cùng kết quả.
+   */
+  @Put('hosted-binding')
+  @RequirePermission('catalog:manage')
+  async upsertHostedBinding(
+    @Req() request: AuthenticatedRequest,
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+    @Body()
+    body: {
+      provider?: unknown;
+      endpointUrl?: unknown;
+      model?: unknown;
+      timeoutMs?: unknown;
+      reason?: unknown;
+    },
+  ): Promise<HostedBindingView> {
+    const provider = requireText(body.provider, 'provider', 64);
+    const endpointUrl = requireText(body.endpointUrl, 'endpointUrl', MAX_URL);
+    const model = optionalText(body.model, 'model', MAX_DISPLAY_NAME);
+
+    // Trần 300s khớp CHECK trong database. Kiểm ở đây để người gọi nhận 400 có nghĩa thay
+    // vì một lỗi ràng buộc SQL khó đọc.
+    let timeoutMs: number | undefined;
+    if (body.timeoutMs !== undefined && body.timeoutMs !== null) {
+      if (typeof body.timeoutMs !== 'number' || !Number.isInteger(body.timeoutMs)) {
+        throw new BadRequestException('`timeoutMs` phải là số nguyên.');
+      }
+      if (body.timeoutMs < 1000 || body.timeoutMs > 300_000) {
+        throw new BadRequestException('`timeoutMs` phải nằm trong khoảng 1000–300000.');
+      }
+      timeoutMs = body.timeoutMs;
+    }
+
+    try {
+      return await this.hostedBindings.upsert(
+        applicationId,
+        { provider, endpointUrl, model, ...(timeoutMs === undefined ? {} : { timeoutMs }) },
+        this.context(request, body),
+      );
+    } catch (error) {
+      throw toHttp(error);
+    }
+  }
+
+  @Delete('hosted-binding')
+  @RequirePermission('catalog:manage')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteHostedBinding(
+    @Req() request: AuthenticatedRequest,
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+    @Body() body: { reason?: unknown },
+  ): Promise<void> {
+    const removed = await this.hostedBindings.remove(applicationId, this.context(request, body));
+    if (!removed) throw new NotFoundException('Ứng dụng chưa có cấu hình nhà cung cấp.');
+  }
+
   private context(request: AuthenticatedRequest, body: { reason?: unknown }): AdminMutationContext {
     const actorAccountId = request.auth?.accountId;
     if (!actorAccountId) throw new UnauthorizedException('Thiếu phiên đăng nhập.');
@@ -226,6 +299,7 @@ function toHttp(error: unknown): Error {
     case 'KEY_IMMUTABLE':
     case 'INVALID_URL':
     case 'INVALID_STATUS_TRANSITION':
+    case 'KIND_MISMATCH':
       return new BadRequestException(error.message);
   }
 }

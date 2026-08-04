@@ -67,34 +67,6 @@
   background-color: var(--color-text-secondary);
 }
 
-/*
- * Bảng chi tiết. Bọc trong khối cuộn ngang riêng: bảng có nhiều cột và không được phép làm
- * cả trang cuộn ngang.
- */
-.tableScroll {
-  overflow-x: auto;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  /* Đáy tính bằng đơn vị chữ để bảng không bị bóp tới mức không đọc được. */
-  min-width: 60ch;
-}
-
-.table th,
-.table td {
-  text-align: start;
-  vertical-align: top;
-  padding: var(--space-2) var(--space-3);
-  border-bottom: var(--border-default);
-}
-
-.table th {
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
 .mono {
   overflow-wrap: anywhere;
 }

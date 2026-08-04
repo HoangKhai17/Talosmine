@@ -38,6 +38,7 @@ const KEY_PATTERN = /^[a-z][a-z0-9-]*$/;
 
 interface CreateBody {
   key?: unknown;
+  kind?: unknown;
   displayName?: unknown;
   description?: unknown;
   imageUrl?: unknown;
@@ -100,16 +101,33 @@ export class CatalogAdminController {
   ): Promise<{ id: string }> {
     const key = requireKey(body.key);
     const displayName = requireText(body.displayName, 'displayName', MAX_DISPLAY_NAME);
-    const launchUrl = requireText(body.launchUrl, 'launchUrl', MAX_URL);
+
+    // Mặc định `external_link` để mọi caller cũ vẫn đúng (DEC-B17). Giá trị lạ bị từ chối
+    // ngay ở đây thay vì để CHECK của database ném một lỗi SQL khó đọc.
+    const rawKind = body.kind === undefined ? 'external_link' : body.kind;
+    if (rawKind !== 'external_link' && rawKind !== 'hosted') {
+      throw new BadRequestException('`kind` phải là `external_link` hoặc `hosted`.');
+    }
+
+    // `launchUrl` chỉ đọc khi app là external. Với `hosted` thì chuyển thẳng giá trị thô
+    // xuống service để service từ chối tường minh — kiểm ở một chỗ, không kiểm hai nơi
+    // rồi lệch nhau.
+    const launchUrl =
+      rawKind === 'external_link'
+        ? requireText(body.launchUrl, 'launchUrl', MAX_URL)
+        : body.launchUrl === undefined
+          ? undefined
+          : requireText(body.launchUrl, 'launchUrl', MAX_URL);
 
     try {
       const id = await this.catalog.create(
         {
           key,
+          kind: rawKind,
           displayName,
           description: optionalText(body.description, 'description', MAX_DESCRIPTION),
           imageUrl: optionalText(body.imageUrl, 'imageUrl', MAX_URL),
-          launchUrl,
+          ...(launchUrl === undefined ? {} : { launchUrl }),
         },
         this.context(request, body),
       );
@@ -207,6 +225,7 @@ function toHttp(error: unknown): Error {
     case 'KEY_IMMUTABLE':
     case 'INVALID_URL':
     case 'INVALID_STATUS_TRANSITION':
+    case 'KIND_MISMATCH':
       return new BadRequestException(error.message);
   }
 }

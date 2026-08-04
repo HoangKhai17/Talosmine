@@ -9,6 +9,13 @@ import {
   type FeatureView,
   type RedirectUriView,
 } from '../../../../lib/api-client';
+import {
+  AdminTable,
+  AdminTableBodyRow,
+  AdminTableCaption,
+  AdminTableCell,
+  AdminTableHeadCell,
+} from '../../_components/admin-table';
 import styles from '../page.module.css';
 import { StatusBadge } from '../status-badge';
 
@@ -489,24 +496,29 @@ function RedirectSection({
       {redirectUris.length === 0 ? (
         <p className={`typeBody ${styles.empty}`}>Chưa có redirect URI nào.</p>
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={`typeBodySmall ${styles.table}`}>
-            <caption className="typeBodySmall">{redirectUris.length} URI</caption>
+        <AdminTable minWidth="wide">
+            <AdminTableCaption className="typeBodySmall">
+              {redirectUris.length} URI
+            </AdminTableCaption>
             <thead>
               <tr>
-                <th scope="col">Mục đích</th>
-                <th scope="col">URI (đã chuẩn hoá)</th>
-                <th scope="col">
+                <AdminTableHeadCell scope="col">Mục đích</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">URI (đã chuẩn hoá)</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">
                   <span className="visuallyHidden">Hành động</span>
-                </th>
+                </AdminTableHeadCell>
               </tr>
             </thead>
             <tbody>
               {redirectUris.map((entry) => (
-                <tr key={entry.id}>
-                  <td>{entry.purpose === 'login' ? 'Đăng nhập' : 'Đăng xuất'}</td>
-                  <td className={`${styles.mono} ${styles.urlCell}`}>{entry.uri}</td>
-                  <td>
+                <AdminTableBodyRow key={entry.id}>
+                  <AdminTableCell>
+                    {entry.purpose === 'login' ? 'Đăng nhập' : 'Đăng xuất'}
+                  </AdminTableCell>
+                  <AdminTableCell className={`${styles.mono} ${styles.urlCell}`}>
+                    {entry.uri}
+                  </AdminTableCell>
+                  <AdminTableCell>
                     <button
                       type="button"
                       className={`typeBodySmall ${styles.buttonSecondary}`}
@@ -515,12 +527,11 @@ function RedirectSection({
                     >
                       {pending === entry.id ? 'Đang gỡ…' : 'Gỡ'}
                     </button>
-                  </td>
-                </tr>
+                  </AdminTableCell>
+                </AdminTableBodyRow>
               ))}
             </tbody>
-          </table>
-        </div>
+        </AdminTable>
       )}
 
       {/*
@@ -643,30 +654,31 @@ function FeatureSection({
       {features.length === 0 ? (
         <p className={`typeBody ${styles.empty}`}>Chưa có tính năng nào.</p>
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={`typeBodySmall ${styles.table}`}>
-            <caption className="typeBodySmall">{features.length} tính năng</caption>
+        <AdminTable minWidth="wide">
+            <AdminTableCaption className="typeBodySmall">
+              {features.length} tính năng
+            </AdminTableCaption>
             <thead>
               <tr>
-                <th scope="col">Mã</th>
-                <th scope="col">Tên hiển thị</th>
-                <th scope="col">Trạng thái</th>
-                <th scope="col">
+                <AdminTableHeadCell scope="col">Mã</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">
                   <span className="visuallyHidden">Hành động</span>
-                </th>
+                </AdminTableHeadCell>
               </tr>
             </thead>
             <tbody>
               {features.map((feature) => {
                 const next = allowedTransitions(feature.status);
                 return (
-                  <tr key={feature.id}>
-                    <td className={styles.mono}>{feature.key}</td>
-                    <td>{feature.displayName}</td>
-                    <td>
+                  <AdminTableBodyRow key={feature.id}>
+                    <AdminTableCell className={styles.mono}>{feature.key}</AdminTableCell>
+                    <AdminTableCell>{feature.displayName}</AdminTableCell>
+                    <AdminTableCell>
                       <StatusBadge status={feature.status} />
-                    </td>
-                    <td>
+                    </AdminTableCell>
+                    <AdminTableCell>
                       {next.map((target) => (
                         <button
                           key={target}
@@ -682,13 +694,12 @@ function FeatureSection({
                               : 'Tắt'}
                         </button>
                       ))}
-                    </td>
-                  </tr>
+                    </AdminTableCell>
+                  </AdminTableBodyRow>
                 );
               })}
             </tbody>
-          </table>
-        </div>
+        </AdminTable>
       )}
 
       <form className={styles.form} onSubmit={submit}>

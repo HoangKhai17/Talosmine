@@ -360,9 +360,15 @@ describe('/v1/catalog + /v1/admin/catalog', () => {
         headers: { 'x-session-token': user.headers['x-session-token'] },
       });
       const items = res.json() as Array<Record<string, unknown>>;
+      // Danh sách CHÍNH XÁC — không thừa không thiếu. `kind` thêm ở migration 0017 (DEC-B17)
+      // và CÓ CHỦ ĐÍCH lộ ra: frontend phải phân nhánh theo nó (`hosted` chạy trong Hub,
+      // `external_link` mở ra ngoài), không được đoán từ việc `launchUrl` có giá trị hay
+      // không. Khác hẳn `status` — trường đó bị giấu vì không mang thông tin gì cho người
+      // dùng ngoài việc lộ ra rằng hệ thống có những trạng thái khác.
       expect(Object.keys(items[0] as object)).toEqual([
         'id',
         'key',
+        'kind',
         'displayName',
         'description',
         'imageUrl',

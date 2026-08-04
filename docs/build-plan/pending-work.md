@@ -909,6 +909,43 @@ test e2e** (`pnpm exec playwright test`, xem B2). Theo §14 còn thiếu:
   `/tools` đã có trong bộ test bố cục tĩnh (`web-shell.spec.ts`, `grid.spec.ts`) nhưng đó là
   test LAYOUT TĨNH — chưa test được hành vi sau khi nối API thật vì F2 (nối API) chưa làm.
 
+### F11. Ứng dụng `hosted` — ĐỢT 1 ĐÃ XONG (2026-07-31), bốn khoản nợ tạm còn treo
+
+DEC-B17 + DEC-T27 (duyệt 2026-07-31) mở loại ứng dụng thứ hai: Hub tự chạy giao diện và gọi
+API nhà cung cấp thứ ba. **Đợt 1 (backend) đã xong và chạy được**; đây là danh sách những gì
+CỐ Ý chưa làm, để lần rà sau không tưởng là bỏ sót.
+
+**Đã có:** migration `0017` (`applications.kind`, `launch_url` thành nullable có điều kiện,
+bảng `application_hosted_bindings`) + rollback + bài diễn tập gỡ RIÊNG 0017;
+[`outbound-fetch.ts`](../../apps/control-plane/src/shared/outbound-fetch.ts) là đường ra
+Internet duy nhất; `POST /v1/catalog/applications/{key}/run`; quản trị binding qua
+`PUT`/`DELETE .../hosted-binding`; adapter HuggingFace. **34 test mới** (12 unit + 22
+integration), nhà cung cấp là HTTP server THẬT dựng bằng `node:http`, không mock `fetch`.
+
+**Bốn khoản nợ tạm, tất cả đảo ngược được:**
+
+1. **Khoá API còn ở biến môi trường** (`HUGGINGFACE_API_TOKEN`), chưa phải bảng mã hoá
+   at-rest như DEC-T27 chốt. Đủ an toàn cho một người vận hành, KHÔNG đủ khi có nhiều nhà
+   cung cấp hoặc nhiều người quản trị.
+2. **Gọi đồng bộ, chưa có hàng đợi.** Trần `timeout_ms` tối đa 300s và CHECK trong database
+   chặn cao hơn thế — cố ý, vì dài hơn là việc của hàng đợi. `main-worker.ts` vẫn chưa có
+   job nào.
+3. **Chưa trừ điểm tín dụng, chưa ghi `usage_metrics`.** Chặn bởi phần sub của DEC-B18 (chủ
+   dự án đang chốt) và DEC-B05 (đơn vị đo). Lượt chạy hiện chỉ ghi `audit_events`.
+4. **Còn một khoảng hở DNS rebinding hẹp.** `outboundFetch` phân giải DNS và kiểm MỌI địa chỉ
+   trước khi gọi, nhưng vẫn `fetch` theo hostname chứ chưa kết nối thẳng tới địa chỉ đã kiểm
+   — nên về lý thuyết bản ghi DNS có thể đổi giữa lúc kiểm và lúc nối. Đóng hẳn cần dispatcher
+   tuỳ biến của `undici`. Ghi ra đây thay vì ỉm: mức rủi ro thấp (allowlist host vẫn là cửa
+   đầu tiên, và nhà cung cấp là danh mục đóng khoá bằng CHECK), nhưng nó có thật.
+
+**CHƯA CHẠY THẬT VỚI NHÀ CUNG CẤP THẬT.** Toàn bộ test dùng một HTTP server tự dựng đóng vai
+HuggingFace. Cơ chế phía ta đã kiểm đầu-đến-cuối, nhưng **hợp đồng với API thật của
+HuggingFace thì chưa** — cần một API token thật để biết payload và định dạng phản hồi có
+khớp không. Đây là việc kế tiếp, không phải việc đã làm.
+
+**Đợt 2 chưa làm:** trang `/tools/[key]` để người dùng thật sự bấm chạy, và form quản trị
+binding trong `/admin/catalog`.
+
 ### F5. Runbook vận hành — deliverable của §6, chưa tồn tại
 
 Cần viết: quy trình kích hoạt / tắt một ứng dụng, đổi redirect hoặc ảnh, xử lý khi một URL

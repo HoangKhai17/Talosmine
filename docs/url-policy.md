@@ -272,13 +272,33 @@ Nội dung cụ thể (host nào) chờ **DEC-B01** — danh sách ứng dụng 
 
 ---
 
+## 11b. `outboundFetch` — đường ra Internet DUY NHẤT (2026-07-31, DEC-T27)
+
+Trước DEC-B17, Control Plane không gọi ra Internet ở bất kỳ đâu: `url-policy.ts` chỉ dùng để kiểm URL **trước khi lưu**. Vì vậy `checkResolvedAddresses` — phần chống SSRF nặng nhất của file này — đã viết xong, có test, mà **chưa từng được gọi**, và cờ `!internal` trên thực tế vô tác dụng.
+
+DEC-B17 cho phép Hub tự gọi API nhà cung cấp thứ ba (ứng dụng `hosted`). Kể từ đó, mọi lời gọi ra ngoài **bắt buộc** đi qua [`outbound-fetch.ts`](../apps/control-plane/src/shared/outbound-fetch.ts). Gọi `fetch` thẳng từ service là vi phạm — nó bỏ qua toàn bộ bốn lớp dưới đây:
+
+| Lớp | Chặn gì | Chạm mạng? |
+|---|---|---|
+| 1 | Cú pháp, `https`, userinfo, allowlist host | Không |
+| 2 | DNS phân giải ra dải nội bộ (kiểm **mọi** địa chỉ) | Có, nhưng chưa gửi gì |
+| 3 | Timeout, và **`redirect: 'manual'`** | Có |
+| 4 | Trần kích thước phản hồi, đếm byte thật | Có |
+
+**`redirect: 'manual'` là bắt buộc, không phải tuỳ chọn.** Để `fetch` tự đi theo redirect nghĩa là đích cuối cùng KHÔNG đi qua lớp 1 và 2 — một endpoint hợp lệ trả `302` sang `http://169.254.169.254/` là đi thẳng vào metadata endpoint. Đây chính là mục 12 gạch đầu dòng đầu tiên bên dưới, giải quyết theo hướng "không đi theo redirect" thay vì "kiểm từng hop".
+
+**URL dùng thẳng địa chỉ IP:** `dns.resolve4('127.0.0.1')` coi chuỗi đó là tên miền và tra thất bại. `outboundFetch` nhận diện IP literal và coi chính nó là kết quả phân giải, nên nó vẫn đi qua `isPrivateAddress` — bị chặn vì ĐÚNG lý do (địa chỉ nội bộ) thay vì vì một lỗi DNS gây hiểu nhầm.
+
+---
+
 ## 12. Những gì chưa làm
 
 Ghi lại để không ai tưởng đã có:
 
-- **Kiểm từng redirect hop.** Hiện mới kiểm URL đầu. Khi máy chủ thật sự tải ảnh, phải kiểm lại ở mỗi chặng `3xx` và giới hạn số hop.
-- **Timeout, giới hạn kích thước, kiểm `content-type`** khi tải ảnh.
-- **Nối vào Catalog module.** Hàm đã có và có test, nhưng chưa được gọi từ đường tạo/sửa application.
+- ~~**Kiểm từng redirect hop.**~~ **Đã giải quyết theo hướng khác (2026-07-31):** `outboundFetch` KHÔNG đi theo redirect nào cả — endpoint phải là địa chỉ cuối cùng. Đơn giản hơn và không có hop nào để lọt.
+- ~~**Timeout, giới hạn kích thước**~~ — đã có trong `outboundFetch`. **Kiểm `content-type` khi tải ảnh** thì vẫn chưa (đường tải ảnh chưa tồn tại).
+- ~~**Nối vào Catalog module.**~~ **Đã nối (2026-07-31):** `checkUrlSyntax` được gọi từ đường tạo/sửa application, redirect URI, site nav/settings và `hosted-binding`; `checkResolvedAddresses` được gọi từ `outboundFetch`.
+- **DNS rebinding.** `outboundFetch` kiểm địa chỉ rồi vẫn `fetch` theo hostname, chưa kết nối thẳng tới địa chỉ đã kiểm — còn một khe hẹp giữa lúc kiểm và lúc nối. Đóng hẳn cần dispatcher tuỳ biến của `undici`. Xem `pending-work.md` mục F11.
 
 ---
 

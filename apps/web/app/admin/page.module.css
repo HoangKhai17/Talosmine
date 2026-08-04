@@ -47,62 +47,6 @@
   color: var(--color-text-primary);
 }
 
-.tableWrap {
-  /* Xem giải thích đầy đủ ở `admin/audit/page.module.css`: con của `.stack`
-     (`align-items: flex-start`) không giãn theo cha, nên `min-width: 640px` của `.table` kéo
-     khung rộng ra và đẩy cả trang tràn ngang ở viewport hẹp. Đã đo: `min-width: 0` KHÔNG có
-     tác dụng, `align-self: stretch` mới đóng được. */
-  align-self: stretch;
-  /*
-   * `position: relative` KHÔNG phải để định vị gì cả — nó biến khung này thành containing
-   * block cho hậu duệ `position: absolute`.
-   *
-   * Cột hành động của bảng có `<span class="visuallyHidden">Hành động</span>` (globals.css:
-   * `position: absolute`). Khung cuộn ở trạng thái `static` thì KHÔNG phải containing block
-   * của nó, nên cái span đó thoát khỏi phép cắt của `overflow-x: auto` và neo vào tận vị trí
-   * tĩnh của nó trong bảng rộng 640px — đẩy scrollWidth của cả TRANG lên 554px trong khi
-   * chính khung chỉ rộng 350px.
-   *
-   * Đã xác định bằng cách ẩn từng phần tử rồi đo lại (viewport 390px, bản production): ẩn
-   * riêng cái span → trang về đúng 390px. Đây là lý do `align-self: stretch` một mình không
-   * đủ ở trang này, khác `admin/audit` (bảng ở đó không có cột hành động ẩn).
-   */
-  position: relative;
-  overflow-x: auto;
-  border: var(--border-default);
-  border-radius: var(--radius-card);
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 640px;
-}
-
-.table caption {
-  text-align: left;
-  padding: var(--space-4) var(--space-5);
-  color: var(--color-text-secondary);
-  border-bottom: var(--border-default);
-}
-
-.table th,
-.table td {
-  text-align: left;
-  padding: var(--space-4) var(--space-5);
-  border-bottom: var(--border-default);
-  vertical-align: baseline;
-}
-
-.table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.table th {
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
 .mono {
   font-family: ui-monospace, monospace;
   overflow-wrap: anywhere;

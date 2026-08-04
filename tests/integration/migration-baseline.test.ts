@@ -336,6 +336,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
     //
     // P2:           identity (3) + audit (1) + admin RBAC (3) = 7
     // P3:           catalog (4) + service identity (1)        = 5
+    // Hosted app:   application_hosted_bindings (migration 0017, DEC-B17) = 1
     // Site content: nav menus/items/translations + settings + content_slots = 5
     // Survey:       questions/options + 2 bảng dịch + responses/answers = 6
     expect(tables.map((t) => t.table_name)).toEqual([
@@ -343,6 +344,7 @@ describe('toàn bộ chain migration (baseline + P2 identity) từ DB rỗng', (
       'admin_role_assignments',
       'admin_role_permissions',
       'admin_roles',
+      'application_hosted_bindings',
       'application_redirect_uris',
       'applications',
       'audit_events',
