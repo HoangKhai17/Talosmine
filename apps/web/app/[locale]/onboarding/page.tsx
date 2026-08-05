@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { localeHref } from '../../../i18n/locale';
 import { type PageLocaleParams, resolvePageI18n } from '../../../i18n/params';
+import { getBrandLogoSrc } from '../../../server/brand-logo';
+import { readServerEnv } from '../../../server/env';
+import { safeReturnTo } from '../../../server/oidc';
 import { readOnboarding } from '../../../server/onboarding';
-import { getSiteSettings } from '../../../server/site-settings';
 import styles from './page.module.css';
 import { SurveyForm } from './survey-form';
 
@@ -30,33 +32,43 @@ export async function generateMetadata({ params }: PageLocaleParams): Promise<Me
  * KHÔNG BẮT BUỘC: nút "Bỏ qua" luôn dùng được, và ai đã trả lời rồi mà mở lại URL này sẽ bị
  * chuyển thẳng về trang chủ — không có cách nào bị kẹt ở đây.
  */
-export default async function OnboardingPage({ params }: PageLocaleParams) {
+export default async function OnboardingPage({
+  params,
+  searchParams,
+}: PageLocaleParams & { searchParams: Promise<{ returnTo?: string }> }) {
   const { locale, t } = await resolvePageI18n(params);
+  const { returnTo } = await searchParams;
 
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get('__Host-talos_session')?.value;
 
   const home = localeHref(locale, '/');
+  const appBaseUrl = readServerEnv().APP_BASE_URL;
+  const safeDestination =
+    appBaseUrl && returnTo !== undefined ? safeReturnTo(returnTo, appBaseUrl) : home;
+  const doneHref = safeDestination === '/' ? home : safeDestination;
   const survey = await readOnboarding(sessionToken, locale);
 
-  // Đã trả lời, đã bỏ qua, chưa đăng nhập, hoặc Control Plane không trả lời được — mọi
-  // trường hợp đều dẫn về trang chủ. Không ai kẹt lại ở màn hình này.
-  if (!survey.required) redirect(home);
+  // Đã trả lời, đã bỏ qua, chưa đăng nhập, hoặc Control Plane không trả lời được — tiếp tục
+  // tới đích nội bộ đã kiểm tra (hoặc trang chủ theo locale). Không ai kẹt lại ở màn hình này.
+  if (!survey.required) redirect(doneHref);
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <Link className={styles.brand} href={home}>
-          <Logo url={(await getSiteSettings()).logoUrl} />
-        </Link>
+        <div className={styles.headerInner}>
+          <Link className={styles.brand} href={home}>
+            <Logo url={await getBrandLogoSrc()} />
+          </Link>
 
-        {/*
-          Hệ thống chưa có trang hỗ trợ riêng; `/contact` là đích gần nhất và có thật.
-          Đổi khi trang hỗ trợ ra đời.
-        */}
-        <Link className={`typeBodySmall ${styles.help}`} href={localeHref(locale, '/contact')}>
-          {t.onboarding.needHelp}
-        </Link>
+          {/*
+            Hệ thống chưa có trang hỗ trợ riêng; `/contact` là đích gần nhất và có thật.
+            Đổi khi trang hỗ trợ ra đời.
+          */}
+          <Link className={`typeBodySmall ${styles.help}`} href={localeHref(locale, '/contact')}>
+            {t.onboarding.needHelp}
+          </Link>
+        </div>
       </header>
 
       <main id="main" className={styles.main}>
@@ -69,8 +81,12 @@ export default async function OnboardingPage({ params }: PageLocaleParams) {
         <SurveyForm
           questions={survey.questions}
           locale={locale}
-          doneHref={home}
+          doneHref={doneHref}
           labels={{
+            step: t.onboarding.step,
+            progress: t.onboarding.progress,
+            previous: t.onboarding.previous,
+            next: t.onboarding.next,
             complete: t.onboarding.complete,
             submitting: t.onboarding.submitting,
             skip: t.onboarding.skip,

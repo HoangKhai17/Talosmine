@@ -1,186 +1,24 @@
 /*
- * Khung hai cột của khu vực xác thực — dùng chung cho trang đăng nhập và đăng ký.
- *
- * TRÀN VIỀN CÓ CHỦ ĐÍCH: khung này KHÔNG nằm trên lưới 12 cột của site. Thiết kế cho thấy
- * cột trái có nền chạy sát mép trái và mép trên màn hình, còn cột phải chiếm hết phần còn
- * lại — không có `container` nào ở giữa. Đây là ngoại lệ hợp lệ của luật lưới, cùng loại
- * với băng đối tác ở trang chủ.
- *
- * Vì thế `grid-template-columns` ở đây KHÔNG phải "định nghĩa cột thứ hai" mà luật 2 cấm:
- * nó chia MÀN HÌNH thành hai vùng, không chia nội dung thành cột.
- *
- * MÀU: thiết kế dùng nền tím nhạt cho cột trái và nút tím cho hành động chính. Bảng màu đã
- * duyệt của dự án hiện KHÔNG có token nào màu tím — toàn bộ site đang đơn sắc, nút chính
- * màu đen. Ở đây dùng token hiện có để khu vực xác thực không lạc khỏi phần còn lại. Muốn
- * có màu nhấn thì thêm token vào globals.css trước, đừng viết mã màu thẳng vào file này.
+ * Màn trạng thái lỗi OIDC là một luồng một việc: đọc lỗi và thử đăng nhập lại.
+ * Không dùng brand panel vì nội dung quảng bá làm phân tán khỏi hành động khôi phục.
  */
 
 .page {
-  display: grid;
-  grid-template-columns: 1fr;
-  /* `dvh` chứ không phải `vh`: trên di động thanh địa chỉ co giãn làm `100vh` cao hơn vùng
-   * nhìn thấy thật, đẩy nút "Đăng nhập" xuống dưới mép màn hình. */
   min-height: 100dvh;
+  background-color: var(--color-bg-green-soft);
 }
 
-/*
- * Hai cột từ 1024px. Đây là ngưỡng của RIÊNG trang này, không phải breakpoint chung của
- * site: dưới ngưỡng đó, cột biểu mẫu hẹp tới mức ô nhập bị bóp và phần giới thiệu chen chỗ
- * của việc chính là đăng nhập.
- *
- * Tỉ lệ 5/7 khớp thiết kế (cột trái hẹp hơn cột phải một chút).
- */
-@media (min-width: 1024px) {
-  .page {
-    grid-template-columns: 5fr 7fr;
-  }
-}
-
-/* ── Cột trái: giới thiệu ────────────────────────────────────────────────────
- * Flex dọc: khối chữ ở trên (có đệm), khối ảnh ăn hết phần cao còn lại (sát mép). */
-.brandPanel {
-  display: flex;
-  flex-direction: column;
-  background-color: var(--color-bg-secondary);
-}
-
-.brandContent {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-10) var(--space-6);
-}
-
-@media (min-width: 1024px) {
-  .brandContent {
-    padding: var(--space-12) var(--space-16);
-  }
-}
-
-.brandLogo {
-  margin-bottom: var(--space-20);
-}
-
-/* Ảnh logo từ CMS — cùng cách khoá kích thước với header: cao cố định, rộng tự co. */
-.brandLogoImage {
-  height: var(--space-10);
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-}
-
-/*
- * `<p>` mang cỡ chữ H2 chứ không phải thẻ `<h2>`: trang này chỉ có MỘT tiêu đề thật là
- * "Đăng nhập". Câu quảng bá ở cột trái là chữ trang trí — biến nó thành heading sẽ làm
- * trình đọc màn hình thông báo một mục lục sai.
- */
-.brandHeading {
-  max-width: 18ch;
-}
-
-.brandLead {
-  margin-top: var(--space-4);
-  max-width: 38ch;
-}
-
-.benefitList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  margin-top: var(--space-10);
-}
-
-.benefit {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.benefitIcon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--space-10);
-  height: var(--space-10);
-  border-radius: var(--radius-button);
-  background-color: var(--color-border-default);
-  color: var(--color-text-primary);
-}
-
-.benefitText {
-  display: flex;
-  flex-direction: column;
-}
-
-.benefitTitle {
-  font-weight: var(--weight-caption);
-}
-
-/*
- * Khối ảnh ẨN Ở MOBILE.
- *
- * Ở một cột, nó nằm giữa phần giới thiệu và biểu mẫu — người dùng phải cuộn qua một khối
- * ảnh cao mới tới được ô đăng nhập. Việc chính của trang này là đăng nhập, nên thứ trang
- * trí phải nhường đường.
- */
-.brandImage {
-  display: none;
-}
-
-@media (min-width: 1024px) {
-  .brandImage {
-    /* `flex: 1` để ăn hết chiều cao còn lại của cột — nhờ vậy nền phủ kín tới đáy màn hình
-     * dù nội dung bên trái ngắn hay dài. */
-    flex: 1 1 auto;
-    min-height: var(--space-30);
-    display: grid;
-    place-items: center;
-    background-color: var(--color-border-default);
-    color: var(--color-text-tertiary);
-  }
-}
-
-/* ── Cột phải: biểu mẫu ─────────────────────────────────────────────────────── */
 .formPanel {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-6);
-}
-
-@media (min-width: 1024px) {
-  .formPanel {
-    padding: var(--space-12) var(--space-16);
-  }
-}
-
-.formTop {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.backLink {
-  color: var(--color-text-primary);
-  text-decoration: none;
-}
-
-.backLink:hover {
-  text-decoration: underline;
-  text-underline-offset: var(--space-1);
-}
-
-/*
- * Cột biểu mẫu căn giữa theo chiều dọc và chiều ngang.
- *
- * `max-width` theo ĐƠN VỊ CHỮ — ngoại lệ được ghi trong luật lưới. Ô nhập rộng quá thì mắt
- * phải đi hết bề ngang màn hình để đọc nhãn rồi quay lại đầu dòng, và người dùng không
- * biết trường nào đi với nhãn nào.
- */
-.formArea {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
   width: 100%;
-  max-width: 42ch;
+  max-width: 64ch;
   margin-inline: auto;
-  padding-block: var(--space-10);
+  padding: var(--space-6) var(--space-6) var(--space-12);
+}
+
+.formArea {
+  width: 100%;
+  padding: var(--space-8);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
 }

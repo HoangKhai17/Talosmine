@@ -39,7 +39,6 @@ export interface HeaderNavLabels {
   signOut: string;
   signingOut: string;
   signOutFailed: string;
-  submitTool: string;
 }
 
 const PANEL_ID = 'header-nav-panel';
@@ -50,14 +49,12 @@ export function HeaderNav({
   labels,
   accountHref,
   signInHref,
-  submitHref,
 }: {
   items: HeaderNavItem[];
   signedIn: boolean;
   labels: HeaderNavLabels;
   accountHref: string;
   signInHref: string;
-  submitHref: string;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -152,10 +149,6 @@ export function HeaderNav({
               {labels.signIn}
             </Link>
           )}
-
-          <Link className={`typeBody ${styles.submitButton}`} href={submitHref}>
-            {labels.submitTool}
-          </Link>
         </div>
       </div>
     </>

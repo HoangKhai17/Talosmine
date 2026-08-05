@@ -592,114 +592,6 @@ function icon(paths, size) {
   return svg;
 }
 
-const BENEFITS = [
-  {
-    title: 'Lưu công cụ yêu thích',
-    note: 'Mở lại bất cứ lúc nào',
-    paths: ['M6 3h12v18l-6-4.5L6 21V3Z'],
-  },
-  {
-    title: 'Tạo bộ sưu tập',
-    note: 'Gom công cụ về một chỗ',
-    paths: ['M3 6h6l2 2.5h10V19H3V6Z'],
-  },
-  {
-    title: 'Gợi ý riêng cho bạn',
-    note: 'Dựa trên thứ bạn đang dùng',
-    paths: [
-      'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18',
-    ],
-  },
-];
-
-/** Cột trái. Giống hệt ở cả hai màn hình, nên dựng một lần. */
-/**
- * Logo thương hiệu — ẢNH từ CMS khi có, CHỮ "Talosmine" khi không.
- *
- * Ảnh lấy qua `GET {APP_URL}/api/brand/logo` của web app: route đó đọc đúng cài đặt logo mà
- * quản trị viên đặt trong `/admin` (menu website → logo), nên một nguồn sự thật cho cả hai
- * origin. Thẻ `<img>` không vướng CORS.
- *
- * FAIL-OPEN — giữ nguyên tắc ở đầu `globals.css`: trang đăng nhập không được phụ thuộc một
- * máy chủ khác. Chưa cấu hình APP_URL, chưa đặt logo (404), web app chết, hay CSP chặn ảnh
- * — mọi đường lỗi đều rơi về logo chữ qua sự kiện `error`.
- */
-function brandMark(className) {
-  const mark = el('p', { class: 'typeCardTitle ' + className, text: 'Talosmine' });
-
-  const appUrl = window.TALOSMINE_APP_URL;
-  if (!appUrl) return mark;
-
-  const img = el('img', {
-    class: 'brandLogoImage',
-    src: appUrl + '/api/brand/logo',
-    alt: 'Talosmine',
-  });
-  img.addEventListener('error', () => {
-    img.remove();
-    mark.textContent = 'Talosmine';
-  });
-
-  mark.textContent = '';
-  mark.append(img);
-  return mark;
-}
-
-function brandPanel() {
-  return el('aside', { class: 'brandPanel', 'aria-label': 'Giới thiệu' }, [
-    el('div', { class: 'brandContent' }, [
-      brandMark('brandLogo'),
-      /*
-        `<h2>` THẬT, không phải `<p>` mang cỡ chữ H2.
-        Trước đây chỗ này là `<p>` vì tôi lập luận "mỗi màn hình chỉ nên có một tiêu đề".
-        Lập luận đó sai: cột trái là một landmark `<aside>` riêng, và một landmark không có
-        tiêu đề thì trình đọc màn hình không có mốc nào để nhảy vào. Thứ tự cấp bậc vẫn
-        đúng vì `<main>` (chứa `<h1>`) đứng TRƯỚC `<aside>` trong DOM — xem `authScreen`.
-      */
-      // `<p>` mang cỡ chữ tiêu đề chứ không phải thẻ heading: mỗi màn hình chỉ có MỘT tiêu
-      // đề thật, nằm ở cột phải. Biến câu quảng bá thành heading sẽ làm trình đọc màn hình
-      // thông báo một mục lục sai.
-      // Một phần câu mang màu nhấn, theo thiết kế. Ghép bằng `createTextNode` + `<span>`
-      // chứ không phải `innerHTML` — cùng lý do với `el()`: không mở đường cho HTML.
-      el('h2', { class: 'typeH2 brandHeading' }, [
-        document.createTextNode('Tìm công cụ AI tốt hơn, '),
-        el('span', { class: 'accent', text: 'nhanh hơn' }),
-      ]),
-      el('p', {
-        class: 'typeBody textSecondary brandLead',
-        text: 'Cùng hàng nghìn người đang tìm đúng công cụ cho công việc của mình.',
-      }),
-      el(
-        'ul',
-        { class: 'benefitList' },
-        BENEFITS.map((benefit) =>
-          el('li', { class: 'benefit' }, [
-            el('span', { class: 'benefitIcon' }, [icon(benefit.paths, 16)]),
-            // `<h3>` + `<p>`, không phải hai `<span>` giống hệt nhau. Mỗi lợi ích là một
-            // mục có tiêu đề và mô tả; dùng `<span>` cho cả hai thì trình đọc màn hình đọc
-            // ra bốn dòng chữ rời rạc không biết dòng nào là tên, dòng nào là giải thích.
-            el('div', { class: 'benefitText' }, [
-              el('h3', { class: 'typeBodySmall benefitTitle', text: benefit.title }),
-              el('p', { class: 'typeCaption textTertiary', text: benefit.note }),
-            ]),
-          ]),
-        ),
-      ),
-    ]),
-    // KHÔNG còn khối ảnh minh hoạ (chủ dự án bỏ 2026-07-29): `.brandContent` giờ là con
-    // DUY NHẤT của `.brandPanel`, và CSS căn nó giữa cột theo cả hai chiều — xem auth.css.
-  ]);
-}
-
-/**
- * Nút "Tiếp tục với Google".
- *
- * TỰ KÍCH HOẠT theo `googleConnector` (đọc lúc khởi động). Chưa bật connector thì nút để
- * `disabled` kèm ghi chú — giữ đúng chỗ trong bố cục nhưng không giả vờ chạy được.
- *
- * `showError` do màn hình gọi truyền vào: nếu bước xin URL cấp quyền hỏng (mất mạng, Logto
- * lỗi), lỗi hiện ngay trong khối lỗi của biểu mẫu thay vì im lặng.
- */
 function googleButton(showError) {
   if (!googleConnector) {
     return [
@@ -780,34 +672,33 @@ function googleIcon() {
   return svg;
 }
 
-/**
- * Link "Về trang chủ" ở góc trên phải.
- *
- * TỰ ẨN khi `config.js` chưa khai địa chỉ web app. Thà thiếu một link còn hơn có một link
- * dẫn tới máy chủ sai — ở trang đăng nhập, một địa chỉ lạ chính là dấu hiệu của lừa đảo.
- */
-function backLink() {
-  const url = window.TALOSMINE_APP_URL;
-  if (typeof url !== 'string' || url === '') return null;
-  return el('a', { class: 'typeBodySmall backLink', href: url, text: 'Về trang chủ' });
+/** Chỉ dùng địa chỉ web app khi đó là URL HTTP(S) tuyệt đối. */
+function configuredAppUrl() {
+  const value = window.TALOSMINE_APP_URL;
+  if (typeof value !== 'string' || value === '') return null;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Hàng trên cùng của cột biểu mẫu: logo bên trái, "Về trang chủ" bên phải.
- *
- * LOGO Ở ĐÂY CHỈ HIỆN KHI XẾP CHỒNG (dưới 1280px). Từ desktop trở lên nó bị `display: none`
- * và logo thật nằm trong cột giới thiệu, đúng vị trí thiết kế.
- *
- * Vì sao phải có bản thứ hai thay vì di chuyển một phần tử: `<main>` đứng TRƯỚC `<aside>`
- * trong DOM để cấp bậc tiêu đề và thứ tự đọc đúng chiều. Khi xếp chồng, thứ tự nhìn thấy
- * bằng thứ tự DOM, nên logo nằm trong cột giới thiệu sẽ rơi xuống TẬN ĐÁY trang — đúng lỗi
- * chủ dự án chỉ ra trên ảnh chụp màn hình.
- *
- * `display: none` gỡ hẳn phần tử khỏi cây trợ năng, nên trình đọc màn hình chỉ gặp MỘT logo
- * chứ không phải hai.
- */
-function formTopRow() {
-  return el('div', { class: 'formTop' }, [brandMark('topLogo'), backLink()]);
+/** Header chung của khung xác thực: thương hiệu bên trái, lối về ứng dụng bên phải. */
+function formHeader() {
+  const appUrl = configuredAppUrl();
+  const brand = appUrl
+    ? el('a', { class: 'typeBody brandLink', href: appUrl, text: 'Talosmine' })
+    : el('span', { class: 'typeBody brandLabel', text: 'Talosmine' });
+  const home = appUrl
+    ? el('a', { class: 'typeBodySmall backLink', href: appUrl }, [
+        icon(['M19 12H5', 'm12 19-7-7 7-7'], 16),
+        el('span', { text: 'Về trang chủ' }),
+      ])
+    : null;
+
+  return el('header', { class: 'formHeader' }, [brand, home]);
 }
 
 /**
@@ -822,7 +713,7 @@ function formTopRow() {
  * dùng đang cam kết điều gì đó thì tệ hơn hẳn một dòng chữ.
  */
 function legalLink(label, path) {
-  const appUrl = window.TALOSMINE_APP_URL;
+  const appUrl = configuredAppUrl();
   if (!appUrl) return el('span', { class: 'accent', text: label });
 
   // KHÔNG mang class `accent`: chữ gradient là cho từ nhấn trang trí; link pháp lý dùng màu
@@ -1227,22 +1118,9 @@ function authScreen(config) {
     ],
   );
 
-  /*
-    THỨ TỰ TRONG DOM: `<main>` TRƯỚC, `<aside>` SAU. Thứ tự NHÌN THẤY thì ngược lại — cột
-    giới thiệu nằm bên trái — và việc đảo đó do lưới lo (xem `auth.css`).
-
-    Vì sao phải làm vậy:
-      - Cấp bậc tiêu đề đọc đúng chiều: h1 (Đăng nhập) → h2 (câu quảng bá) → h3 (lợi ích).
-        Để `<aside>` trước thì tài liệu bắt đầu bằng h2 rồi mới tới h1.
-      - Người dùng trình đọc màn hình gặp NGAY việc họ tới đây để làm, thay vì phải nghe
-        hết phần quảng bá.
-
-    Đảo bằng lưới ở đây KHÔNG tạo bẫy bàn phím: `<aside>` không chứa phần tử nào focus
-    được, nên thứ tự Tab vẫn trùng thứ tự nhìn thấy.
-  */
   const formArea = el('div', { class: 'formArea' }, [
-    el('h1', { class: 'typeH2', text: config.title }),
-    el('p', { class: 'typeBodySmall textSecondary lead', text: config.lead }),
+    el('h1', { class: 'typeH2 authTitle', text: config.title }),
+    el('p', { class: 'typeBodySmall textSecondary lead authLead', text: config.lead }),
     errorBox,
     ...googleButton(showError),
     el('div', { class: 'divider' }, [
@@ -1290,8 +1168,7 @@ function authScreen(config) {
   }
 
   return el('div', { class: 'page' }, [
-    el('main', { class: 'formPanel' }, [formTopRow(), formArea]),
-    brandPanel(),
+    el('main', { class: 'formPanel' }, [formHeader(), formArea]),
   ]);
 }
 
@@ -1516,8 +1393,7 @@ function forgotPasswordScreen() {
   showEmailStep('');
 
   return el('div', { class: 'page' }, [
-    el('main', { class: 'formPanel' }, [formTopRow(), formArea]),
-    brandPanel(),
+    el('main', { class: 'formPanel' }, [formHeader(), formArea]),
   ]);
 }
 
@@ -1530,11 +1406,11 @@ function forgotPasswordScreen() {
  * cần làm chỉ là vào bằng đúng cửa.
  */
 function unknownSessionScreen() {
-  const appUrl = typeof window.TALOSMINE_APP_URL === 'string' ? window.TALOSMINE_APP_URL : '';
+  const appUrl = configuredAppUrl();
 
   return el('div', { class: 'page' }, [
     el('main', { class: 'formPanel' }, [
-      formTopRow(),
+      formHeader(),
       el('div', { class: 'formArea' }, [
         el('h1', { class: 'typeH2', text: 'Phiên đăng nhập đã hết' }),
         el('p', {
@@ -1545,7 +1421,7 @@ function unknownSessionScreen() {
         }),
         // Chỉ hiện nút khi biết địa chỉ web app. Đoán bừa một địa chỉ ở trang đăng nhập là
         // đúng cái dấu hiệu của lừa đảo mà người dùng được dạy phải cảnh giác.
-        appUrl === ''
+        appUrl === null
           ? el('p', {
               class: 'typeBodySmall textTertiary',
               text: 'Quay lại Talosmine rồi bấm Đăng nhập để bắt đầu lại.',
@@ -1557,7 +1433,6 @@ function unknownSessionScreen() {
             }),
       ]),
     ]),
-    brandPanel(),
   ]);
 }
 
@@ -1653,8 +1528,7 @@ function socialCallbackScreen() {
   })();
 
   return el('div', { class: 'page' }, [
-    el('main', { class: 'formPanel' }, [formTopRow(), formArea]),
-    brandPanel(),
+    el('main', { class: 'formPanel' }, [formHeader(), formArea]),
   ]);
 }
 
@@ -1667,7 +1541,7 @@ function socialCallbackScreen() {
 function fallbackScreen(pathname) {
   return el('div', { class: 'page' }, [
     el('main', { class: 'formPanel' }, [
-      formTopRow(),
+      formHeader(),
       el('div', { class: 'formArea' }, [
         el('h1', { class: 'typeH2', text: 'Màn hình chưa được dựng' }),
         el('p', {
@@ -1679,7 +1553,6 @@ function fallbackScreen(pathname) {
         ]),
       ]),
     ]),
-    brandPanel(),
   ]);
 }
 

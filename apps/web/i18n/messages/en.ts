@@ -46,7 +46,6 @@ export const en = {
     signOut: 'Sign out',
     signingOut: 'Signing out…',
     signOutFailed: 'Could not sign out. Please try again.',
-    submitTool: 'Submit a tool',
   },
 
   footer: {
@@ -88,6 +87,10 @@ export const en = {
     lead: 'Complete these quick questions to personalize your experience and help us recommend the right AI tools for you.',
     duration: 'It only takes about a minute.',
     needHelp: 'Need help?',
+    step: 'Step {current} / {total}',
+    progress: 'Survey progress: step {current} of {total}',
+    previous: 'Previous',
+    next: 'Next',
     complete: 'Complete Setup',
     submitting: 'Saving…',
     skip: 'Skip for now',

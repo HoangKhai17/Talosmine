@@ -86,6 +86,7 @@
    *   light-green:  nền cột giới thiệu (hero/section sáng)
    *   green-strong: nút chính (CTA) */
   --gradient-light-green: linear-gradient(135deg, #ffffff 0%, #f1f8e8 45%, #ddecb8 100%);
+  --gradient-auth-pastel: linear-gradient(160deg, #f1f7f3 0%, #f7faef 52%, #fffaf4 100%);
   --gradient-green-strong: linear-gradient(135deg, #146329 0%, #1f8f3a 50%, #a3c644 100%);
 
   /* Bản gốc: focus = Border Focus = xanh lá thương hiệu. */
@@ -132,6 +133,9 @@
   /* ── Border ───────────────────────────────────────────────────────────── */
   --border-default: 1px solid var(--color-border-default);
   --border-hover: 1px solid var(--color-border-hover);
+
+  /* Shadow riêng cho card auth: độ tương phản thấp để tách card khỏi nền pastel nhẹ. */
+  --shadow-auth-card: 0 8px 24px rgba(13, 31, 45, 0.07);
 
   /* Bản gốc trỏ vào biến do `next/font` đặt. Ở đây trỏ thẳng tên họ font đã khai ở trên. */
   --font-sans: Montserrat, system-ui, sans-serif;

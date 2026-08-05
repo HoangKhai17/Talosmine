@@ -53,7 +53,6 @@ export const vi = {
     signOut: 'Đăng xuất',
     signingOut: 'Đang đăng xuất…',
     signOutFailed: 'Không đăng xuất được. Vui lòng thử lại.',
-    submitTool: 'Gửi công cụ',
   },
 
   footer: {
@@ -106,6 +105,10 @@ export const vi = {
     lead: 'Trả lời vài câu hỏi ngắn để chúng tôi cá nhân hoá trải nghiệm và gợi ý đúng công cụ AI cho bạn.',
     duration: 'Chỉ mất khoảng một phút.',
     needHelp: 'Cần trợ giúp?',
+    step: 'Bước {current} / {total}',
+    progress: 'Tiến độ khảo sát: bước {current} trên {total}',
+    previous: 'Quay lại',
+    next: 'Tiếp theo',
     complete: 'Hoàn tất thiết lập',
     submitting: 'Đang lưu…',
     skip: 'Bỏ qua bước này',

@@ -1,334 +1,57 @@
 /*
- * Bố cục trang đăng nhập / đăng ký.
- *
- * File này CHỈ nói về vị trí, khoảng cách và nền. Cỡ chữ, độ đậm và màu chữ đến từ class
- * tiện ích ở `globals.css` (`typeH2`, `typeBodySmall`, `textSecondary`…), đúng như cách
- * `apps/web` làm.
- *
- * KHÔNG CÓ MỘT `font-size` NÀO TRONG FILE NÀY. Bản CSS trước viết cỡ chữ thẳng vào từng
- * class bố cục — nên chữ ở đây trôi khỏi thang chung của dự án mà không ai nhận ra cho tới
- * khi đặt hai trang cạnh nhau. Thấy `font-size` xuất hiện lại ở đây là dấu hiệu ai đó vừa
- * đi tắt.
- *
- * TRÀN VIỀN NHƯNG VẪN TRONG CONTAINER: trang này không dùng class `.container`, nhưng lưới
- * của nó dựng lại ĐÚNG hệ cột đó (xem `.page`). Nền chạy sát mép màn hình theo thiết kế,
- * còn chữ vẫn nằm trên cùng các mốc cột như mọi trang khác — hai việc khác nhau, và bản
- * trước gộp làm một nên mất luôn container.
+ * Layout for the Logto sign-in, registration, recovery, callback, and fallback screens.
+ * Typography and colors come from the shared utility classes and tokens in globals.css.
  */
 
-/* ── Khung trang ──────────────────────────────────────────────────────────────
- *
- * LƯỚI TRÀN VIỀN CÓ CONTAINER — nền chạy sát mép màn hình, nhưng CHỮ nằm đúng trên lưới
- * cột của container, giống mọi trang khác.
- *
- * Bản trước chia lưới trên TOÀN BỀ NGANG MÀN HÌNH và đặt `gap: 0`. Hai hệ quả đều sai:
- * cột ở đây rộng theo viewport chứ không theo container 1420px, và khoảng cách giữa các
- * cột bằng 0 thay vì 24px. Nói cách khác nó chỉ trông giống lưới chứ không phải lưới của
- * dự án.
- *
- * Cách làm đúng — ba nhóm track:
- *
- *     [full-start] gutter [content-start] 12 cột nội dung [content-end] gutter [full-end]
- *
- * Hai track ngoài rộng đúng bằng lề của `.container` (xem `--page-gutter` bên dưới), nên
- * phần nội dung không bao giờ vượt `--container-max`. Đây chính là hành vi của `.container`,
- * chỉ khác ở chỗ NỀN vẫn phủ được ra tới mép.
- *
- * Nền phủ tới mép bằng cách kéo tới `full-start` / `full-end`; nội dung bên trong bám vào
- * các track `content`.
- */
 .page {
-  /*
-   * Bề rộng thật của lề — công thức tái tạo ĐÚNG hành vi của `.container`.
-   *
-   * `.container` làm hai việc: `max-width: --container-max + 2 × gutter` rồi căn giữa, và
-   * `padding-inline: gutter`. Ghép lại, khoảng cách từ mép màn hình tới nội dung là:
-   *   - màn hẹp hơn container: đúng `gutter`
-   *   - màn rộng hơn: `gutter` + phần dư chia đôi, tức `(100% − --container-max) / 2`
-   * `max()` chọn cái lớn hơn, nên một biểu thức phủ cả hai trường hợp.
-   *
-   * ĐÃ THỬ `minmax(var(--container-gutter), 1fr)` VÀ NÓ SAI. Track `1fr` không "nuốt phần
-   * dư" — nó chia đều phần dư với 12 cột nội dung cũng là `1fr`. Đo được: ở 1920px nội dung
-   * bắt đầu ở 144px thay vì 250px, và ở 1280px cũng ra 144px — tức lề rộng đúng bằng một
-   * cột, không liên quan gì tới container.
-   *
-   * TRỪ ĐI MỘT `--grid-gap`: `column-gap` chèn một khoảng giữa track lề và cột 1, khoảng đó
-   * cộng thêm vào lề thật. Không trừ thì nội dung bắt đầu ở `lề + gap` — đo được 274px ở
-   * 1920px thay vì 250px, lệch đúng 24px ở cả hai bên.
-   *
-   * Luôn dương với bảng token hiện tại (120>24, 32>20, 20>16). Đổi token mà làm gap lớn hơn
-   * lề thì phải xem lại chỗ này.
-   */
-  --page-gutter: calc(
-    max(var(--container-gutter), calc((100% - var(--container-max)) / 2)) -
-    var(--grid-gap)
-  );
-
-  display: grid;
-  grid-template-columns:
-    [full-start] var(--page-gutter)
-    [content-start] repeat(var(--grid-columns), minmax(0, 1fr)) [content-end]
-    var(--page-gutter) [full-end];
-  column-gap: var(--grid-gap);
-  /* `dvh` chứ không phải `vh`: trên di động thanh địa chỉ co giãn làm `100vh` cao hơn vùng
-   * nhìn thấy thật, đẩy nút chính xuống dưới mép màn hình. */
   min-height: 100dvh;
+  background-color: var(--color-bg-secondary);
+  background-image: var(--gradient-auth-pastel);
 }
 
-/* Dưới desktop: mỗi vùng chiếm trọn hàng, xếp chồng. */
-.brandPanel,
-.formPanel {
-  grid-column: full-start / full-end;
-}
-
-/*
- * Desktop (từ 1280px — mốc "desktop" của `globals.css`): chia 6 / 6 cột.
- *
- * VẠCH CHIA CÓ TÊN, KHÔNG DÙNG SỐ. Bản trước ghi `full-start / 7` và nó SAI: số vạch đếm cả
- * track lề, nên vạch 7 rơi vào đầu cột 6 — đo ra vùng trái chỉ chiếm 5 cột, tức chia 5|7
- * đúng thứ mà chủ dự án đã yêu cầu sửa. Với `[mid]` thì không còn gì để đếm nhầm.
- *
- * Vì vậy ở desktop phải khai lại `grid-template-columns`: cùng một lưới, chỉ tách `repeat`
- * làm hai nửa để cắm được tên vạch vào giữa. Số cột vẫn là 12 như `--grid-columns`.
- *
- * `order` đảo VỊ TRÍ NHÌN THẤY: `<main>` đứng trước trong DOM để cấp bậc tiêu đề và thứ tự
- * đọc đúng, nhưng hiện ở bên phải. An toàn vì `<aside>` không chứa phần tử nào focus được —
- * thứ tự Tab vẫn trùng thứ tự nhìn thấy.
- */
-@media (min-width: 1280px) {
-  .page {
-    grid-template-columns:
-      [full-start] var(--page-gutter)
-      [content-start] repeat(6, minmax(0, 1fr)) [mid] repeat(6, minmax(0, 1fr)) [content-end]
-      var(--page-gutter) [full-end];
-  }
-
-  .brandPanel {
-    grid-column: full-start / mid;
-    order: -1;
-    /*
-     * Kéo nền phủ nốt khoảng gap để hai vùng CHẠM NHAU.
-     *
-     * Không có dòng này thì giữa nền tím nhạt và nền trắng có một vạch trắng rộng đúng 24px
-     * (đã đo: vùng trái kết ở 832, vùng phải bắt đầu ở 856). Nó lộ rõ nhất ở khối ảnh phía
-     * dưới, vốn là mảng xám đặc.
-     *
-     * Tác dụng phụ lên `subgrid` là thứ ta MUỐN: theo spec, lề âm làm track cuối của lưới
-     * con rộng thêm đúng chừng đó, nên khối ảnh (`1 / -1`) cũng vươn ra tới mép mới.
-     */
-    margin-inline-end: calc(var(--grid-gap) * -1);
-  }
-
-  .formPanel {
-    grid-column: mid / full-end;
-  }
-}
-
-/* ── Cột trái: giới thiệu ─────────────────────────────────────────────────────
- * Nền Light Green theo bảng gradient của chủ dự án (2026-07-28): trắng ở trên chuyển dần
- * sang xanh lá nhạt ở dưới. `background-color` đặt trước làm nền dự phòng cho trình duyệt
- * không hiểu `linear-gradient`.
- *
- * `subgrid` để nội dung bên trong nằm trên ĐÚNG các cột mà vùng này chiếm của lưới trang —
- * không phải trên một lưới con tự chế.
- *
- * `align-content: center` (2026-07-29, thay khối ảnh minh hoạ đã bỏ): panel này được lưới
- * `.page` kéo cao TRỌN cột (`align-items` mặc định là `stretch`), nên phần cao dư ra giữa
- * chữ và mép panel giờ CHIA ĐỀU hai đầu — cùng cách `.formArea` bên cột phải căn giữa nội
- * dung của nó, để hai cột đối xứng nhau theo chiều dọc.
- */
-.brandPanel {
-  display: grid;
-  grid-template-columns: subgrid;
-  align-content: center;
-  background-color: var(--color-accent-tint);
-  background-image: var(--gradient-light-green);
-}
-
-/*
- * Chữ bám vào CÁC CỘT NỘI DUNG, bỏ qua track gutter.
- *
- * Không còn `padding-inline: var(--container-gutter)` như bản trước: khoảng cách tới mép
- * màn hình giờ do chính track gutter của lưới trang lo. Giữ cả hai là cộng dồn hai lớp lề
- * và chữ trượt khỏi mốc cột.
- *
- * Xếp chồng (dưới 1280px): vùng này trải `full-start → full-end`, nên phải bỏ gutter ở CẢ
- * HAI đầu → `2 / -2`.
- */
-.brandContent {
-  grid-column: 2 / -2;
-  display: flex;
-  flex-direction: column;
-  padding-block: var(--space-10);
-}
-
-@media (min-width: 1280px) {
-  /* Hai cột: vùng này chỉ có gutter ở đầu trái, nên chỉ bỏ một đầu → `2 / -1`. */
-  .brandContent {
-    grid-column: 2 / -1;
-    /*
-     * Trả lại phần lề âm mà `.brandPanel` mượn để phủ nền qua khoảng gap. NỀN cần vươn ra
-     * tới mép, CHỮ thì không — không có dòng này thì hàng lợi ích rộng 722px thay vì 698px
-     * và mép phải của nó trượt qua khỏi vạch cột 6.
-     */
-    margin-inline-end: var(--grid-gap);
-    padding-block: var(--space-12);
-  }
-}
-
-/*
- * Logo trong cột giới thiệu — CHỈ hiện ở desktop.
- *
- * Khi xếp chồng, cột này nằm DƯỚI biểu mẫu (vì `<main>` đứng trước `<aside>` trong DOM), nên
- * logo ở đây sẽ rơi xuống tận đáy trang. `.topLogo` thay chỗ cho nó.
- */
-.brandLogo {
-  display: none;
-  margin-bottom: var(--space-20);
-}
-
-@media (min-width: 1280px) {
-  .brandLogo {
-    display: block;
-  }
-}
-
-/*
- * Ảnh logo từ CMS (`app.js` chèn khi tải được): CÙNG cách khoá kích thước với header của
- * web app — cao cố định, rộng tự co — để logo hiển thị đúng một tỉ lệ ở mọi nơi.
- */
-.brandLogoImage {
-  height: var(--space-10);
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-}
-
-/* Giới hạn theo ĐƠN VỊ CHỮ — ngoại lệ duy nhất của luật "không max-width": đây là ràng
- * buộc độ dài dòng đọc được, không phải bố cục theo cột. */
-.brandHeading {
-  max-width: 18ch;
-}
-
-.brandLead {
-  margin-top: var(--space-4);
-  max-width: 38ch;
-}
-
-.benefitList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  margin-top: var(--space-10);
-}
-
-.benefit {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.benefitIcon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--space-10);
-  height: var(--space-10);
-  border-radius: var(--radius-button);
-  background-color: var(--color-border-default);
-}
-
-.benefitText {
-  display: flex;
-  flex-direction: column;
-}
-
-/*
- * Độ đậm là chỗ DUY NHẤT của thang chữ được phép xuất hiện trong file này, và luôn qua
- * token. Lý do: `typeBodySmall` cố định weight 400, nhưng vài nhãn trong thiết kế đậm hơn
- * mà không đổi cỡ — đúng cách `apps/web` xử lý trong các file `.module.css` của nó.
- *
- * `font-size` thì tuyệt đối không: cỡ chữ chỉ đến từ class `typeX`.
- */
-.benefitTitle,
 .socialButton,
 .submitButton,
 .switchLink {
   font-weight: var(--weight-caption);
 }
 
-/* `.accent` KHÔNG nằm trong nhóm trên: chủ dự án chốt độ đậm riêng 800 (xem token). */
 .accent {
   font-weight: var(--weight-accent);
 }
 
-/* ── Cột phải: biểu mẫu ─────────────────────────────────────────────────────── */
+/* ── Biểu mẫu ──────────────────────────────────────────────────────────────── */
 .formPanel {
-  display: grid;
-  grid-template-columns: subgrid;
-  grid-template-rows: auto 1fr;
+  min-height: 100dvh;
+  padding-inline: var(--container-gutter);
 }
 
-/*
- * Hàng trên cùng chứa link "Về trang chủ", căn phải.
- *
- * Nó dùng CHUNG bề rộng với `.formArea` (cùng `max-width`, cùng cách căn) để mép phải của
- * link thẳng hàng với mép phải của ô nhập. Trước đó nó trải trọn cột còn biểu mẫu bị `60ch`
- * chặn lại, nên đo ra lệch 90px ở 1024px — link lơ lửng bên ngoài biểu mẫu.
- */
-.formTop {
-  grid-column: 2 / -2;
+.formHeader {
   display: flex;
   align-items: center;
-  /* Xếp chồng: logo trái, "Về trang chủ" phải. Ở desktop chỉ còn một phần tử nên khối đè
-   * cuối media query đổi lại thành `flex-end`. */
   justify-content: space-between;
   gap: var(--space-4);
   width: 100%;
-  max-width: 60ch;
+  max-width: 45ch;
   margin-inline: auto;
-  min-height: var(--space-8);
-  padding-block: var(--space-6);
+  padding-top: var(--space-6);
 }
 
-/*
- * Logo ở hàng trên cùng — CHỈ khi xếp chồng.
- *
- * Từ desktop trở lên nó biến mất và logo thật nằm trong cột giới thiệu (`.brandLogo`), đúng
- * vị trí thiết kế. Hai phần tử, luôn chỉ một cái hiện.
- *
- * ⚠ CẶP `display` CỦA NÓ PHẢI NẰM CÙNG CHỖ NÀY. Bản đầu tôi đặt `display: none` cho desktop
- * lên trên, cạnh `.brandLogo`, còn `display: block` ở đây — và vì cùng độ đặc hiệu, cái viết
- * SAU thắng, nên ở 1440px logo hiện HAI LẦN (đo được: `.topLogo` x=1119, `.brandLogo` x=120).
- * Media query không tự có độ ưu tiên cao hơn; chỉ có thứ tự.
- */
-.topLogo {
-  display: block;
+.brandLink,
+.brandLabel {
+  color: var(--color-text-primary);
+  font-weight: var(--weight-accent);
+  text-decoration: none;
 }
 
-@media (min-width: 1280px) {
-  .topLogo {
-    display: none;
-  }
-
-  .formTop {
-    /*
-     * Bám MÉP CONTAINER, không bám mép biểu mẫu.
-     *
-     * Theo thiết kế: "Về trang chủ" thẳng hàng với mép phải của container — cùng khoảng lề
-     * với chữ ở cột trái — chứ không thụt vào theo biểu mẫu. `-2` bỏ track gutter, nên mép
-     * phải rơi đúng `content-end`.
-     */
-    grid-column: 1 / -2;
-    max-width: none;
-    margin-inline: 0;
-    padding-block: var(--space-12) 0;
-    /* Chỉ còn "Về trang chủ" trong hàng này, nên `space-between` sẽ đẩy nó sang TRÁI. */
-    justify-content: flex-end;
-  }
+.brandLink:hover {
+  color: var(--color-accent-hover);
 }
 
 .backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-caption);
   text-decoration: none;
 }
 
@@ -338,22 +61,30 @@
 }
 
 /*
- * Cột biểu mẫu căn giữa theo cả hai chiều.
+ * Biểu mẫu căn giữa theo chiều ngang và bắt đầu gần đầu trang.
  *
  * `max-width` theo ĐƠN VỊ CHỮ — ngoại lệ được ghi trong luật lưới. Ô nhập rộng hết màn hình
  * thì mắt phải đi hết bề ngang để đọc nhãn rồi quay lại đầu dòng, và người dùng không biết
  * trường nào đi với nhãn nào.
  */
 .formArea {
-  /* Xếp chồng: bỏ gutter ở cả hai đầu. */
-  grid-column: 2 / -2;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   width: 100%;
-  max-width: 60ch;
+  max-width: 50ch;
   margin-inline: auto;
-  padding-block: var(--space-10);
+  margin-top: var(--space-8);
+  margin-bottom: var(--space-8);
+  padding: var(--space-8);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
+  box-shadow: var(--shadow-auth-card);
+}
+
+.authTitle,
+.authLead {
+  text-align: center;
 }
 
 .lead {
@@ -629,43 +360,6 @@
   }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════════
- * ĐÈ CUỐI FILE — KHỐI NÀY PHẢI Ở SAU CÙNG.
- *
- * CSS cùng độ đặc hiệu thì cái viết SAU thắng. Khối này đè `grid-column` và `max-width` của
- * `.formArea`, mà chúng được định nghĩa ở giữa file. Đặt khối này lên trên thì các định
- * nghĩa đó ghi đè ngược lại và không có gì thay đổi.
- *
- * Đây đúng là lỗi đã mắc ngày 2026-07-22: khối được chèn ở đầu file, đo ra không đổi một
- * pixel, và trông y hệt như "subgrid không chạy".
- * ══════════════════════════════════════════════════════════════════════════════ */
-@media (min-width: 1280px) {
-  /*
-   * Biểu mẫu chiếm 4 TRONG 6 CỘT của nửa phải, chừa mỗi bên một cột làm đệm.
-   *
-   * BẢN TRƯỚC CHO NÓ CHIẾM TRỌN 6 CỘT VÀ ĐÓ LÀ LỖI THẤY BẰNG MẮT: mép trái biểu mẫu dán
-   * đúng vào vạch chia hai vùng, chữ "Đăng nhập" mọc ngay sát nền tím của cột trái, không
-   * có một khoảng thở nào. Toạ độ cột vẫn "đúng lưới" nên đo bằng số không phát hiện ra —
-   * phải nhìn ảnh render mới thấy.
-   *
-   * Vì sao đúng 4 cột: thiết kế Figma cho biểu mẫu rộng khoảng 65% nửa phải và căn giữa
-   * trong đó (đo trên ảnh: 298/456). Ở lưới của ta 4 cột / 6 cột = 457/698, cũng 65%. Con số
-   * khớp, và nó rơi đúng vào mốc cột thay vì là một `padding` tự chế.
-   *
-   * `2 / -3`: bỏ cột đầu (đệm trái) và bỏ CẢ track gutter LẪN cột cuối (đệm phải).
-   *
-   * Không cần `max-width` nữa: bề rộng đến từ số cột, mà số cột đã bị `--container-max` chặn
-   * trên ở màn rất rộng. Đây là điều luật lưới muốn — bề ngang do cột quyết định, không do
-   * một con số px ghim cứng.
-   */
-  .formArea {
-    grid-column: 2 / -3;
-    max-width: none;
-    margin-inline: 0;
-    padding-block: var(--space-10) var(--space-12);
-  }
-}
-
 /*
  * Nút trông như link.
  *
@@ -703,4 +397,15 @@
   display: block;
   text-align: center;
   text-decoration: none;
+}
+
+@media (min-width: 768px) {
+  .formHeader {
+    padding-top: var(--space-10);
+  }
+
+  .formArea {
+    margin-top: var(--space-10);
+    padding: var(--space-10);
+  }
 }

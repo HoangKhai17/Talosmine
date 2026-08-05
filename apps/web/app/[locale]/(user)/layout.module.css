@@ -131,27 +131,6 @@
   gap: var(--space-2);
 }
 
-/*
- * Nút hành động chính của header — viền thay vì nền đặc, khớp wireframe.
- * Cùng cỡ chữ và độ đậm với `.navLink` để hàng header không lệch hai thang chữ.
- */
-.submitButton {
-  display: block;
-  padding: var(--space-2) var(--space-4);
-  border: var(--border-default);
-  border-radius: var(--radius-button);
-  color: var(--color-text-primary);
-  font-weight: 700;
-  text-align: center;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.submitButton:hover {
-  border-color: var(--color-border-hover);
-  background-color: var(--color-bg-secondary);
-}
-
 @media (min-width: 768px) {
   /*
    * CỐ Ý GIỮ `flex-wrap: wrap` — không khoá thành `nowrap`.
@@ -206,10 +185,6 @@
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
-  }
-
-  .submitButton {
-    display: inline-block;
   }
 }
 
@@ -353,7 +328,6 @@
 
 @media (prefers-reduced-motion: no-preference) {
   .navLink,
-  .submitButton,
   .footerLink {
     transition:
       color 150ms ease,

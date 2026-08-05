@@ -1,12 +1,16 @@
 'use client';
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { ApiError, api } from '../../../lib/api-client';
 import type { SurveyQuestion } from '../../../server/onboarding';
 import styles from './page.module.css';
 import { SurveyIcon } from './survey-icons';
 
 export interface SurveyFormLabels {
+  step: string;
+  progress: string;
+  previous: string;
+  next: string;
   complete: string;
   submitting: string;
   skip: string;
@@ -44,8 +48,17 @@ export function SurveyForm({
 }) {
   // Map<questionKey, Set<optionKey>>. Dùng Set vì thao tác chính là bật/tắt một khoá.
   const [selected, setSelected] = useState<Record<string, string[]>>({});
+  const [currentStep, setCurrentStep] = useState(0);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const questionTitleRef = useRef<HTMLSpanElement>(null);
+  const stepToFocus = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (stepToFocus.current !== currentStep) return;
+    stepToFocus.current = null;
+    questionTitleRef.current?.focus();
+  }, [currentStep]);
 
   function toggle(question: SurveyQuestion, optionKey: string) {
     setSelected((prev) => {
@@ -68,10 +81,32 @@ export function SurveyForm({
     return Math.max(0, question.minSelect - (selected[question.key]?.length ?? 0));
   }
 
-  const canComplete = questions.every((q) => missingCount(q) === 0);
+  const currentQuestion = questions[currentStep];
+  if (currentQuestion === undefined) {
+    throw new Error('Onboarding survey requires at least one question.');
+  }
+  const isLastStep = currentStep === questions.length - 1;
+  const currentMissingCount = missingCount(currentQuestion);
 
-  async function send(status: 'completed' | 'skipped', event?: FormEvent) {
-    event?.preventDefault();
+  function goToStep(step: number) {
+    stepToFocus.current = step;
+    setError(null);
+    setCurrentStep(step);
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (currentMissingCount > 0) return;
+
+    if (!isLastStep) {
+      goToStep(currentStep + 1);
+      return;
+    }
+
+    void send('completed');
+  }
+
+  async function send(status: 'completed' | 'skipped') {
     if (pending) return;
 
     setPending(true);
@@ -107,30 +142,55 @@ export function SurveyForm({
   }
 
   return (
-    <form className={styles.form} onSubmit={(e) => void send('completed', e)}>
-      {questions.map((question, index) => (
-        <fieldset key={question.key} className={styles.question}>
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <div className={styles.progressHeader}>
+        <span className="typeCaption" aria-live="polite">
+          {labels.step
+            .replace('{current}', String(currentStep + 1))
+            .replace('{total}', String(questions.length))}
+        </span>
+        <span className="typeCaption" aria-hidden="true">
+          {Math.round(((currentStep + 1) / questions.length) * 100)}%
+        </span>
+      </div>
+      <progress
+        className={styles.progress}
+        value={currentStep + 1}
+        max={questions.length}
+        aria-label={labels.progress
+          .replace('{current}', String(currentStep + 1))
+          .replace('{total}', String(questions.length))}
+      />
+
+      <div className={styles.questionCard}>
+        <fieldset key={currentQuestion.key} className={styles.question}>
           {/*
             `<legend>` là cách chuẩn để trình đọc màn hình gắn tiêu đề câu hỏi vào cả nhóm
             lựa chọn. Một `<h2>` rời sẽ được đọc như chữ thường, không như nhãn của nhóm.
           */}
           <legend className={styles.legend}>
             <span className={`typeBodySmall ${styles.step}`} aria-hidden="true">
-              {index + 1}
+              {currentStep + 1}
             </span>
             <span className={styles.legendText}>
-              <span className={`typeBody ${styles.questionTitle}`}>{question.title}</span>
-              {question.description ? (
+              <span
+                ref={questionTitleRef}
+                className={`typeBody ${styles.questionTitle}`}
+                tabIndex={-1}
+              >
+                {currentQuestion.title}
+              </span>
+              {currentQuestion.description ? (
                 <span className={`typeBodySmall ${styles.questionLead}`}>
-                  {question.description}
+                  {currentQuestion.description}
                 </span>
               ) : null}
             </span>
           </legend>
 
           <div className={styles.options}>
-            {question.options.map((option) => {
-              const isSelected = (selected[question.key] ?? []).includes(option.key);
+            {currentQuestion.options.map((option) => {
+              const isSelected = (selected[currentQuestion.key] ?? []).includes(option.key);
               const detailed = option.description !== null;
 
               return (
@@ -145,11 +205,11 @@ export function SurveyForm({
                   */}
                   <input
                     className="visuallyHidden"
-                    type={question.kind === 'multi' ? 'checkbox' : 'radio'}
-                    name={question.key}
+                    type={currentQuestion.kind === 'multi' ? 'checkbox' : 'radio'}
+                    name={currentQuestion.key}
                     value={option.key}
                     checked={isSelected}
-                    onChange={() => toggle(question, option.key)}
+                    onChange={() => toggle(currentQuestion, option.key)}
                     disabled={pending}
                   />
                   <span className={styles.optionMark} aria-hidden="true" />
@@ -175,41 +235,49 @@ export function SurveyForm({
             Nhắc còn thiếu bao nhiêu. `aria-live` để người dùng bàn phím biết trạng thái đổi
             mà không phải đi tìm — nếu không, nút "Hoàn tất" tắt mà không rõ vì sao.
           */}
-          {missingCount(question) > 0 ? (
+          {currentMissingCount > 0 ? (
             <p className={`typeCaption ${styles.hint}`} aria-live="polite">
-              {labels.needMore.replace('{count}', String(missingCount(question)))}
+              {labels.needMore.replace('{count}', String(currentMissingCount))}
             </p>
           ) : null}
         </fieldset>
-      ))}
 
-      {error ? (
-        <p className={`typeBodySmall ${styles.error}`} role="alert">
-          {error}
-        </p>
-      ) : null}
+        {error ? (
+          <p className={`typeBodySmall ${styles.error}`} role="alert">
+            {error}
+          </p>
+        ) : null}
 
-      <div className={styles.actions}>
-        <button
-          type="submit"
-          className={`typeBody ${styles.submit}`}
-          disabled={!canComplete || pending}
-        >
-          {pending ? labels.submitting : labels.complete}
-        </button>
-
-        {/*
-          `type="button"` để không kích hoạt submit của form. Bỏ qua KHÔNG bị vô hiệu khi
-          đang gửi dở là có chủ đích — nhưng `pending` vẫn chặn gửi trùng ở `send`.
-        */}
-        <button
-          type="button"
-          className={`typeBodySmall ${styles.skip}`}
-          onClick={() => void send('skipped')}
-        >
-          {labels.skip}
-        </button>
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={`typeBody ${styles.previous}`}
+            onClick={() => goToStep(currentStep - 1)}
+            disabled={currentStep === 0 || pending}
+          >
+            {labels.previous}
+          </button>
+          <button
+            type="submit"
+            className={`typeBody ${styles.submit}`}
+            disabled={currentMissingCount > 0 || pending}
+          >
+            {pending ? labels.submitting : isLastStep ? labels.complete : labels.next}
+          </button>
+        </div>
       </div>
+
+      {/*
+        `type="button"` để không kích hoạt submit của form. Bỏ qua KHÔNG bị vô hiệu khi
+        đang gửi dở là có chủ đích — nhưng `pending` vẫn chặn gửi trùng ở `send`.
+      */}
+      <button
+        type="button"
+        className={`typeBodySmall ${styles.skip}`}
+        onClick={() => void send('skipped')}
+      >
+        {labels.skip}
+      </button>
     </form>
   );
 }

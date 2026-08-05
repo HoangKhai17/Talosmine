@@ -10,16 +10,23 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--color-bg-primary);
+  background: var(--gradient-onboarding);
 }
 
 .header {
+  background-color: var(--color-bg-primary);
+  border-bottom: var(--border-default);
+}
+
+.headerInner {
+  width: 100%;
+  max-width: 96ch;
+  margin-inline: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-4) var(--container-gutter);
-  border-bottom: var(--border-default);
 }
 
 .brand {
@@ -31,9 +38,9 @@
 
 .logoImage {
   display: block;
-  height: var(--space-10);
+  height: var(--space-8);
   width: auto;
-  max-width: 50vw;
+  max-width: 28ch;
   object-fit: contain;
 }
 
@@ -57,7 +64,7 @@
   padding: var(--space-12) var(--container-gutter) var(--space-16);
   display: flex;
   flex-direction: column;
-  gap: var(--space-10);
+  gap: var(--space-8);
 }
 
 .intro {
@@ -79,7 +86,47 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-10);
+  gap: var(--space-3);
+}
+
+.progressHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-secondary);
+}
+
+.progress {
+  width: 100%;
+  height: var(--space-2);
+  border: none;
+  border-radius: var(--radius-tag);
+  overflow: hidden;
+  background-color: var(--color-green-light);
+  color: var(--color-green-primary);
+}
+
+.progress::-webkit-progress-bar {
+  background-color: var(--color-green-light);
+}
+
+.progress::-webkit-progress-value {
+  background-color: var(--color-green-primary);
+}
+
+.progress::-moz-progress-bar {
+  background-color: var(--color-green-primary);
+}
+
+.questionCard {
+  margin-top: var(--space-3);
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
 }
 
 /* `<fieldset>` mặc định có viền và padding của trình duyệt — bỏ để nó chỉ mang ngữ nghĩa. */
@@ -225,30 +272,42 @@
 
 .actions {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
+  flex-direction: column-reverse;
+  gap: var(--space-3);
 }
 
-.submit {
-  min-width: 28ch;
+.submit,
+.previous {
+  width: 100%;
   padding: var(--space-4) var(--space-8);
-  border: none;
   border-radius: var(--radius-button);
-  /* CTA cuối trang → Green Strong theo bảng gradient của chủ dự án. */
-  background: var(--gradient-green-strong);
-  color: var(--color-text-inverse);
   font-weight: var(--weight-heading);
   cursor: pointer;
 }
 
-.submit:disabled {
+.submit {
+  border: none;
+  /* CTA cuối trang → Green Strong theo bảng gradient của chủ dự án. */
+  background: var(--gradient-green-strong);
+  color: var(--color-text-inverse);
+}
+
+.previous {
+  border: var(--border-default);
+  background-color: var(--color-button-secondary);
+  color: var(--color-button-secondary-text);
+}
+
+.submit:disabled,
+.previous:disabled {
   /* Nút tắt vẫn phải đọc được — mờ hoàn toàn thì người dùng không biết nó tồn tại. */
   opacity: 0.55;
   cursor: not-allowed;
 }
 
 .skip {
+  align-self: center;
+  margin-top: var(--space-3);
   border: none;
   background: none;
   color: var(--color-text-secondary);
@@ -263,10 +322,28 @@
 @media (prefers-reduced-motion: no-preference) {
   .option,
   .submit,
+  .previous,
   .skip {
     transition:
       border-color 150ms ease,
       background-color 150ms ease,
       color 150ms ease;
+  }
+}
+
+@media (min-width: 768px) {
+  .questionCard {
+    padding: var(--space-8);
+  }
+
+  .actions {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .submit,
+  .previous {
+    width: auto;
+    min-width: 18ch;
   }
 }

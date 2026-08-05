@@ -90,6 +90,11 @@
     var(--color-green-primary) 50%,
     var(--color-lime) 100%
   );
+  --gradient-onboarding: linear-gradient(
+    135deg,
+    var(--color-green-primary) 0%,
+    var(--color-lime) 100%
+  );
 
   /* Focus ring: BẮT BUỘC nhìn thấy được (phase-1 mục 10, có test Playwright).
    * Dùng Border Focus của bảng (xanh lá thương hiệu). */

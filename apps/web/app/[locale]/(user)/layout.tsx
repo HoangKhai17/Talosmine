@@ -86,7 +86,6 @@ export default async function UserLayout({
             accountHref={href('/account')}
             // `/auth` nằm ngoài vùng locale nên `href()` trả nguyên văn — xem localeHref.
             signInHref={href('/auth')}
-            submitHref={href('/submit')}
             labels={{
               primaryNav: t.a11y.primaryNav,
               openMenu: t.a11y.openMenu,
@@ -96,7 +95,6 @@ export default async function UserLayout({
               signOut: t.header.signOut,
               signingOut: t.header.signingOut,
               signOutFailed: t.header.signOutFailed,
-              submitTool: t.header.submitTool,
             }}
           />
         </div>

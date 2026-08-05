@@ -205,13 +205,22 @@
 
 /* ── Nút chính ────────────────────────────────────────────────────────────── */
 .submitButton {
+  display: block;
+  width: 100%;
   margin-top: var(--space-2);
   padding: var(--space-4);
   border: none;
   border-radius: var(--radius-button);
   background-color: var(--color-button-primary);
+  background-image: var(--gradient-green-strong);
   color: var(--color-button-text);
   cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+}
+
+.submitButton:hover {
+  filter: brightness(0.92);
 }
 
 /* ── Dòng chuyển sang trang kia ─────────────────────────────────────────────── */

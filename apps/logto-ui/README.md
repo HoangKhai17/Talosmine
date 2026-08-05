@@ -243,28 +243,27 @@ Cách phân chia giống `apps/web`: cỡ chữ đến từ class tiện ích (`
 `typeCaption`…), file bố cục chỉ nói về vị trí và khoảng cách. **Thấy `font-size` xuất hiện
 trong `auth.css` là dấu hiệu ai đó vừa đi tắt.**
 
-### Lưới: tràn viền NHƯNG vẫn trong container
+### Bố cục: một cột, card căn ngang và bắt đầu gần đầu trang
 
-Trang này không dùng class `.container`, nhưng `.page` dựng lại đúng hệ cột đó:
+Trang xác thực không còn `brandPanel` và không chia lưới hai cột. `.page` chỉ chứa một
+`.formPanel` rộng toàn bộ viewport, có chiều cao tối thiểu `100dvh` và dùng
+`--container-gutter` làm lề ngang responsive. Nền toàn trang dùng token
+`--color-bg-secondary` để tạo lớp xanh nhạt phía sau card, không viết cứng mã màu trong
+`auth.css`.
 
-```
-[full-start] lề [content-start] 12 cột nội dung [content-end] lề [full-end]
-```
+Hai vùng bên trong cùng giới hạn `max-width: 45ch` và được căn giữa theo chiều ngang:
 
-Nền kéo tới `full-start`/`full-end` nên chạm mép màn hình theo thiết kế; chữ bám vào các
-track `content` nên nằm đúng mốc cột như mọi trang khác. Hai việc khác nhau, và bản trước
-gộp làm một nên mất luôn container.
+- `.formHeader` là header ngữ nghĩa, hiển thị thương hiệu Talosmine bên trái và đường dẫn
+  về trang chủ bên phải.
+- `.formArea` là card chứa biểu mẫu đăng nhập, đăng ký và các bước xác thực liên quan; card
+  dùng nền bề mặt chính, viền mặc định, bo góc và padding từ token dùng chung.
 
-Ba chỗ đã đo sai rồi sửa, ghi lại để không ai lặp lại:
-
-| Viết sai | Đo được | Vì sao |
-|---|---|---|
-| `minmax(--container-gutter, 1fr)` cho track lề | nội dung bắt đầu ở 144px thay vì 250px tại 1920 | `1fr` không "nuốt phần dư" — nó chia đều với 12 cột cũng là `1fr`, nên lề rộng đúng bằng một cột |
-| lề không trừ `--grid-gap` | lệch đúng 24px mỗi bên | `column-gap` chèn thêm một khoảng giữa track lề và cột 1 |
-| `grid-column: full-start / 7` | vùng trái chỉ chiếm 5 cột → chia 5\|7 | số vạch đếm cả track lề, nên vạch 7 rơi vào đầu cột 6. Đã thay bằng vạch có tên `[mid]` |
-
-Số đo hiện tại (bề rộng phần nội dung): 1920 → 1420 · 1440 → 1200 · 1280 → 1040 ·
-1024 → 960 · 390 → 350. Trùng khớp `.container` của `apps/web` ở mọi mốc.
+Biểu mẫu không căn giữa theo chiều dọc màn hình. `.formArea` bắt đầu gần phía trên bằng
+spacing token để vị trí ổn định giữa các viewport, đồng thời vẫn giữ khoảng trống phía dưới
+cho màn hình thấp hoặc nội dung dài. Cách tổ chức này áp dụng chung cho đăng nhập và đăng ký;
+không dựng lại vùng thương hiệu hoặc breakpoint hai cột ở bất kỳ kích thước màn hình nào.
+Riêng tiêu đề `h1` và đoạn mô tả đầu trang của hai màn hình đăng nhập/đăng ký được căn giữa
+trong card; các nhãn, trường nhập và nội dung thao tác vẫn giữ cách căn phù hợp với biểu mẫu.
 
 Bản CSS trước viết cỡ chữ thẳng vào từng class bố cục, nên chữ ở đây trôi khỏi thang chung
 mà không ai nhận ra cho tới khi đặt hai trang cạnh nhau.
