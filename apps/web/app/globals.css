@@ -84,6 +84,7 @@
     var(--color-green-soft) 45%,
     var(--color-green-light) 100%
   );
+  --gradient-auth-pastel: linear-gradient(160deg, #f1f7f3 0%, #f7faef 52%, #fffaf4 100%);
   --gradient-green-strong: linear-gradient(
     135deg,
     var(--color-green-active) 0%,
