@@ -83,7 +83,7 @@ export const en = {
   },
 
   onboarding: {
-    title: "Let's Set Up Your AI Hub",
+    title: 'Personalize your KOLO experience',
     lead: 'Complete these quick questions to personalize your experience and help us recommend the right AI tools for you.',
     duration: 'It only takes about a minute.',
     needHelp: 'Need help?',

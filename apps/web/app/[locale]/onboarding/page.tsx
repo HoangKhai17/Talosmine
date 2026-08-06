@@ -73,7 +73,7 @@ export default async function OnboardingPage({
 
       <main id="main" className={styles.main}>
         <div className={styles.intro}>
-          <h1 className={`typeH1 ${styles.title}`}>{t.onboarding.title}</h1>
+          <h1 className={`typeH2 ${styles.title}`}>{t.onboarding.title}</h1>
           <p className={`typeBody textSecondary ${styles.lead}`}>{t.onboarding.lead}</p>
           <p className={`typeBodySmall ${styles.duration}`}>{t.onboarding.duration}</p>
         </div>
@@ -101,8 +101,8 @@ export default async function OnboardingPage({
 
 /** Cùng quy tắc với header của site — xem ghi chú ở `(user)/layout.tsx`. */
 function Logo({ url }: { url: string | null }) {
-  if (url === null) return <span className="typeCardTitle">Talosmine</span>;
+  if (url === null) return <span className="typeCardTitle">KOLO</span>;
 
   // biome-ignore lint/performance/noImgElement: URL do admin nhập lúc chạy, next/image cần host khai trước.
-  return <img className={styles.logoImage} src={url} alt="Talosmine" />;
+  return <img className={styles.logoImage} src={url} alt="KOLO" />;
 }

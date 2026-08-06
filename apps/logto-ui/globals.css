@@ -86,7 +86,6 @@
    *   light-green:  nền cột giới thiệu (hero/section sáng)
    *   green-strong: nút chính (CTA) */
   --gradient-light-green: linear-gradient(135deg, #ffffff 0%, #f1f8e8 45%, #ddecb8 100%);
-  --gradient-auth-pastel: linear-gradient(160deg, #f1f7f3 0%, #f7faef 52%, #fffaf4 100%);
   --gradient-green-strong: linear-gradient(135deg, #146329 0%, #1f8f3a 50%, #a3c644 100%);
 
   /* Bản gốc: focus = Border Focus = xanh lá thương hiệu. */

@@ -7,15 +7,14 @@
  */
 
 .page {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: var(--gradient-onboarding);
+  background-color: var(--color-bg-primary);
 }
 
 .header {
-  background-color: var(--color-bg-primary);
-  border-bottom: var(--border-default);
+  background: transparent;
 }
 
 .headerInner {
@@ -26,7 +25,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-4) var(--container-gutter);
+  padding: var(--space-6) var(--space-6) var(--space-4);
 }
 
 .brand {
@@ -58,13 +57,16 @@
    * Giới hạn theo ĐƠN VỊ CHỮ, không phải px — ngoại lệ duy nhất được cho phép ở luật 1 của
    * lưới. Con số này là độ dài dòng đọc thoải mái, không phải một breakpoint.
    */
-  width: 100%;
+  width: auto;
   max-width: 96ch;
-  margin-inline: auto;
-  padding: var(--space-12) var(--container-gutter) var(--space-16);
+  margin: 0 var(--space-5) var(--space-12);
+  padding: var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-6);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
+  box-shadow: var(--shadow-card-soft);
 }
 
 .intro {
@@ -73,6 +75,10 @@
   align-items: center;
   gap: var(--space-3);
   text-align: center;
+}
+
+.title {
+  max-width: 24ch;
 }
 
 .lead {
@@ -126,7 +132,7 @@
   gap: var(--space-6);
   border: var(--border-default);
   border-radius: var(--radius-card);
-  background-color: var(--color-bg-primary);
+  background-color: var(--color-bg-secondary);
 }
 
 /* `<fieldset>` mặc định có viền và padding của trình duyệt — bỏ để nó chỉ mang ngữ nghĩa. */
@@ -332,6 +338,11 @@
 }
 
 @media (min-width: 768px) {
+  .main {
+    width: 100%;
+    margin-inline: auto;
+  }
+
   .questionCard {
     padding: var(--space-8);
   }

@@ -84,19 +84,12 @@
     var(--color-green-soft) 45%,
     var(--color-green-light) 100%
   );
-  --gradient-auth-pastel: linear-gradient(160deg, #f1f7f3 0%, #f7faef 52%, #fffaf4 100%);
   --gradient-green-strong: linear-gradient(
     135deg,
     var(--color-green-active) 0%,
     var(--color-green-primary) 50%,
     var(--color-lime) 100%
   );
-  --gradient-onboarding: linear-gradient(
-    135deg,
-    var(--color-green-primary) 0%,
-    var(--color-lime) 100%
-  );
-
   /* Focus ring: BẮT BUỘC nhìn thấy được (phase-1 mục 10, có test Playwright).
    * Dùng Border Focus của bảng (xanh lá thương hiệu). */
   --color-focus: var(--color-border-focus);
@@ -127,6 +120,7 @@
   /* ── Border ───────────────────────────────────────────────────────────── */
   --border-default: 1px solid var(--color-border-default);
   --border-hover: 1px solid var(--color-border-hover);
+  --shadow-card-soft: 0 8px 24px rgba(13, 31, 45, 0.07);
 
   /* Technical floors preserved from the measured admin table implementations in
    * account detail (520px), account/role lookup (640px), and catalog/audit (720px).

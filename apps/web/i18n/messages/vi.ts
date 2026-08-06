@@ -101,7 +101,7 @@ export const vi = {
    * sửa được trong `/admin`. Chỉ khung màn hình (tiêu đề, nút) là chuỗi sản phẩm.
    */
   onboarding: {
-    title: 'Thiết lập Talosmine của bạn',
+    title: 'Cá nhân hóa trải nghiệm KOLO của bạn',
     lead: 'Trả lời vài câu hỏi ngắn để chúng tôi cá nhân hoá trải nghiệm và gợi ý đúng công cụ AI cho bạn.',
     duration: 'Chỉ mất khoảng một phút.',
     needHelp: 'Cần trợ giúp?',
