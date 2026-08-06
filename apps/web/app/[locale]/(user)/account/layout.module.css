@@ -1,0 +1,133 @@
+/* Khung chung khu tài khoản. Chỉ dùng token từ globals.css. */
+
+/*
+ * `minmax(0, 1fr)` chứ KHÔNG phải `1fr` trơn — và đây không phải thói quen phòng xa.
+ *
+ * Bản vá tràn ngang ở `/admin` (2026-07-31) tìm ra đúng lỗi này: một track `1fr` giữ sàn
+ * theo nội dung rộng nhất bên trong nó, nên một bảng rộng đẩy cả TRANG tràn ngang thay vì tự
+ * cuộn. Khu tài khoản cũng sẽ có bảng (phiên đăng nhập) nên áp sẵn từ đầu.
+ */
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  width: 100%;
+}
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.breadcrumbSeparator {
+  color: var(--color-text-tertiary);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.sidebar {
+  /* `min-width: 0` cho phép chính nó co lại; thiếu nó thì `.navList` bên trong ép nó rộng ra. */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  padding-top: var(--space-2);
+}
+
+.navList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.navLink {
+  display: block;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-input);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.navLink:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+/*
+ * Trạng thái "đang mở" KHÔNG chỉ là màu nền: thêm viền trái để người khó phân biệt màu vẫn
+ * nhận ra. `aria-current="page"` lo phần trình đọc màn hình.
+ */
+.navLink[data-current] {
+  background-color: var(--color-bg-secondary);
+  box-shadow: inset 3px 0 0 0 var(--color-text-primary);
+  font-weight: var(--weight-heading);
+}
+
+.upgrade {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.upgradeTitle {
+  margin: 0;
+  font-weight: var(--weight-heading);
+}
+
+.upgradeLead,
+.upgradeNote {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.upgradeCta {
+  border: none;
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-button-primary);
+  color: var(--color-button-text);
+  cursor: pointer;
+}
+
+.upgradeCta:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.content {
+  min-width: 0;
+}
+
+/*
+ * Sidebar chỉ tách cột từ tablet trở lên. Ở mobile nó xếp TRÊN nội dung — đúng thứ tự đọc
+ * của DOM, nên không cần đảo bằng `order` (thứ làm lệch thứ tự Tab so với thứ tự nhìn thấy).
+ */
+@media (min-width: 768px) {
+  .body {
+    grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+}

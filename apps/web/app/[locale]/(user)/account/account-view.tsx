@@ -6,6 +6,7 @@ import type { Messages } from '../../../../i18n/messages';
 import { type AccountView as AccountData, ApiError, api } from '../../../../lib/api-client';
 import styles from './page.module.css';
 import { ProfileForm } from './profile-form';
+import shared from './shared.module.css';
 
 /**
  * Trang hồ sơ tài khoản — phần chạy trên trình duyệt.
@@ -23,12 +24,14 @@ import { ProfileForm } from './profile-form';
  */
 export function AccountView({
   t,
+  profile,
   common,
   sessionsHref,
   surveyHref,
   signInHref,
 }: {
   t: Messages['account'];
+  profile: Messages['profilePage'];
   common: Messages['common'];
   sessionsHref: string;
   surveyHref: string;
@@ -61,8 +64,8 @@ export function AccountView({
   }, [load]);
 
   return (
-    <div className="container section stack">
-      <h1 className="typeH1">{t.title}</h1>
+    <div className="stack">
+      <h1 className="typeH2">{t.title}</h1>
 
       {/* aria-live để trình đọc màn hình thông báo khi trạng thái đổi mà không đổi focus. */}
       <div aria-live="polite">
@@ -105,6 +108,46 @@ export function AccountView({
           <p className="typeBodySmall textSecondary">{t.idpNote}</p>
 
           <ProfileForm account={account} onSaved={setAccount} t={t} signInHref={signInHref} />
+
+          {/*
+            BA TRƯỜNG CHƯA LƯU ĐƯỢC: tên người dùng, giới thiệu, ảnh đại diện.
+            `control_plane.accounts` không có cột nào cho chúng, và thêm cột là quyết định
+            sản phẩm chưa có (username có duy nhất không? có công khai không?) — không tự bịa.
+            Render `disabled` để đánh giá được bố cục mà không hứa suông.
+          */}
+          <p className={`typeBodySmall ${shared.notReady}`}>{profile.fieldsNotReady}</p>
+
+          <section className={shared.card} aria-labelledby="general-heading">
+            <h2 className="typeH3" id="general-heading">
+              {profile.general}
+            </h2>
+            <div className={shared.grid}>
+              <div className={shared.field}>
+                <label className="typeBodySmall" htmlFor="profile-theme">
+                  {profile.theme}
+                </label>
+                {/*
+                  CHỈ có Light. `globals.css` khoá `color-scheme: light` và bảng màu dark chưa
+                  được cung cấp (C4) — đưa Dark vào danh sách là hứa một thứ không tồn tại.
+                */}
+                <select id="profile-theme" className={`typeBody ${shared.select}`} disabled>
+                  <option>{profile.themeLight}</option>
+                </select>
+                <p className={`typeCaption ${shared.lead}`}>{profile.themeNotReady}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className={shared.card} aria-labelledby="connected-heading">
+            <h2 className="typeH3" id="connected-heading">
+              {profile.connectedAccount}
+            </h2>
+            {/*
+              Liên kết social do Logto sở hữu (identity-provider.md §5). Talosmine chưa có
+              đường đọc hay gỡ nó, nên chỉ nói đúng chừng đó thay vì hiển thị trạng thái đoán.
+            */}
+            <p className={`typeBodySmall ${shared.notReady}`}>{profile.connectedNotReady}</p>
+          </section>
 
           <div className={styles.actions}>
             <Link className="typeBody" href={sessionsHref}>

@@ -300,6 +300,145 @@ export const vi = {
     save: 'Lưu thay đổi',
   },
 
+  /**
+   * Khung điều hướng chung của khu `/account`.
+   *
+   * `notReady` dùng chung cho MỌI điều khiển chưa nối backend. Một câu duy nhất, một chỗ sửa
+   * — nếu mỗi trang tự viết một kiểu thì lúc tính năng chạy được sẽ sót chỗ.
+   */
+  accountNav: {
+    sectionAccount: 'Tài khoản',
+    sectionHelp: 'Trợ giúp',
+    profile: 'Hồ sơ',
+    savedTools: 'Công cụ đã lưu',
+    notifications: 'Thông báo',
+    security: 'Bảo mật',
+    logout: 'Đăng xuất',
+    helpCenter: 'Trung tâm trợ giúp',
+    contactSupport: 'Liên hệ hỗ trợ',
+    breadcrumbHome: 'Trang chủ',
+    breadcrumbAccount: 'Tài khoản',
+    navLabel: 'Điều hướng tài khoản',
+    breadcrumbLabel: 'Đường dẫn phân cấp',
+    upgradeTitle: 'Nâng cấp lên Pro',
+    upgradeLead: 'Mở khoá tính năng nâng cao và bộ sưu tập không giới hạn.',
+    upgradeCta: 'Nâng cấp ngay',
+    /** Gói cước chưa chốt (DEC-B18) — nút để `disabled`, không dẫn đi đâu cả. */
+    upgradeNotReady: 'Gói cước đang được hoàn thiện.',
+    notReady: 'Tính năng này chưa hoạt động.',
+  },
+
+  profilePage: {
+    title: 'Hồ sơ',
+    lead: 'Quản lý thông tin cá nhân và cách người khác nhìn thấy bạn.',
+    firstName: 'Tên hiển thị',
+    userName: 'Tên người dùng',
+    emailAddress: 'Địa chỉ email',
+    bio: 'Giới thiệu',
+    bioPlaceholder: 'Vài dòng về bạn…',
+    changePhoto: 'Đổi ảnh',
+    /** Ranh giới sở hữu dữ liệu, KHÔNG phải hạn chế tạm — xem identity-provider.md §5. */
+    emailOwnedByIdp:
+      'Email do hệ thống đăng nhập quản lý và không sửa được ở đây. Talosmine chỉ giữ một bản sao.',
+    fieldsNotReady:
+      'Tên người dùng, giới thiệu và ảnh đại diện chưa lưu được — còn chờ quyết định về dữ liệu hồ sơ.',
+    general: 'Chung',
+    language: 'Ngôn ngữ',
+    theme: 'Giao diện',
+    themeLight: 'Sáng',
+    /** Chỉ có bảng màu sáng (C4) — không đưa Dark/System vào để khỏi hứa suông. */
+    themeNotReady: 'Hiện chỉ có giao diện sáng.',
+    connectedAccount: 'Tài khoản liên kết',
+    connected: 'Đã liên kết',
+    notConnected: 'Chưa liên kết',
+    disconnect: 'Ngắt liên kết',
+    connectedNotReady: 'Chưa có đường đọc hay gỡ liên kết từ Talosmine.',
+  },
+
+  savedTools: {
+    title: 'Công cụ đã lưu',
+    lead: 'Mọi công cụ AI bạn đã lưu, gom về một chỗ.',
+    manageCollection: 'Quản lý bộ sưu tập',
+    searchPlaceholder: 'Tìm trong công cụ đã lưu…',
+    allCategories: 'Tất cả danh mục',
+    emptyTitle: 'Chưa lưu công cụ nào',
+    emptyLead:
+      'Tính năng lưu công cụ chưa hoạt động. Khi có, dấu trang trên mỗi thẻ công cụ sẽ đưa nó về đây.',
+    loadMore: 'Tải thêm',
+  },
+
+  notificationsPage: {
+    title: 'Thông báo',
+    lead: 'Quản lý cách bạn nhận cập nhật từ Talosmine.',
+    preferences: 'Tuỳ chọn thông báo',
+    channels: 'Kênh nhận',
+    recommended: 'Nên bật',
+    verified: 'Đã xác minh',
+    newToolsTitle: 'Công cụ AI mới',
+    newToolsLead: 'Báo khi có công cụ AI mới được thêm vào.',
+    digestTitle: 'Bản tin hằng tuần',
+    digestLead: 'Tóm tắt công cụ và bài viết nổi bật mỗi tuần.',
+    productTitle: 'Cập nhật sản phẩm',
+    productLead: 'Thông tin về tính năng mới và cải tiến nền tảng.',
+    tipsTitle: 'Mẹo & hướng dẫn',
+    tipsLead: 'Hướng dẫn thực hành, kinh nghiệm và mẹo quy trình AI.',
+    marketingTitle: 'Email tiếp thị',
+    marketingLead: 'Khuyến mãi, ưu đãi và thông báo sản phẩm.',
+    channelEmail: 'Email',
+    channelBrowser: 'Thông báo trên trình duyệt',
+    channelBrowserLead: 'Nhận thông báo trực tiếp trên trình duyệt.',
+    alwaysOn: 'Thông báo về tài khoản và bảo mật luôn được gửi.',
+    notReady: 'Chưa lưu được tuỳ chọn — phần này còn chờ backend.',
+  },
+
+  security: {
+    title: 'Bảo mật',
+    lead: 'Giữ tài khoản của bạn an toàn.',
+    currentPassword: 'Mật khẩu hiện tại',
+    currentPasswordPlaceholder: 'Nhập mật khẩu hiện tại…',
+    newPassword: 'Mật khẩu mới',
+    newPasswordPlaceholder: 'Nhập mật khẩu mới…',
+    confirmPassword: 'Xác nhận mật khẩu mới',
+    confirmPasswordPlaceholder: 'Nhập lại mật khẩu mới…',
+    minLength: 'Tối thiểu 8 ký tự',
+    show: 'Hiện mật khẩu',
+    hide: 'Ẩn mật khẩu',
+    update: 'Đổi mật khẩu',
+    mismatch: 'Hai mật khẩu mới không khớp.',
+    tooShort: 'Mật khẩu mới phải có ít nhất 8 ký tự.',
+    /**
+     * Nói rõ mật khẩu KHÔNG đi qua máy chủ Talosmine — đó là lời hứa kiến trúc (C5), và
+     * người dùng có quyền biết.
+     */
+    notReady:
+      'Chưa nối được đổi mật khẩu. Khi hoàn tất, mật khẩu sẽ gửi thẳng từ trình duyệt tới hệ thống đăng nhập, không đi qua máy chủ Talosmine.',
+  },
+
+  helpCenter: {
+    title: 'Trung tâm trợ giúp',
+    lead: 'Giải đáp những câu hỏi thường gặp và cách dùng Talosmine hiệu quả.',
+    faqTitle: 'Câu hỏi thường gặp',
+    faqLead: 'Câu trả lời nhanh cho các thắc mắc phổ biến, gom về một chỗ.',
+    contactLead: 'Không tìm thấy điều bạn cần? Chúng tôi sẵn sàng hỗ trợ.',
+    contactCta: 'Liên hệ hỗ trợ',
+    q1: 'Làm sao để lưu một công cụ?',
+    a1: 'Bấm biểu tượng dấu trang trên thẻ của công cụ. Công cụ đã lưu sẽ nằm ở trang Công cụ đã lưu.',
+    q2: 'Làm sao để đổi mật khẩu?',
+    a2: 'Vào Tài khoản → Bảo mật, nhập mật khẩu hiện tại, đặt mật khẩu mới rồi xác nhận.',
+    q3: 'Làm sao để cập nhật thông tin hồ sơ?',
+    a3: 'Vào Tài khoản → Hồ sơ. Lưu ý email do hệ thống đăng nhập quản lý nên không sửa tại đây.',
+    q4: 'Làm sao để gửi công cụ AI của tôi?',
+    a4: 'Dùng trang Gửi công cụ. Mỗi đề xuất được xem xét trước khi xuất hiện trong danh mục.',
+    q5: 'Talosmine có miễn phí không?',
+    a5: 'Các tính năng hiện có đang miễn phí. Gói trả phí còn đang được hoàn thiện.',
+    q6: 'Làm sao để bỏ một công cụ đã lưu?',
+    a6: 'Bấm lại biểu tượng dấu trang trên thẻ công cụ để gỡ khỏi bộ sưu tập.',
+    q7: 'Làm sao để báo một mục sai thông tin?',
+    a7: 'Dùng trang Liên hệ và nêu rõ tên công cụ cùng thông tin cần sửa.',
+    q8: 'Tôi đề xuất một công cụ mới được không?',
+    a8: 'Được. Gửi qua trang Gửi công cụ, kèm đường dẫn và mô tả ngắn.',
+  },
+
   sessions: {
     title: 'Phiên đăng nhập',
     lead: 'Danh sách thiết bị đang đăng nhập vào tài khoản của bạn. Nếu thấy phiên lạ, hãy thu hồi ngay.',

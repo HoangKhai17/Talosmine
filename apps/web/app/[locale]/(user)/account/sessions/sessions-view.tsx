@@ -99,7 +99,7 @@ export function SessionsView({
   const activeCount = sessions.filter((s) => s.revokedAt === null).length;
 
   return (
-    <div className="container section stack">
+    <div className="stack">
       <h1 className="typeH1">{t.title}</h1>
 
       <p className="typeBody textSecondary">{t.lead}</p>

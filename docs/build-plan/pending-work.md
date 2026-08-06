@@ -946,6 +946,42 @@ khớp không. Đây là việc kế tiếp, không phải việc đã làm.
 **Đợt 2 chưa làm:** trang `/tools/[key]` để người dùng thật sự bấm chạy, và form quản trị
 binding trong `/admin/catalog`.
 
+### F12. Khu `/account` — 5 trang đã dựng GIAO DIỆN (2026-08-06), backend còn thiếu
+
+Chủ dự án cung cấp mockup cho Profile · Save tools · Notifications · Security · Help Center.
+Đã dựng theo hướng **layout trước, backend sau** — cùng cách trang chủ và `/tools` đang làm.
+
+**Đã có:** `layout.tsx` chung (sidebar + breadcrumb) cho TOÀN BỘ `/account`, nên ba trang cũ
+(`account`, `sessions`, `survey`) cũng nhận được khung này và bỏ được phần `container section`
+tự khai ở mỗi trang. Bốn trang mới + Profile cập nhật. **27 test e2e** (`account-pages.spec.ts`).
+
+**CHƯA CÓ BACKEND — mọi điều khiển liên quan đều `disabled` thật, có test giữ:**
+
+1. **Save tools** — chưa có bảng bookmark, chưa có API. Trang hiện trạng thái RỖNG thật, cố ý
+   KHÔNG render thẻ mẫu: thẻ giả sau vài tuần trông y hệt thẻ thật.
+2. **Notifications** — chưa có bảng preferences, chưa có hạ tầng gửi thư ngoài SMTP của Logto.
+3. **Profile: `username`, `bio`, ảnh đại diện** — `accounts` không có cột nào cho chúng. Thêm
+   cột cần quyết định sản phẩm trước (username có duy nhất không, có công khai không).
+4. **Đổi mật khẩu** — xem dưới.
+
+**Đổi mật khẩu — đã ĐO, chưa nối.** Chủ dự án chốt hướng: form nằm trong Hub nhưng mật khẩu đi
+**thẳng từ trình duyệt tới Logto**, giữ nguyên tắc C5. Kiểm chứng trên Logto 1.41 đang chạy:
+
+- Account API **có thật**: `POST /api/verifications/password` + `POST /api/my-account/password`.
+- **Nhưng `GET /api/account-center` trả `enabled: false`, `fields: {}`** — API có mà cổng đóng.
+
+Còn hai việc: (a) script `configure-logto-account-center.mjs` theo khuôn
+`configure-logto-sign-in.mjs` (ghi rồi **đọc lại để kiểm**); (b) thiết kế cách đưa access token
+audience `me` xuống trình duyệt cho an toàn — hệ thống đang là BFF nên trình duyệt hiện KHÔNG
+giữ token nào, đó là điểm cần cân nhắc chứ không phải chi tiết kỹ thuật.
+
+**Ba chỗ mockup đi ngược quyết định đã chốt, đã làm theo quyết định chứ không theo mockup:**
+ngôn ngữ chỉ `vi`+`en` (DEC-B15, mockup có Korean/Japanese) · theme chỉ Light (C4 chưa có bảng
+màu dark) · "Upgrade to Pro" để `disabled` (DEC-B18 chưa chốt cơ chế sub).
+
+**Email cố ý CHỈ ĐỌC**, khác mockup: `identity-provider.md` §5 ghi Logto sở hữu email, ta chỉ
+giữ bản sao. Cho sửa ở đây là tạo nguồn sự thật thứ hai.
+
 ### F5. Runbook vận hành — deliverable của §6, chưa tồn tại
 
 Cần viết: quy trình kích hoạt / tắt một ứng dụng, đổi redirect hoặc ảnh, xử lý khi một URL

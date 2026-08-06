@@ -88,7 +88,7 @@ export function SurveyAnswersView({
   }
 
   return (
-    <div className="container section stack">
+    <div className="stack">
       <h1 className="typeH1">{t.title}</h1>
 
       <p className="typeBody textSecondary">{t.lead}</p>

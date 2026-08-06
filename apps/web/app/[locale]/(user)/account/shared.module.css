@@ -1,0 +1,205 @@
+/*
+ * Mảnh giao diện dùng chung cho các trang trong `/account`.
+ *
+ * MỘT FILE thay vì bốn file gần giống nhau: thẻ, hàng có công tắc, nhãn "chưa hoạt động" —
+ * cả bốn trang đều cần. Bốn bản sao sẽ trôi xa nhau ngay ở lần sửa token đầu tiên.
+ */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.lead {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.card {
+  margin-top: var(--space-6);
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.cardTitle {
+  margin: 0;
+}
+
+/*
+ * Nhãn "chưa hoạt động".
+ *
+ * KHÔNG dùng màu cảnh báo: bảng màu chưa có token danger/warning (C4), và một mình màu sắc
+ * cũng không đủ khả dụng. Dùng viền trái + chữ phụ — đọc được kể cả khi in đen trắng.
+ */
+.notReady {
+  margin: 0;
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--color-border-default, currentColor);
+  color: var(--color-text-secondary);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.button {
+  border: none;
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-button-primary);
+  color: var(--color-button-text);
+  font-weight: var(--weight-heading);
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.buttonRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Hàng có công tắc (Notifications) ───────────────────────────────────── */
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+  border-bottom: var(--border-default);
+  min-width: 0;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.rowTitle {
+  margin: 0;
+  font-weight: var(--weight-heading);
+}
+
+.rowLead {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.badge {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-tag);
+  white-space: nowrap;
+}
+
+/*
+ * Công tắc là `<input type="checkbox">` THẬT, chỉ vẽ lại bằng CSS.
+ *
+ * Không dựng bằng `<div role="switch">` + JavaScript: checkbox đã có sẵn ngữ nghĩa, hỗ trợ
+ * bàn phím và trạng thái `disabled` mà trình đọc màn hình hiểu đúng — thứ mà một `div` phải
+ * mô phỏng lại từ đầu và thường mô phỏng thiếu.
+ */
+.switch {
+  flex-shrink: 0;
+  width: 2.75rem;
+  height: 1.5rem;
+  appearance: none;
+  border: var(--border-default);
+  border-radius: 999px;
+  background-color: var(--color-bg-secondary);
+  position: relative;
+  cursor: pointer;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  inset-block: 2px;
+  left: 2px;
+  width: 1.125rem;
+  border-radius: 50%;
+  background-color: var(--color-text-tertiary);
+  transition:
+    left 120ms ease-out,
+    background-color 120ms ease-out;
+}
+
+.switch:checked {
+  background-color: var(--color-button-primary);
+  border-color: var(--color-button-primary);
+}
+
+.switch:checked::after {
+  left: calc(100% - 1.125rem - 2px);
+  background-color: var(--color-button-text);
+}
+
+.switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch::after {
+    transition: none;
+  }
+}

@@ -26,6 +26,7 @@ export default async function AccountPage({ params }: PageLocaleParams) {
   return (
     <AccountView
       t={t.account}
+      profile={t.profilePage}
       common={t.common}
       sessionsHref={localeHref(locale, '/account/sessions')}
       surveyHref={localeHref(locale, '/account/survey')}

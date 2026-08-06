@@ -1,4 +1,5 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from '@playwright/test';
+import { vi as messages } from '../../apps/web/i18n/messages/vi';
 import { BASE_URL } from '../../playwright.config';
 import {
   attachSession,
@@ -16,19 +17,33 @@ async function openOnboarding(
 
   const page = await context.newPage();
   await page.goto(`/vi/onboarding?returnTo=${encodeURIComponent(returnTo)}`);
+  // Đọc tiêu đề TỪ CHÍNH CATALOG i18n thay vì viết cứng chuỗi.
+  //
+  // Bài test này từng đỏ khi thương hiệu đổi tên (Talosmine → KOLO): chuỗi trong test là bản
+  // sao của một giá trị sống ở nơi khác, nên nó lỗi thời ngay lần đổi chữ đầu tiên. Đọc từ
+  // nguồn thì đổi tên bao nhiêu lần cũng không phải sửa test — mà vẫn bắt được đúng cái đáng
+  // bắt: tiêu đề h1 có render ra hay không.
   await expect(
-    page.getByRole('heading', { name: 'Thiết lập Talosmine của bạn', level: 1 }),
+    page.getByRole('heading', { name: messages.onboarding.title, level: 1 }),
   ).toBeVisible();
   return { context, page };
 }
 
 async function satisfyCurrentQuestion(page: Page): Promise<void> {
   const fieldset = page.locator('fieldset');
-  const forward = page.getByRole('button', { name: /Tiếp theo|Hoàn tất thiết lập/ });
-  const choices = fieldset.locator('input[type="radio"], input[type="checkbox"]');
+  const forward = page.getByRole('button', {
+    name: new RegExp(`${messages.onboarding.next}|${messages.onboarding.complete}`),
+  });
+  const choices = fieldset.locator('label:has(input[type="radio"], input[type="checkbox"])');
 
+  // BẤM VÀO `<label>`, KHÔNG PHẢI `.check()` LÊN `<input>`.
+  //
+  // Input ở đây là `.visuallyHidden` (1×1px, absolute) nằm trong label — cố ý, để bàn phím
+  // vẫn tới được nó. `check()` của Playwright bấm vào TOẠ ĐỘ của input, và bị chính label
+  // phủ lên: "<label …> intercepts pointer events". Người dùng thật bấm label, nên test cũng
+  // phải bấm label — đo đúng thứ người ta làm.
   for (let index = 0; index < (await choices.count()) && (await forward.isDisabled()); index += 1) {
-    await choices.nth(index).check();
+    await choices.nth(index).click();
   }
   await expect(forward).toBeEnabled();
 }

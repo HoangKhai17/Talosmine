@@ -1,0 +1,71 @@
+/* Trung tâm trợ giúp. Chỉ dùng token từ globals.css. */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.item {
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+  padding: var(--space-4) var(--space-5);
+  min-width: 0;
+}
+
+/*
+ * `list-style: none` + `::-webkit-details-marker` để bỏ mũi tên mặc định của trình duyệt và
+ * tự vẽ. Vẫn giữ nguyên `<summary>` nên bàn phím và trình đọc màn hình không mất gì.
+ */
+.question {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  font-weight: var(--weight-heading);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.question::-webkit-details-marker {
+  display: none;
+}
+
+/*
+ * Mũi tên vẽ bằng ký tự trong `::after`, xoay khi mở.
+ *
+ * `aria-hidden` không đặt được cho pseudo-element, nhưng nội dung `content` của pseudo-element
+ * không được trình đọc màn hình đọc ra ở các engine hiện đại — và trạng thái đóng/mở đã do
+ * chính `<details>` loan báo, nên không có nguy cơ đọc trùng.
+ */
+.question::after {
+  content: "⌄";
+  flex-shrink: 0;
+  transition: transform 120ms ease-out;
+}
+
+.item[open] .question::after {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .question::after {
+    transition: none;
+  }
+}
+
+.answer {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.contact {
+  margin-top: var(--space-6);
+  text-align: center;
+  color: var(--color-text-secondary);
+}
