@@ -7,6 +7,7 @@ import {
   negotiateLocale,
   splitLocale,
 } from './i18n/locale';
+import { DEMO_FRAME_ORIGINS } from './lib/demo-products';
 import { decideAdminAccess, isAdminPath } from './server/admin-authorization';
 import { logWarn } from './server/logger';
 
@@ -78,6 +79,13 @@ function buildContentSecurityPolicy(nonce: string): string {
     `img-src ${imgSrc.join(' ')}`,
     `font-src 'self'`,
     `connect-src ${connectSrc.join(' ')}`,
+    // `frame-src` BẮT BUỘC KHAI TƯỜNG MINH: thiếu nó thì CSP rơi về `default-src 'self'` và
+    // MỌI iframe ngoài bị chặn — trình duyệt chỉ hiện khung trắng, không báo lỗi gì. Đó là
+    // loại lỗi tốn hàng giờ để tìm.
+    //
+    // Origin suy ra từ chính `DEMO_PRODUCTS`, không từ biến môi trường: một biến env quên đặt
+    // trên Vercel sẽ làm iframe trắng ở production trong khi local vẫn chạy tốt.
+    `frame-src ${["'self'", ...DEMO_FRAME_ORIGINS].join(' ')}`,
     `frame-ancestors 'none'`,
     `object-src 'none'`,
     `base-uri 'self'`,
