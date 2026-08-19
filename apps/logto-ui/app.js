@@ -69,6 +69,15 @@ let googleConnector = null;
  * Chép luật của máy chủ để người dùng biết ngay lúc gõ, không phải gửi đi rồi nhận lỗi khó
  * hiểu. Máy chủ vẫn kiểm lại.
  */
+/**
+ * Tên thương hiệu hiển thị.
+ *
+ * Gói này KHÔNG import được từ `apps/web/lib/brand.ts`: nó là JavaScript thuần chạy trong
+ * Logto, không qua bundler nào. Hai hằng số vì thế phải khớp bằng tay — đổi tên thương hiệu
+ * là phải sửa CẢ HAI. Ghi ra đây để lần sau không ai sửa một bên rồi tưởng xong.
+ */
+const BRAND_NAME = 'Kolo';
+
 const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
 
 /* ── Gọi API ────────────────────────────────────────────────────────────────── */
@@ -110,7 +119,7 @@ async function callExperience(method, path, body) {
     throw new ExperienceError(
       response.status,
       data && typeof data.code === 'string' ? data.code : 'unknown',
-      data && typeof data.message === 'string' ? data.message : 'Không thực hiện được.',
+      data && typeof data.message === 'string' ? data.message : 'Something went wrong.',
     );
   }
 
@@ -229,7 +238,7 @@ async function completeRegistration({ email, code, verificationId, password, pro
         values,
       });
     } catch (error) {
-      console.warn('Không lưu được tên hiển thị, vẫn tiếp tục tạo tài khoản.', error);
+      console.warn('Could not save your display name, but your account was still created.', error);
     }
   }
 
@@ -496,11 +505,11 @@ async function completeGoogleSignIn({ connectorId, code, redirectUri, verificati
  */
 function describeError(error, mode) {
   if (!(error instanceof ExperienceError)) {
-    return 'Không kết nối được tới máy chủ. Kiểm tra đường truyền rồi thử lại.';
+    return 'Could not reach the server. Check your connection and try again.';
   }
 
   if (mode === 'signIn' && (error.status === 401 || error.status === 422)) {
-    return 'Thông tin đăng nhập không đúng.';
+    return 'Those sign-in details are not correct.';
   }
 
   /*
@@ -517,21 +526,21 @@ function describeError(error, mode) {
     hướng dẫn ở màn hình nhập mã có hiện lại địa chỉ vừa gõ để họ tự phát hiện.
   */
   if (mode === 'forgotPassword' && (error.code === 'user.user_not_exist' || error.status === 404)) {
-    return 'Nếu địa chỉ này có tài khoản, mã xác minh đã được gửi tới hộp thư. Kiểm tra thư giúp bạn.';
+    return 'If an account exists for this address, a verification code has been sent. Please check your inbox.';
   }
 
   if (error.code === 'user.email_already_in_use') {
-    return 'Địa chỉ thư này đã có tài khoản. Bạn thử đăng nhập xem sao.';
+    return 'An account already exists for this email address. Try signing in instead.';
   }
 
   if (error.code === 'user.username_already_in_use') {
-    return 'Tên đăng nhập này đã có người dùng. Chọn tên khác giúp bạn.';
+    return 'That username is taken. Please choose another one.';
   }
 
   // Mã sai hoặc hết hạn — nói rõ để người dùng biết là bấm "Gửi lại mã", chứ không phải
   // quay lại sửa địa chỉ thư.
   if (error.code?.startsWith('verification_code.')) {
-    return 'Mã xác minh không đúng hoặc đã hết hạn. Bấm "Gửi lại mã" để nhận mã mới.';
+    return 'That verification code is wrong or has expired. Press "Resend code" to get a new one.';
   }
 
   if (error.code.startsWith('password.')) {
@@ -541,7 +550,7 @@ function describeError(error, mode) {
   }
 
   if (error.status === 429) {
-    return 'Bạn thử quá nhiều lần. Đợi một lát rồi thử lại.';
+    return 'Too many attempts. Please wait a moment and try again.';
   }
 
   return error.message;
@@ -597,18 +606,18 @@ function googleButton(showError) {
     return [
       el('button', { type: 'button', class: 'typeBody socialButton', disabled: '' }, [
         googleIcon(),
-        el('span', { text: 'Tiếp tục với Google' }),
+        el('span', { text: 'Continue with Google' }),
       ]),
       el('p', {
         class: 'typeCaption textTertiary socialNote',
-        text: 'Chưa cấu hình connector Google',
+        text: 'The Google connector is not configured',
       }),
     ];
   }
 
   const button = el('button', { type: 'button', class: 'typeBody socialButton' }, [
     googleIcon(),
-    el('span', { text: 'Tiếp tục với Google' }),
+    el('span', { text: 'Continue with Google' }),
   ]);
 
   button.addEventListener('click', async () => {
@@ -621,8 +630,8 @@ function googleButton(showError) {
       button.disabled = false;
       const message =
         error instanceof ExperienceError
-          ? 'Không mở được đăng nhập Google. Thử lại giúp bạn.'
-          : 'Không kết nối được tới máy chủ. Kiểm tra đường truyền rồi thử lại.';
+          ? 'Could not open Google sign-in. Please try again.'
+          : 'Could not reach the server. Check your connection and try again.';
       if (showError) showError(message);
     }
   });
@@ -689,12 +698,12 @@ function configuredAppUrl() {
 function formHeader() {
   const appUrl = configuredAppUrl();
   const brand = appUrl
-    ? el('a', { class: 'typeBody brandLink', href: appUrl, text: 'Talosmine' })
-    : el('span', { class: 'typeBody brandLabel', text: 'Talosmine' });
+    ? el('a', { class: 'typeBody brandLink', href: appUrl, text: BRAND_NAME })
+    : el('span', { class: 'typeBody brandLabel', text: BRAND_NAME });
   const home = appUrl
     ? el('a', { class: 'typeBodySmall backLink', href: appUrl }, [
         icon(['M19 12H5', 'm12 19-7-7 7-7'], 16),
-        el('span', { text: 'Về trang chủ' }),
+        el('span', { text: 'Back to home' }),
       ])
     : null;
 
@@ -744,7 +753,7 @@ function passwordField(id, label, hint) {
   const toggle = el('button', {
     type: 'button',
     class: 'inputToggle',
-    'aria-label': 'Hiện mật khẩu',
+    'aria-label': 'Show password',
     'aria-pressed': 'false',
   });
 
@@ -762,7 +771,7 @@ function passwordField(id, label, hint) {
     const visible = input.type === 'text';
     input.type = visible ? 'password' : 'text';
     toggle.setAttribute('aria-pressed', String(!visible));
-    toggle.setAttribute('aria-label', visible ? 'Hiện mật khẩu' : 'Ẩn mật khẩu');
+    toggle.setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
     toggle.replaceChildren(visible ? eye : eyeOff);
   });
 
@@ -819,7 +828,7 @@ function textField(id, label, placeholder, hint, autocomplete, required, type = 
  */
 function forgotPasswordRow() {
   return el('p', { class: 'typeBodySmall forgotRow' }, [
-    el('a', { class: 'switchLink', href: ROUTES.forgotPassword, text: 'Quên mật khẩu?' }),
+    el('a', { class: 'switchLink', href: ROUTES.forgotPassword, text: 'Forgot your password?' }),
   ]);
 }
 
@@ -856,20 +865,20 @@ function codeStep({ pending, errorBox, showError, onBack, mode, labels, sendCode
   const resend = el('button', {
     type: 'button',
     class: 'typeBodySmall linkButton',
-    text: 'Gửi lại mã',
+    text: 'Resend code',
   });
 
   resend.addEventListener('click', async () => {
     resend.disabled = true;
-    resend.textContent = 'Đang gửi…';
+    resend.textContent = 'Sending…';
     errorBox.hidden = true;
     try {
       // Gửi lại tạo ra một `verificationId` MỚI. Giữ cái cũ thì mã mới sẽ bị coi là sai.
       pending.verificationId = await sendCode(pending.email);
-      resend.textContent = 'Đã gửi lại mã';
+      resend.textContent = 'Code resent';
     } catch (error) {
       showError(describeError(error, mode));
-      resend.textContent = 'Gửi lại mã';
+      resend.textContent = 'Resend code';
     } finally {
       resend.disabled = false;
     }
@@ -886,7 +895,7 @@ function codeStep({ pending, errorBox, showError, onBack, mode, labels, sendCode
 
         const value = code.value.trim();
         if (value === '') {
-          showError('Nhập mã xác minh vừa nhận được.');
+          showError('Enter the verification code you just received.');
           return;
         }
 
@@ -905,7 +914,11 @@ function codeStep({ pending, errorBox, showError, onBack, mode, labels, sendCode
     },
     [
       el('div', { class: 'field' }, [
-        el('label', { class: 'typeBodySmall', for: 'verification-code', text: 'Mã xác minh' }),
+        el('label', {
+          class: 'typeBodySmall',
+          for: 'verification-code',
+          text: 'Verification code',
+        }),
         code,
       ]),
       submit,
@@ -917,9 +930,9 @@ function codeStep({ pending, errorBox, showError, onBack, mode, labels, sendCode
   queueMicrotask(() => code.focus());
 
   return [
-    el('h1', { class: 'typeH2', text: 'Kiểm tra hộp thư' }),
+    el('h1', { class: 'typeH2', text: 'Check your inbox' }),
     el('p', { class: 'typeBodySmall textSecondary lead' }, [
-      document.createTextNode('Chúng tôi đã gửi mã xác minh tới '),
+      document.createTextNode('We sent a verification code to '),
       // Hiện lại địa chỉ để người dùng phát hiện ngay nếu vừa gõ nhầm, thay vì ngồi chờ một
       // thư không bao giờ tới.
       el('span', { class: 'accent', text: pending.email }),
@@ -927,7 +940,7 @@ function codeStep({ pending, errorBox, showError, onBack, mode, labels, sendCode
     errorBox,
     form,
     el('p', { class: 'typeBodySmall textSecondary switchRow' }, [
-      el('span', { text: 'Không nhận được thư? ' }),
+      el('span', { text: 'Did not get the email? ' }),
       resend,
     ]),
     el('p', { class: 'typeBodySmall switchRow' }, [
@@ -956,10 +969,10 @@ function authScreen(config) {
   // KHÔNG placeholder ở Tên/Họ/Email (chủ dự án yêu cầu 2026-07-28): tên riêng làm ví dụ
   // trông như form đã điền sẵn, và nhãn đã nói đủ ô này nhận gì.
   const givenName = isRegister
-    ? textField('given-name', 'Tên', undefined, undefined, 'given-name', false)
+    ? textField('given-name', 'First name', undefined, undefined, 'given-name', false)
     : null;
   const familyName = isRegister
-    ? textField('family-name', 'Họ', undefined, undefined, 'family-name', false)
+    ? textField('family-name', 'Last name', undefined, undefined, 'family-name', false)
     : null;
 
   /*
@@ -978,9 +991,9 @@ function authScreen(config) {
   const identifier = isRegister
     ? textField(
         'email',
-        'Địa chỉ thư điện tử',
+        'Email address',
         undefined,
-        'Chúng tôi sẽ gửi mã xác minh tới địa chỉ này.',
+        'We will send a verification code to this address.',
         'email',
         true,
         'email',
@@ -989,19 +1002,12 @@ function authScreen(config) {
       // vào đây đều gợi ý sai một nửa: thấy `ten_dang_nhap` thì người có email tưởng phải
       // tạo username, thấy `ban@vidu.com` thì người dùng username tưởng mình không vào được.
       // Nhãn đã nói đủ.
-      textField(
-        'username',
-        'Tên đăng nhập hoặc địa chỉ thư',
-        undefined,
-        undefined,
-        'username',
-        true,
-      );
+      textField('username', 'Username or email address', undefined, undefined, 'username', true);
 
   const password = passwordField(
     isRegister ? 'password-new' : 'password',
-    'Mật khẩu',
-    isRegister ? 'Ít nhất 8 ký tự' : undefined,
+    'Password',
+    isRegister ? 'At least 8 characters' : undefined,
   );
 
   const consentInput = isRegister
@@ -1014,10 +1020,10 @@ function authScreen(config) {
     ? el('label', { class: 'typeBodySmall textSecondary consentRow' }, [
         consentInput,
         el('span', {}, [
-          document.createTextNode('Tôi đồng ý với '),
-          legalLink('Điều khoản dịch vụ', '/terms'),
-          document.createTextNode(' và '),
-          legalLink('Chính sách riêng tư', '/privacy'),
+          document.createTextNode('I agree to the '),
+          legalLink('Terms of Service', '/terms'),
+          document.createTextNode(' and '),
+          legalLink('Privacy Policy', '/privacy'),
         ]),
       ])
     : null;
@@ -1053,26 +1059,26 @@ function authScreen(config) {
         if (identifierValue === '' || passwordValue === '') {
           showError(
             isRegister
-              ? 'Nhập đủ địa chỉ thư và mật khẩu.'
-              : 'Nhập đủ tên đăng nhập (hoặc địa chỉ thư) và mật khẩu.',
+              ? 'Enter both your email address and password.'
+              : 'Enter both your username (or email address) and password.',
           );
           return;
         }
 
         if (isRegister && !EMAIL_PATTERN.test(identifierValue)) {
-          showError('Địa chỉ thư chưa đúng định dạng.');
+          showError('That email address is not valid.');
           return;
         }
 
         if (isRegister && passwordValue.length < 8) {
           // Máy chủ cũng kiểm, nhưng bắt sớm ở đây thì người dùng không phải chờ hết một
           // vòng gửi mã rồi mới biết mật khẩu chưa đạt.
-          showError('Mật khẩu cần ít nhất 8 ký tự.');
+          showError('Your password needs at least 8 characters.');
           return;
         }
 
         if (isRegister && !consentInput.checked) {
-          showError('Cần đồng ý với Điều khoản dịch vụ và Chính sách riêng tư để tiếp tục.');
+          showError('You need to accept the Terms of Service and Privacy Policy to continue.');
           return;
         }
 
@@ -1149,9 +1155,9 @@ function authScreen(config) {
         showError,
         mode: 'register',
         labels: {
-          submit: 'Xác minh và tạo tài khoản',
-          pending: 'Đang tạo tài khoản…',
-          back: '← Đổi địa chỉ thư',
+          submit: 'Verify and create account',
+          pending: 'Creating your account…',
+          back: '← Use a different email',
         },
         sendCode: sendRegistrationCode,
         onSubmit: async (value) => {
@@ -1200,9 +1206,9 @@ function forgotPasswordScreen() {
   function showEmailStep(prefill) {
     const email = textField(
       'email',
-      'Địa chỉ thư điện tử',
+      'Email address',
       'ban@vidu.com',
-      'Chúng tôi sẽ gửi mã xác minh tới địa chỉ này.',
+      'We will send a verification code to this address.',
       'email',
       true,
       'email',
@@ -1212,7 +1218,7 @@ function forgotPasswordScreen() {
     const submit = el('button', {
       type: 'submit',
       class: 'typeBody submitButton',
-      text: 'Gửi mã xác minh',
+      text: 'Send verification code',
     });
 
     const form = el(
@@ -1226,16 +1232,16 @@ function forgotPasswordScreen() {
 
           const value = email.input.value.trim().toLowerCase();
           if (value === '') {
-            showError('Nhập địa chỉ thư của tài khoản.');
+            showError('Enter the email address for your account.');
             return;
           }
           if (!EMAIL_PATTERN.test(value)) {
-            showError('Địa chỉ thư chưa đúng định dạng.');
+            showError('That email address is not valid.');
             return;
           }
 
           submit.disabled = true;
-          submit.textContent = 'Đang gửi…';
+          submit.textContent = 'Sending…';
           errorBox.hidden = true;
 
           try {
@@ -1244,7 +1250,7 @@ function forgotPasswordScreen() {
           } catch (error) {
             showError(describeError(error, 'forgotPassword'));
             submit.disabled = false;
-            submit.textContent = 'Gửi mã xác minh';
+            submit.textContent = 'Send verification code';
           }
         },
       },
@@ -1252,15 +1258,15 @@ function forgotPasswordScreen() {
     );
 
     formArea.replaceChildren(
-      el('h1', { class: 'typeH2', text: 'Quên mật khẩu' }),
+      el('h1', { class: 'typeH2', text: 'Forgot password' }),
       el('p', {
         class: 'typeBodySmall textSecondary lead',
-        text: 'Nhập địa chỉ thư của tài khoản. Chúng tôi sẽ gửi một mã để bạn đặt lại mật khẩu.',
+        text: 'Enter the email address for your account. We will send you a code to reset your password.',
       }),
       errorBox,
       form,
       el('p', { class: 'typeBodySmall switchRow' }, [
-        el('a', { class: 'switchLink', href: ROUTES.signIn, text: '← Quay lại đăng nhập' }),
+        el('a', { class: 'switchLink', href: ROUTES.signIn, text: '← Back to sign in' }),
       ]),
     );
   }
@@ -1274,9 +1280,9 @@ function forgotPasswordScreen() {
         showError,
         mode: 'forgotPassword',
         labels: {
-          submit: 'Xác minh mã',
-          pending: 'Đang xác minh…',
-          back: '← Đổi địa chỉ thư',
+          submit: 'Verify code',
+          pending: 'Verifying…',
+          back: '← Use a different email',
         },
         sendCode: sendPasswordResetCode,
         onSubmit: async (value) => {
@@ -1292,13 +1298,13 @@ function forgotPasswordScreen() {
 
   /* ── Bước 3: mật khẩu mới ────────────────────────────────────────────────── */
   function showPasswordStep(email) {
-    const password = passwordField('password-new', 'Mật khẩu mới', 'Ít nhất 8 ký tự');
-    const confirm = passwordField('password-confirm', 'Nhập lại mật khẩu mới');
+    const password = passwordField('password-new', 'New password', 'At least 8 characters');
+    const confirm = passwordField('password-confirm', 'Confirm new password');
 
     const submit = el('button', {
       type: 'submit',
       class: 'typeBody submitButton',
-      text: 'Đặt lại mật khẩu',
+      text: 'Reset password',
     });
 
     const form = el(
@@ -1313,7 +1319,7 @@ function forgotPasswordScreen() {
           const value = password.input.value;
 
           if (value.length < 8) {
-            showError('Mật khẩu cần ít nhất 8 ký tự.');
+            showError('Your password needs at least 8 characters.');
             return;
           }
 
@@ -1324,12 +1330,12 @@ function forgotPasswordScreen() {
             tiêu, và họ bị khoá ra khỏi tài khoản cho tới khi xin mã mới.
           */
           if (value !== confirm.input.value) {
-            showError('Hai lần nhập mật khẩu chưa khớp nhau.');
+            showError('The two passwords do not match.');
             return;
           }
 
           submit.disabled = true;
-          submit.textContent = 'Đang đặt lại…';
+          submit.textContent = 'Resetting…';
           errorBox.hidden = true;
 
           try {
@@ -1346,7 +1352,7 @@ function forgotPasswordScreen() {
           } catch (error) {
             showError(describeError(error, 'forgotPassword'));
             submit.disabled = false;
-            submit.textContent = 'Đặt lại mật khẩu';
+            submit.textContent = 'Reset password';
           }
         },
       },
@@ -1356,9 +1362,9 @@ function forgotPasswordScreen() {
     queueMicrotask(() => password.input.focus());
 
     formArea.replaceChildren(
-      el('h1', { class: 'typeH2', text: 'Đặt mật khẩu mới' }),
+      el('h1', { class: 'typeH2', text: 'Set a new password' }),
       el('p', { class: 'typeBodySmall textSecondary lead' }, [
-        document.createTextNode('Mật khẩu mới cho tài khoản '),
+        document.createTextNode('New password for '),
         el('span', { class: 'accent', text: email }),
       ]),
       errorBox,
@@ -1380,13 +1386,13 @@ function forgotPasswordScreen() {
    */
   function showDoneStep(email) {
     formArea.replaceChildren(
-      el('h1', { class: 'typeH2', text: 'Đã đổi mật khẩu' }),
+      el('h1', { class: 'typeH2', text: 'Password changed' }),
       el('p', { class: 'typeBodySmall textSecondary lead' }, [
-        document.createTextNode('Mật khẩu của '),
+        document.createTextNode('The password for '),
         el('span', { class: 'accent', text: email }),
-        document.createTextNode(' đã được đặt lại. Đăng nhập bằng mật khẩu mới để tiếp tục.'),
+        document.createTextNode(' has been reset. Sign in with the new password to continue.'),
       ]),
-      el('a', { class: 'typeBody submitButton doneLink', href: ROUTES.signIn, text: 'Đăng nhập' }),
+      el('a', { class: 'typeBody submitButton doneLink', href: ROUTES.signIn, text: 'Sign in' }),
     );
   }
 
@@ -1412,24 +1418,24 @@ function unknownSessionScreen() {
     el('main', { class: 'formPanel' }, [
       formHeader(),
       el('div', { class: 'formArea' }, [
-        el('h1', { class: 'typeH2', text: 'Phiên đăng nhập đã hết' }),
+        el('h1', { class: 'typeH2', text: 'Your sign-in session has expired' }),
         el('p', {
           class: 'typeBodySmall textSecondary lead',
           text:
-            'Trang đăng nhập cần được mở từ chính Talosmine. Mở thẳng địa chỉ này, hoặc để tab ' +
-            'mở quá lâu, thì phiên không còn — nên chưa biết bạn đang đăng nhập vào đâu.',
+            'The sign-in page has to be opened from Kolo itself. Opening this address directly, or leaving the tab ' +
+            'open for too long, means the session is gone — so we do not know what you are signing in to.',
         }),
         // Chỉ hiện nút khi biết địa chỉ web app. Đoán bừa một địa chỉ ở trang đăng nhập là
         // đúng cái dấu hiệu của lừa đảo mà người dùng được dạy phải cảnh giác.
         appUrl === null
           ? el('p', {
               class: 'typeBodySmall textTertiary',
-              text: 'Quay lại Talosmine rồi bấm Đăng nhập để bắt đầu lại.',
+              text: 'Go back to Kolo and press Sign in to start again.',
             })
           : el('a', {
               class: 'typeBody submitButton doneLink',
               href: `${appUrl}/auth`,
-              text: 'Bắt đầu lại từ Talosmine',
+              text: 'Start again from Kolo',
             }),
       ]),
     ]),
@@ -1445,18 +1451,18 @@ function unknownSessionScreen() {
  */
 function socialCallbackScreen() {
   const formArea = el('div', { class: 'formArea' }, [
-    el('h1', { class: 'typeH2', text: 'Đang hoàn tất đăng nhập…' }),
+    el('h1', { class: 'typeH2', text: 'Finishing sign-in…' }),
     el('p', {
       class: 'typeBodySmall textSecondary lead',
-      text: 'Đang xác minh với Google, chờ một chút giúp bạn.',
+      text: 'Verifying with Google, one moment please.',
     }),
   ]);
 
   function fail(message) {
     formArea.replaceChildren(
-      el('h1', { class: 'typeH2', text: 'Không đăng nhập được bằng Google' }),
+      el('h1', { class: 'typeH2', text: 'Could not sign in with Google' }),
       el('p', { class: 'typeBodySmall textSecondary lead', text: message }),
-      el('a', { class: 'typeBody submitButton doneLink', href: ROUTES.signIn, text: 'Thử lại' }),
+      el('a', { class: 'typeBody submitButton doneLink', href: ROUTES.signIn, text: 'Try again' }),
     );
   }
 
@@ -1469,7 +1475,7 @@ function socialCallbackScreen() {
     // Google trả `error` khi người dùng bấm Huỷ hoặc từ chối cấp quyền.
     if (params.get('error')) {
       fail(
-        'Bạn đã huỷ, hoặc Google từ chối cấp quyền. Bạn có thể thử lại hoặc đăng nhập bằng mật khẩu.',
+        'You cancelled, or Google declined the request. You can try again or sign in with a password.',
       );
       return;
     }
@@ -1485,7 +1491,9 @@ function socialCallbackScreen() {
     const state = params.get('state');
 
     if (!pending || !code || !state) {
-      fail('Phiên đăng nhập bằng Google đã hết hoặc không đầy đủ. Bắt đầu lại từ trang đăng nhập.');
+      fail(
+        'The Google sign-in session expired or was incomplete. Start again from the sign-in page.',
+      );
       return;
     }
 
@@ -1493,7 +1501,7 @@ function socialCallbackScreen() {
     // không thuộc phiên ta khởi tạo — dừng, không đổi lấy phiên.
     if (state !== pending.state) {
       fail(
-        'Phản hồi từ Google không khớp phiên đăng nhập. Dừng lại vì lý do an toàn — thử lại giúp bạn.',
+        'The response from Google did not match this sign-in session. Stopped for safety — please try again.',
       );
       return;
     }
@@ -1509,16 +1517,17 @@ function socialCallbackScreen() {
     } catch (error) {
       // Ghi lỗi thật (kèm code) cho người vận hành; hiện cho người dùng câu ngắn gọn.
       console.error('Google sign-in failed:', error);
-      let message = 'Không hoàn tất được đăng nhập bằng Google. Thử lại giúp bạn.';
+      let message = 'Could not complete Google sign-in. Please try again.';
       if (error instanceof ExperienceError) {
         if (error.status === 403) {
-          message = 'Đăng nhập bằng Google chưa được bật cho ứng dụng này.';
+          message = 'Google sign-in is not enabled for this application.';
         } else if (error.code === 'user.missing_profile') {
           // Tài khoản Google mới nhưng Logto còn đòi thêm hồ sơ để đăng ký. Nói rõ để người
           // vận hành biết cần chỉnh cấu hình đăng ký, không phải lỗi phía người dùng.
-          message = 'Tài khoản Google thiếu thông tin bắt buộc để đăng ký. Liên hệ quản trị viên.';
+          message =
+            'That Google account is missing information required to register. Contact an administrator.';
         } else if (error.code === 'user.identity_already_in_use') {
-          message = 'Tài khoản Google này đã liên kết với một người dùng khác.';
+          message = 'This Google account is already linked to a different user.';
         }
         // Kèm mã lỗi vào console để gỡ nhanh; audit log của Logto (`/api/logs`) giữ chi tiết đầy đủ.
         console.error('  code:', error.code, '| status:', error.status);
@@ -1543,13 +1552,13 @@ function fallbackScreen(pathname) {
     el('main', { class: 'formPanel' }, [
       formHeader(),
       el('div', { class: 'formArea' }, [
-        el('h1', { class: 'typeH2', text: 'Màn hình chưa được dựng' }),
+        el('h1', { class: 'typeH2', text: 'This screen has not been built' }),
         el('p', {
           class: 'typeBodySmall textSecondary lead',
-          text: `Giao diện tuỳ chỉnh của Talosmine hiện chỉ dựng màn hình đăng nhập và đăng ký. Đường dẫn "${pathname}" cần một màn hình chưa có.`,
+          text: `The custom Kolo experience only implements the sign-in and sign-up screens. The path "${pathname}" needs a screen that does not exist yet.`,
         }),
         el('p', { class: 'typeBodySmall switchRow' }, [
-          el('a', { class: 'switchLink', href: ROUTES.signIn, text: 'Về trang đăng nhập' }),
+          el('a', { class: 'switchLink', href: ROUTES.signIn, text: 'Back to sign in' }),
         ]),
       ]),
     ]),
@@ -1565,42 +1574,42 @@ function render() {
   let screen;
 
   if (pathname.startsWith(ROUTES.socialCallback)) {
-    document.title = 'Talosmine — Đang đăng nhập';
+    document.title = 'Kolo — Signing in';
     screen = socialCallbackScreen();
   } else if (pathname.startsWith(ROUTES.unknownSession)) {
-    document.title = 'Talosmine — Phiên đăng nhập đã hết';
+    document.title = 'Kolo — Sign-in session expired';
     screen = unknownSessionScreen();
   } else if (pathname.startsWith(ROUTES.register)) {
-    document.title = 'Talosmine — Tạo tài khoản';
+    document.title = 'Kolo — Create account';
     screen = authScreen({
       mode: 'register',
-      title: 'Tạo tài khoản',
-      lead: 'Tham gia Talosmine để lưu công cụ, tạo bộ sưu tập và theo dõi những cập nhật mới nhất.',
+      title: 'Create account',
+      lead: 'Join Kolo to save tools, build collections and keep up with the latest updates.',
       // Nhãn phải nói đúng thứ ô bên dưới nhận. Trước đây ghi "hoặc dùng tên đăng nhập" —
       // đúng khi đăng ký còn dùng username, và SAI kể từ lúc chuyển sang email. Đã thấy trên
       // ảnh render: vạch ngăn nói tên đăng nhập trong khi ô ngay dưới ghi "Địa chỉ thư".
-      dividerLabel: 'hoặc dùng địa chỉ thư',
-      submitLabel: 'Tạo tài khoản',
-      pendingLabel: 'Đang tạo…',
-      switchPrompt: 'Đã có tài khoản?',
+      dividerLabel: 'or use your email address',
+      submitLabel: 'Create account',
+      pendingLabel: 'Creating…',
+      switchPrompt: 'Already have an account?',
       switchHref: ROUTES.signIn,
-      switchLabel: 'Đăng nhập',
+      switchLabel: 'Sign in',
     });
   } else if (pathname.startsWith(ROUTES.forgotPassword)) {
-    document.title = 'Talosmine — Quên mật khẩu';
+    document.title = 'Kolo — Forgot password';
     screen = forgotPasswordScreen();
   } else if (pathname.startsWith(ROUTES.signIn)) {
-    document.title = 'Talosmine — Đăng nhập';
+    document.title = 'Kolo — Sign in';
     screen = authScreen({
       mode: 'signIn',
-      title: 'Đăng nhập',
-      lead: 'Đăng nhập để lưu công cụ, tạo bộ sưu tập và theo dõi những cập nhật mới nhất.',
-      dividerLabel: 'hoặc',
-      submitLabel: 'Đăng nhập',
-      pendingLabel: 'Đang đăng nhập…',
-      switchPrompt: 'Chưa có tài khoản?',
+      title: 'Sign in',
+      lead: 'Sign in to save tools, build collections and keep up with the latest updates.',
+      dividerLabel: 'or',
+      submitLabel: 'Sign in',
+      pendingLabel: 'Signing in…',
+      switchPrompt: 'Do not have an account?',
       switchHref: ROUTES.register,
-      switchLabel: 'Đăng ký',
+      switchLabel: 'Sign up',
     });
   } else {
     screen = fallbackScreen(pathname);

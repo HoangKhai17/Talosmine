@@ -54,7 +54,7 @@ const REPORT_LOCALE = 'vi';
 const QUESTION_LABEL: Record<string, string> = {
   categories: 'Câu 1 — Lĩnh vực quan tâm',
   primary_use: 'Câu 2 — Mục đích sử dụng chính',
-  discover_first: 'Câu 3 — Biết tới Talosmine qua đâu',
+  discover_first: 'Câu 3 — Biết tới Kolo qua đâu',
 };
 
 const EMPTY_SUMMARY: SurveySummaryView = {

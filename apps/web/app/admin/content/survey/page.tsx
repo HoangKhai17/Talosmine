@@ -37,7 +37,7 @@ const RETURN_TO = '/admin/content/survey';
 const QUESTION_LABEL: Record<string, string> = {
   categories: 'Câu 1 — Lĩnh vực quan tâm',
   primary_use: 'Câu 2 — Mục đích sử dụng chính',
-  discover_first: 'Câu 3 — Biết tới Talosmine qua đâu',
+  discover_first: 'Câu 3 — Biết tới Kolo qua đâu',
 };
 
 const STATUS_LABEL: Record<AdminSurveyOptionView['status'], string> = {

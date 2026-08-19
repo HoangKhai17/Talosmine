@@ -115,3 +115,30 @@ export function ChevronIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+/**
+ * Ngôi nhà — thay chữ "Trang chủ" trên menu chính.
+ *
+ * Icon này ĐỨNG MỘT MÌNH, khác mọi icon trên trong file: nó không đi kèm chữ. Vì vậy nhãn
+ * cho trình đọc màn hình phải nằm ở thẻ `<a>` bọc ngoài (`aria-label`), lấy từ chính nhãn
+ * mà người biên tập đặt trong CMS — xem `header-nav.tsx`. Bỏ `aria-hidden` ở đây thì trình
+ * đọc màn hình sẽ đọc hai lần.
+ */
+export function HomeIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <path d="M3 10.5 12 3l9 7.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5.5 9.5V20h13V9.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9.75 20v-5.5h4.5V20" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

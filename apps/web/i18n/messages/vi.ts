@@ -71,7 +71,7 @@ export const vi = {
     guides: 'Hướng dẫn',
     newsletter: 'Bản tin',
     faq: 'Câu hỏi thường gặp',
-    rights: '© {year} Talosmine. Bảo lưu mọi quyền.',
+    rights: '© {year} Kolo. Bảo lưu mọi quyền.',
   },
 
   nav: {
@@ -130,18 +130,18 @@ export const vi = {
   },
 
   meta: {
-    home: 'Talosmine — Khám phá công cụ để xây dựng và phát triển',
-    tools: 'Talosmine — Duyệt công cụ theo danh mục',
-    blog: 'Talosmine — Blog',
-    blogPost: 'Talosmine — Bài viết',
-    categories: 'Talosmine — Danh mục',
-    contact: 'Talosmine — Liên hệ',
-    submit: 'Talosmine — Gửi công cụ',
-    terms: 'Talosmine — Điều khoản dịch vụ',
-    privacy: 'Talosmine — Chính sách riêng tư',
-    account: 'Talosmine — Tài khoản',
-    sessions: 'Talosmine — Phiên đăng nhập',
-    surveyAnswers: 'Talosmine — Câu trả lời khảo sát',
+    home: 'Kolo — Khám phá công cụ để xây dựng và phát triển',
+    tools: 'Kolo — Duyệt công cụ theo danh mục',
+    blog: 'Kolo — Blog',
+    blogPost: 'Kolo — Bài viết',
+    categories: 'Kolo — Danh mục',
+    contact: 'Kolo — Liên hệ',
+    submit: 'Kolo — Gửi công cụ',
+    terms: 'Kolo — Điều khoản dịch vụ',
+    privacy: 'Kolo — Chính sách riêng tư',
+    account: 'Kolo — Tài khoản',
+    sessions: 'Kolo — Phiên đăng nhập',
+    surveyAnswers: 'Kolo — Câu trả lời khảo sát',
   },
 
   home: {
@@ -179,7 +179,7 @@ export const vi = {
     faqTitle: 'Câu hỏi thường gặp',
     faqLead: 'Giải đáp nhanh những thắc mắc phổ biến, tập hợp ở một nơi.',
     faqAsk: 'Đặt câu hỏi',
-    faqQuestion1: 'Talosmine là gì và hoạt động thế nào?',
+    faqQuestion1: 'Kolo là gì và hoạt động thế nào?',
     faqQuestion2: 'Làm sao để gửi công cụ của tôi lên đây?',
     faqQuestion3: 'Danh mục được kiểm duyệt như thế nào?',
     faqQuestion4: 'Tôi có cần tài khoản để sử dụng không?',
@@ -195,7 +195,7 @@ export const vi = {
     menuManage: 'Mở trang ví',
     sendTitle: 'Gửi ADA thử',
     sendLead:
-      'Dựng, ký và phát một giao dịch thật trên mạng thử nghiệm Preprod. Không có bước nào đi qua máy chủ Talosmine.',
+      'Dựng, ký và phát một giao dịch thật trên mạng thử nghiệm Preprod. Không có bước nào đi qua máy chủ Kolo.',
     sendRecipient: 'Địa chỉ nhận',
     sendRecipientPlaceholder: 'addr_test1...',
     sendAmount: 'Số ADA',
@@ -339,7 +339,7 @@ export const vi = {
     categoriesTitle: 'Danh mục',
     categoriesDescription: 'Các nhóm công cụ được phân loại theo mục đích sử dụng.',
     contactTitle: 'Liên hệ',
-    contactDescription: 'Cách liên hệ với đội ngũ Talosmine sẽ hiển thị tại đây.',
+    contactDescription: 'Cách liên hệ với đội ngũ Kolo sẽ hiển thị tại đây.',
     submitTitle: 'Gửi công cụ',
     submitDescription: 'Biểu mẫu đề xuất công cụ mới để đưa vào danh mục.',
   },
@@ -410,7 +410,7 @@ export const vi = {
     changePhoto: 'Đổi ảnh',
     /** Ranh giới sở hữu dữ liệu, KHÔNG phải hạn chế tạm — xem identity-provider.md §5. */
     emailOwnedByIdp:
-      'Email do hệ thống đăng nhập quản lý và không sửa được ở đây. Talosmine chỉ giữ một bản sao.',
+      'Email do hệ thống đăng nhập quản lý và không sửa được ở đây. Kolo chỉ giữ một bản sao.',
     fieldsNotReady:
       'Tên người dùng, giới thiệu và ảnh đại diện chưa lưu được — còn chờ quyết định về dữ liệu hồ sơ.',
     general: 'Chung',
@@ -423,7 +423,7 @@ export const vi = {
     connected: 'Đã liên kết',
     notConnected: 'Chưa liên kết',
     disconnect: 'Ngắt liên kết',
-    connectedNotReady: 'Chưa có đường đọc hay gỡ liên kết từ Talosmine.',
+    connectedNotReady: 'Chưa có đường đọc hay gỡ liên kết từ Kolo.',
   },
 
   savedTools: {
@@ -440,7 +440,7 @@ export const vi = {
 
   notificationsPage: {
     title: 'Thông báo',
-    lead: 'Quản lý cách bạn nhận cập nhật từ Talosmine.',
+    lead: 'Quản lý cách bạn nhận cập nhật từ Kolo.',
     preferences: 'Tuỳ chọn thông báo',
     channels: 'Kênh nhận',
     recommended: 'Nên bật',
@@ -478,16 +478,16 @@ export const vi = {
     mismatch: 'Hai mật khẩu mới không khớp.',
     tooShort: 'Mật khẩu mới phải có ít nhất 8 ký tự.',
     /**
-     * Nói rõ mật khẩu KHÔNG đi qua máy chủ Talosmine — đó là lời hứa kiến trúc (C5), và
+     * Nói rõ mật khẩu KHÔNG đi qua máy chủ Kolo — đó là lời hứa kiến trúc (C5), và
      * người dùng có quyền biết.
      */
     notReady:
-      'Chưa nối được đổi mật khẩu. Khi hoàn tất, mật khẩu sẽ gửi thẳng từ trình duyệt tới hệ thống đăng nhập, không đi qua máy chủ Talosmine.',
+      'Chưa nối được đổi mật khẩu. Khi hoàn tất, mật khẩu sẽ gửi thẳng từ trình duyệt tới hệ thống đăng nhập, không đi qua máy chủ Kolo.',
   },
 
   helpCenter: {
     title: 'Trung tâm trợ giúp',
-    lead: 'Giải đáp những câu hỏi thường gặp và cách dùng Talosmine hiệu quả.',
+    lead: 'Giải đáp những câu hỏi thường gặp và cách dùng Kolo hiệu quả.',
     faqTitle: 'Câu hỏi thường gặp',
     faqLead: 'Câu trả lời nhanh cho các thắc mắc phổ biến, gom về một chỗ.',
     contactLead: 'Không tìm thấy điều bạn cần? Chúng tôi sẵn sàng hỗ trợ.',
@@ -500,7 +500,7 @@ export const vi = {
     a3: 'Vào Tài khoản → Hồ sơ. Lưu ý email do hệ thống đăng nhập quản lý nên không sửa tại đây.',
     q4: 'Làm sao để gửi công cụ AI của tôi?',
     a4: 'Dùng trang Gửi công cụ. Mỗi đề xuất được xem xét trước khi xuất hiện trong danh mục.',
-    q5: 'Talosmine có miễn phí không?',
+    q5: 'Kolo có miễn phí không?',
     a5: 'Các tính năng hiện có đang miễn phí. Gói trả phí còn đang được hoàn thiện.',
     q6: 'Làm sao để bỏ một công cụ đã lưu?',
     a6: 'Bấm lại biểu tượng dấu trang trên thẻ công cụ để gỡ khỏi bộ sưu tập.',

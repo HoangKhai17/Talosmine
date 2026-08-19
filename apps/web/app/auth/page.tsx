@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { BRAND_NAME } from '../../lib/brand';
 import styles from './auth-form.module.css';
 import { AuthShell } from './auth-shell';
 
 export const metadata: Metadata = {
-  title: 'Talosmine — Đăng nhập',
+  title: `${BRAND_NAME} — Sign in`,
 };
 
 /**

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BRAND_NAME } from '../../../lib/brand';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
-  title: 'Talosmine — Kiểm tra hộp thư',
+  title: `${BRAND_NAME} — Check your inbox`,
 };
 
 /**
@@ -30,10 +31,10 @@ export default function CheckEmailPage() {
     <div className={styles.page}>
       <header className={styles.topBar}>
         <Link className={`typeCardTitle ${styles.brand}`} href="/">
-          Talosmine
+          {BRAND_NAME}
         </Link>
         <Link className={`typeBodySmall ${styles.backLink}`} href="/">
-          Về trang chủ
+          Back to home
         </Link>
       </header>
 
@@ -43,15 +44,15 @@ export default function CheckEmailPage() {
       <div className={styles.content}>
         <EnvelopeIcon />
 
-        <h1 className={`typeH2 ${styles.heading}`}>Kiểm tra hộp thư của bạn</h1>
+        <h1 className={`typeH2 ${styles.heading}`}>Check your inbox</h1>
 
         <p className={`typeBodySmall textSecondary ${styles.sentTo}`}>
-          Chúng tôi đã gửi một liên kết xác minh tới{' '}
-          <span className={styles.email}>địa chỉ thư bạn vừa đăng ký</span>
+          We sent a verification link to{' '}
+          <span className={styles.email}>the address you just registered</span>
         </p>
 
         <p className={`typeBodySmall textTertiary ${styles.instruction}`}>
-          Bấm vào liên kết trong thư để kích hoạt tài khoản và bắt đầu khám phá.
+          Open the link in that email to activate your account and start exploring.
         </p>
 
         {/*
@@ -61,16 +62,16 @@ export default function CheckEmailPage() {
           có luồng thật, thay vì bấm vào rồi không xảy ra gì.
         */}
         <button type="button" className={`typeBody ${styles.primaryButton}`} disabled>
-          Mở ứng dụng thư
+          Open your email app
         </button>
 
         <p className={`typeBodySmall ${styles.resendRow}`}>
-          <span className="textTertiary">Không nhận được thư?</span>{' '}
-          <span className={styles.resendPending}>Gửi lại</span>
+          <span className="textTertiary">Did not get the email?</span>{' '}
+          <span className={styles.resendPending}>Resend</span>
         </p>
 
         <p className={`typeCaption ${styles.draftNote}`} role="note">
-          Bản dựng bố cục — hệ thống chưa cấu hình gửi thư, nên chưa có thư nào được gửi đi.
+          Layout preview — email delivery is not configured yet, so no email has been sent.
         </p>
       </div>
     </div>

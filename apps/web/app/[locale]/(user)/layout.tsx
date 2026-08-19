@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { isLocale, type Locale, localeHref } from '../../../i18n/locale';
 import { format, type Messages } from '../../../i18n/messages';
+import { BRAND_NAME } from '../../../lib/brand';
 import { getBrandLogoSrc } from '../../../server/brand-logo';
 import { getContentMessages } from '../../../server/site-content';
 import { getSiteNav, type NavItem, type SiteNav } from '../../../server/site-nav';
@@ -152,12 +153,12 @@ export default async function UserLayout({
  */
 function Logo({ url }: { url: string | null }) {
   if (url === null) {
-    return <span className="typeCardTitle">Talosmine</span>;
+    return <span className="typeCardTitle">{BRAND_NAME}</span>;
   }
 
   // Chiều cao cố định bằng token, bề ngang tự co theo tỉ lệ ảnh — xem `.logoImage`.
   // biome-ignore lint/performance/noImgElement: URL do admin nhập lúc chạy, next/image cần host khai trước.
-  return <img className={styles.logoImage} src={url} alt="Talosmine" />;
+  return <img className={styles.logoImage} src={url} alt={BRAND_NAME} />;
 }
 
 /**
@@ -198,7 +199,7 @@ function SiteFooter({ locale, t, nav }: { locale: Locale; t: Messages; nav: Site
     <footer className={styles.footer}>
       <div className={`container grid ${styles.footerInner}`}>
         <div className={styles.footerBrand}>
-          <p className="typeCardTitle">Talosmine</p>
+          <p className="typeCardTitle">{BRAND_NAME}</p>
           <p className="typeBodySmall textSecondary">{t.footer.tagline}</p>
           {/*
             Icon mạng xã hội — CHƯA có tài khoản thật nên chưa phải link, cùng lý do với

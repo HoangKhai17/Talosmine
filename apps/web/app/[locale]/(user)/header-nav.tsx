@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { WalletMenuLabels } from '../../../components/wallet/wallet-menu';
 import type { Locale } from '../../../i18n/locale';
-import { CloseIcon, MenuIcon } from './icons';
+import { CloseIcon, HomeIcon, MenuIcon } from './icons';
 import styles from './layout.module.css';
 import { LocaleSwitcher } from './locale-switcher';
 import { LogoutButton } from './logout-button';
@@ -48,6 +48,20 @@ export interface HeaderNavLabels {
 }
 
 const PANEL_ID = 'header-nav-panel';
+
+/**
+ * Mục menu này có trỏ về trang chủ không?
+ *
+ * `href` đã được gắn prefix locale ở server, nên nó là `/vi` hoặc `/en` — KHÔNG phải `/`.
+ * Đó là lý do phải so khớp theo hình dạng "đúng một đoạn" thay vì so bằng `=== '/'`.
+ *
+ * NHẬN DIỆN THEO ĐƯỜNG DẪN, KHÔNG THÊM CỘT VÀO DATABASE: một cột `icon` trong `nav_items`
+ * kéo theo migration, sửa API, sửa màn hình admin và một danh mục icon phải bảo trì — cho
+ * đúng MỘT mục. Khi có nhu cầu icon cho nhiều mục thì lúc đó cột đó mới đáng.
+ */
+function isHomeHref(href: string): boolean {
+  return /^\/[a-z]{2}$/.test(href);
+}
 
 /**
  * Nút ví CHỈ chạy ở trình duyệt.
@@ -137,9 +151,32 @@ export function HeaderNav({
           <ul className={styles.navList}>
             {items.map((item) => (
               <li key={item.id}>
-                <Link className={`typeBody ${styles.navLink}`} href={item.href}>
-                  {item.label}
-                </Link>
+                {isHomeHref(item.href) ? (
+                  /*
+                    MỤC TRANG CHỦ HIỆN BẰNG ICON, không phải chữ (yêu cầu chủ dự án
+                    2026-08-19).
+
+                    NHÃN VẪN ĐẾN TỪ CMS và vẫn được dùng — nó thành `aria-label`. Nhờ vậy
+                    người biên tập sửa nhãn trong `/admin` thì tên mà trình đọc màn hình
+                    đọc lên cũng đổi theo, dù trên màn hình chỉ thấy hình ngôi nhà. Gán
+                    cứng "Trang chủ" ở đây sẽ làm nhãn CMS mất tác dụng ở đúng nơi nó còn
+                    quan trọng nhất.
+
+                    `title` để người dùng chuột rê chuột vào cũng biết đó là gì.
+                  */
+                  <Link
+                    className={`${styles.navLink} ${styles.navIconLink}`}
+                    href={item.href}
+                    aria-label={item.label}
+                    title={item.label}
+                  >
+                    <HomeIcon />
+                  </Link>
+                ) : (
+                  <Link className={`typeBody ${styles.navLink}`} href={item.href}>
+                    {item.label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

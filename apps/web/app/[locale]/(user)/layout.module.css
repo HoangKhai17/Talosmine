@@ -388,3 +388,12 @@
   border-color: var(--color-border-hover);
   background-color: var(--color-bg-secondary);
 }
+
+/* Mục menu chỉ có icon (trang chủ). Kích thước ô bấm giữ NGANG BẰNG các mục chữ bên cạnh
+ * để hàng menu không lệch nhịp, và để vùng bấm không bị nhỏ hơn ngón tay trên di động. */
+.navIconLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--space-5) + var(--space-6));
+}

@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { BRAND_NAME } from '../../lib/brand';
 import { decideAdminAccess } from '../../server/admin-authorization';
 import { callControlPlane } from '../../server/control-plane-boundary';
 import { AdminNav } from './admin-nav';
@@ -40,7 +41,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         <div className={styles.bar}>
           <div className={styles.brandGroup}>
             <Link className={`typeCardTitle ${styles.brand}`} href="/admin">
-              Talosmine
+              {BRAND_NAME}
             </Link>
             <span className={`typeCaption ${styles.badge}`}>Quản trị</span>
           </div>

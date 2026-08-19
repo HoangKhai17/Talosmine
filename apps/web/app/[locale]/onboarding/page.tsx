@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { localeHref } from '../../../i18n/locale';
 import { type PageLocaleParams, resolvePageI18n } from '../../../i18n/params';
+import { BRAND_NAME } from '../../../lib/brand';
 import { getBrandLogoSrc } from '../../../server/brand-logo';
 import { readServerEnv } from '../../../server/env';
 import { safeReturnTo } from '../../../server/oidc';
@@ -14,7 +15,7 @@ import { SurveyForm } from './survey-form';
 export async function generateMetadata({ params }: PageLocaleParams): Promise<Metadata> {
   const { t } = await resolvePageI18n(params);
   return {
-    title: `Talosmine — ${t.onboarding.title}`,
+    title: `${BRAND_NAME} — ${t.onboarding.title}`,
     // Màn hình riêng tư của một người dùng cụ thể, không có gì để index.
     robots: { index: false, follow: false },
   };

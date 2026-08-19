@@ -64,7 +64,7 @@ export const en = {
     guides: 'Guides',
     newsletter: 'Newsletter',
     faq: 'FAQ',
-    rights: '© {year} Talosmine. All rights reserved.',
+    rights: '© {year} Kolo. All rights reserved.',
   },
 
   nav: {
@@ -107,18 +107,18 @@ export const en = {
   },
 
   meta: {
-    home: 'Talosmine — Discover tools to build and grow',
-    tools: 'Talosmine — Browse tools by category',
-    blog: 'Talosmine — Blog',
-    blogPost: 'Talosmine — Article',
-    categories: 'Talosmine — Categories',
-    contact: 'Talosmine — Contact',
-    submit: 'Talosmine — Submit a tool',
-    terms: 'Talosmine — Terms of Service',
-    privacy: 'Talosmine — Privacy Policy',
-    account: 'Talosmine — Account',
-    sessions: 'Talosmine — Sessions',
-    surveyAnswers: 'Talosmine — Survey answers',
+    home: 'Kolo — Discover tools to build and grow',
+    tools: 'Kolo — Browse tools by category',
+    blog: 'Kolo — Blog',
+    blogPost: 'Kolo — Article',
+    categories: 'Kolo — Categories',
+    contact: 'Kolo — Contact',
+    submit: 'Kolo — Submit a tool',
+    terms: 'Kolo — Terms of Service',
+    privacy: 'Kolo — Privacy Policy',
+    account: 'Kolo — Account',
+    sessions: 'Kolo — Sessions',
+    surveyAnswers: 'Kolo — Survey answers',
   },
 
   home: {
@@ -159,7 +159,7 @@ export const en = {
     faqTitle: 'Frequently asked questions',
     faqLead: 'Quick answers to common questions, gathered in one place.',
     faqAsk: 'Ask a question',
-    faqQuestion1: 'What is Talosmine and how does it work?',
+    faqQuestion1: 'What is Kolo and how does it work?',
     faqQuestion2: 'How do I submit my own tool?',
     faqQuestion3: 'How is the catalogue reviewed?',
     faqQuestion4: 'Do I need an account to use it?',
@@ -174,7 +174,7 @@ export const en = {
     menuManage: 'Open wallet page',
     sendTitle: 'Send test ADA',
     sendLead:
-      'Build, sign and submit a real transaction on the Preprod test network. No step goes through a Talosmine server.',
+      'Build, sign and submit a real transaction on the Preprod test network. No step goes through a Kolo server.',
     sendRecipient: 'Recipient address',
     sendRecipientPlaceholder: 'addr_test1...',
     sendAmount: 'Amount in ADA',
@@ -318,7 +318,7 @@ export const en = {
     categoriesTitle: 'Categories',
     categoriesDescription: 'Groups of tools organised by what you use them for.',
     contactTitle: 'Contact',
-    contactDescription: 'Ways to reach the Talosmine team will appear here.',
+    contactDescription: 'Ways to reach the Kolo team will appear here.',
     submitTitle: 'Submit a tool',
     submitDescription: 'A form for proposing a new tool to add to the catalogue.',
   },
@@ -381,7 +381,7 @@ export const en = {
     bioPlaceholder: 'Tell us a little about yourself…',
     changePhoto: 'Change photo',
     emailOwnedByIdp:
-      'Your email is managed by the sign-in system and cannot be changed here. Talosmine only keeps a copy.',
+      'Your email is managed by the sign-in system and cannot be changed here. Kolo only keeps a copy.',
     fieldsNotReady:
       'Username, bio and profile photo cannot be saved yet — still waiting on a decision about profile data.',
     general: 'General',
@@ -393,7 +393,7 @@ export const en = {
     connected: 'Connected',
     notConnected: 'Not connected',
     disconnect: 'Disconnect',
-    connectedNotReady: 'Talosmine has no way to read or remove this link yet.',
+    connectedNotReady: 'Kolo has no way to read or remove this link yet.',
   },
 
   savedTools: {
@@ -410,7 +410,7 @@ export const en = {
 
   notificationsPage: {
     title: 'Notifications',
-    lead: 'Manage how you receive updates from Talosmine.',
+    lead: 'Manage how you receive updates from Kolo.',
     preferences: 'Notification preferences',
     channels: 'Delivery channels',
     recommended: 'Recommended',
@@ -448,12 +448,12 @@ export const en = {
     mismatch: 'The two new passwords do not match.',
     tooShort: 'The new password must be at least 8 characters.',
     notReady:
-      'Password change is not wired up yet. Once it is, your password will go straight from the browser to the sign-in system, never through a Talosmine server.',
+      'Password change is not wired up yet. Once it is, your password will go straight from the browser to the sign-in system, never through a Kolo server.',
   },
 
   helpCenter: {
     title: 'Help Center',
-    lead: 'Answers to common questions and how to get the most out of Talosmine.',
+    lead: 'Answers to common questions and how to get the most out of Kolo.',
     faqTitle: 'Frequently asked questions',
     faqLead: 'Quick answers to common questions, all in one place.',
     contactLead: 'Cannot find what you need? We are here to help.',
@@ -466,7 +466,7 @@ export const en = {
     a3: 'Go to Account → Profile. Note that your email is managed by the sign-in system and cannot be edited here.',
     q4: 'How do I submit my AI tool?',
     a4: 'Use the Submit tool page. Every suggestion is reviewed before it appears in the catalog.',
-    q5: 'Is Talosmine free to use?',
+    q5: 'Is Kolo free to use?',
     a5: 'Everything available today is free. Paid plans are still being finalised.',
     q6: 'How do I remove a saved tool?',
     a6: 'Click the bookmark icon on the tool card again to remove it from your collection.',

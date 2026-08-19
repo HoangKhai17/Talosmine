@@ -47,7 +47,6 @@ export async function generateMetadata({ params }: PageLocaleParams): Promise<Me
  */
 
 /** Chỉ còn là SỐ LƯỢNG và ID — nhãn lấy từ catalog. */
-const POPULAR_COUNT = 5;
 
 // Bảy ô = đúng MỘT chu kỳ nhịp xen kẽ (3+5+4 rồi 3+4+3+2), tức hai hàng đầy.
 
@@ -60,7 +59,7 @@ export default async function UserHomePage({ params }: PageLocaleParams) {
 
   return (
     <>
-      <Hero t={t} />
+      <Hero locale={locale} t={t} />
       <PartnerMarquee t={t} />
       <ToolsSection locale={locale} t={t} />
       <CategoriesSection locale={locale} t={t} />
@@ -72,10 +71,15 @@ export default async function UserHomePage({ params }: PageLocaleParams) {
   );
 }
 
-function Hero({ t }: { t: Messages }) {
-  const popular = Array.from({ length: POPULAR_COUNT }, (_, i) =>
-    format(t.home.popularTerm, { n: i + 1 }),
-  );
+function Hero({ locale, t }: { locale: Locale; t: Messages }) {
+  /**
+   * Từ khoá gợi ý LẤY TỪ DANH MỤC THẬT, không phải "Từ khoá 1…5".
+   *
+   * Năm mục đầu, sắp theo số công cụ giảm dần — danh mục nhiều công cụ nhất là thứ đáng
+   * gợi ý nhất, và thứ tự tự đúng lại khi danh mục lớn lên. Chuỗi giữ chỗ trước đây vừa
+   * không nói gì vừa bấm không đi đâu.
+   */
+  const popular = [...demoCategories()].sort((a, b) => b.count - a.count).slice(0, 5);
 
   return (
     <section className="section">
@@ -86,14 +90,17 @@ function Hero({ t }: { t: Messages }) {
         <p className={`typeBodyLarge textSecondary ${styles.heroLead}`}>{t.home.heroLead}</p>
 
         {/*
-          Form tìm kiếm chưa có đích đến: Catalog thuộc P3. Không đặt `action` thì trình
-          duyệt gửi về chính trang này thay vì báo lỗi — vô hại cho bản dựng.
+          FORM GET THẬT, gửi sang `/tools?q=…`.
+
+          Trước đây form không có `action` nên nó nạp lại chính trang chủ — trông như tìm
+          kiếm hỏng. Giờ nó dùng đúng bộ lọc phía server của `/tools`, nên chạy được cả khi
+          JavaScript chưa tải xong, và kết quả có URL chia sẻ được.
 
           `<search>` là landmark chuẩn, tương đương role="search" nhưng bằng thẻ thật. Nó
           cũng chính là ô lưới, nên bề ngang đến từ số cột chứ không phải max-width.
         */}
         <search className={styles.heroSearch}>
-          <form className={styles.searchForm}>
+          <form className={styles.searchForm} method="get" action={localeHref(locale, '/tools')}>
             <SearchIcon className={styles.searchIcon} />
             <input
               className={`typeBody ${styles.searchInput}`}
@@ -110,10 +117,21 @@ function Hero({ t }: { t: Messages }) {
 
         <div className={styles.heroPopular}>
           <span className={`typeBodySmall ${styles.popularLabel}`}>{t.home.popularLabel}</span>
-          {popular.map((term) => (
-            <button key={term} type="button" className={`typeBodySmall ${styles.chip}`}>
-              {term}
-            </button>
+          {/*
+            `<Link>` chứ không phải `<button>`: mỗi từ khoá là một địa chỉ thật, nên nó mở
+            tab mới được và chép link được. Một `<button>` trông giống hệt nhưng mất cả hai.
+
+            Tham số `category` dùng khoá tiếng Việt — xem `filterDemoProducts`; nhờ vậy link
+            chia sẻ được giữa hai ngôn ngữ.
+          */}
+          {popular.map((category) => (
+            <Link
+              key={category.label.vi}
+              className={`typeBodySmall ${styles.chip}`}
+              href={`${localeHref(locale, '/tools')}?category=${encodeURIComponent(category.label.vi)}`}
+            >
+              {pick(category.label, locale)}
+            </Link>
           ))}
         </div>
       </div>

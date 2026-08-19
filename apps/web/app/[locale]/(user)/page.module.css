@@ -115,14 +115,24 @@
   color: var(--color-text-tertiary);
 }
 
+/* Gradient của nút chính hệ thống — cùng khuôn với `.submitButton` ở trang đăng nhập và
+   nút "Kết nối ví" ở header. `background-color` giữ lại phía dưới làm màu lui khi ảnh nền
+   chưa vẽ hoặc bị tắt, để chữ trắng luôn nằm trên nền tối đủ tương phản. */
 .searchSubmit {
   flex: none;
   border: none;
   border-radius: var(--radius-button);
   padding: var(--space-3) var(--space-5);
   background-color: var(--color-button-primary);
+  background-image: var(--gradient-green-strong);
   color: var(--color-button-text);
   cursor: pointer;
+}
+
+/* `filter` thay vì đổi màu nền: gradient có ba điểm dừng, đổi từng điểm khi hover là phải
+   viết lại cả gradient. Cùng cách `.submitButton` làm. */
+.searchSubmit:hover {
+  filter: brightness(0.92);
 }
 
 .popularLabel {
@@ -132,7 +142,10 @@
 
 /* Chip là <button> chứ không <span>: chúng sẽ điền vào ô tìm kiếm khi có backend, và
  * bàn phím phải tới được. */
+/* `.chip` giờ là `<a>` chứ không phải `<button>` — bỏ gạch chân mặc định của link. */
 .chip {
+  display: inline-block;
+  text-decoration: none;
   border: var(--border-default);
   border-radius: var(--radius-tag);
   padding: var(--space-1) var(--space-3);

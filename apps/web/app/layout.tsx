@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { getMessages } from '../i18n/messages';
 import { localeFromHeaders } from '../i18n/params';
 import './globals.css';
+import { BRAND_NAME } from '../lib/brand';
 
 /**
  * Font theo quy chuẩn UI: Montserrat chính, Inter dự phòng.
@@ -51,8 +52,8 @@ function readMetadataBase(): URL | null {
 const metadataBase = readMetadataBase();
 
 export const metadata: Metadata = {
-  title: 'Talosmine',
-  description: 'Talosmine web shell',
+  title: BRAND_NAME,
+  description: `${BRAND_NAME} web shell`,
   ...(metadataBase ? { metadataBase } : {}),
 };
 

@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { BRAND_NAME } from '../../../lib/brand';
 
 export const metadata: Metadata = {
-  title: 'Talosmine — Tạo tài khoản',
+  title: `${BRAND_NAME} — Create account`,
 };
 
 /**
