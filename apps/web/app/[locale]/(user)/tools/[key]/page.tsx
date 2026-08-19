@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import OmniEmbed from '../../../../../components/tools/omni-embed';
 import { localeHref } from '../../../../../i18n/locale';
 import {
   localeAlternates,
@@ -56,15 +57,17 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 /**
  * Trang chạy một công cụ demo.
  *
- * CÔNG CỤ CHẠY TRONG IFRAME. Hai điều kiện phải đúng cùng lúc, thiếu một là khung trắng:
+ * CÔNG CỤ CHẠY TRONG IFRAME. BA điều kiện phải đúng cùng lúc, thiếu một là khung trắng:
  *   1. Nguồn phải là dạng `/embed/<slug>` — URL thường của Omni trả `x-frame-options:
  *      SAMEORIGIN` và bị trình duyệt từ chối.
  *   2. CSP của ta phải có `frame-src` chứa origin đó — xem `proxy.ts`, giá trị suy ra từ
  *      chính `DEMO_PRODUCTS` nên không lệch được.
+ *   3. Trang cha phải BẮT TAY với iframe qua `postMessage`. Đây là điều kiện đã làm mất
+ *      nhiều thời gian nhất, vì thiếu nó thì mọi phép kiểm phía máy chủ đều báo "ổn": 200,
+ *      không header chặn, script tải đủ, console sạch — mà khung vẫn trắng. Toàn bộ phần
+ *      bắt tay nằm trong `components/tools/omni-embed.tsx`, đọc ghi chú ở đó trước khi sửa.
  *
- * `sandbox` được siết ở mức hẹp nhất mà công cụ vẫn chạy: cho phép script và form (calculator
- * cần cả hai) nhưng KHÔNG cho `allow-top-navigation` — nếu không, một trang nhúng có thể tự
- * điều hướng cả tab của người dùng đi nơi khác.
+ * `sandbox` được siết ở mức hẹp nhất mà công cụ vẫn chạy — xem ghi chú trong `OmniEmbed`.
  *
  * KHÔNG yêu cầu đăng nhập: bản demo Catalyst cố ý để công khai để người chấm bấm thử được
  * ngay, không phải tạo tài khoản.
@@ -78,7 +81,7 @@ export default async function ToolDetailPage({ params }: Params) {
 
   return (
     <div className="container section">
-      <p className="typeBodySmall">
+      <p className={`typeBodySmall ${styles.back}`}>
         <Link href={localeHref(locale, '/tools')}>← {t.tools.backToAll}</Link>
       </p>
 
@@ -88,17 +91,11 @@ export default async function ToolDetailPage({ params }: Params) {
         <p className={`typeBody ${styles.lead}`}>{pick(product.description, locale)}</p>
       </div>
 
-      <div className={styles.frameWrap}>
-        <iframe
-          className={styles.frame}
-          src={product.iframeSrc}
-          title={pick(product.title, locale)}
-          sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
-          loading="lazy"
-        />
-      </div>
-
-      <p className={`typeCaption ${styles.note}`}>{t.tools.poweredBy}</p>
+      <OmniEmbed
+        src={product.iframeSrc}
+        title={pick(product.title, locale)}
+        loadingLabel={t.tools.embedLoading}
+      />
     </div>
   );
 }

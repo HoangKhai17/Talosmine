@@ -72,6 +72,7 @@ export default async function WalletPage({ params }: PageLocaleParams) {
             <li>{t.wallet.canDo2}</li>
             <li>{t.wallet.canDo3}</li>
             <li>{t.wallet.canDo4}</li>
+            <li>{t.wallet.canDo5}</li>
           </ul>
 
           <h2 className={`typeCardTitle ${styles.asideHeading}`}>{t.wallet.cannotTitle}</h2>

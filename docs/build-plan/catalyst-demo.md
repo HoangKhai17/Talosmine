@@ -217,3 +217,75 @@ Ghi ngay hôm nay để tuần sau không phải đi tìm:
 4. **Không có test** cho phần thêm hôm nay.
 5. Ví mới **kết nối**, chưa thanh toán. Cổng thanh toán đầy đủ nằm ở repo
    `Connect-Wallet-Cardano`, ghép sau.
+
+---
+
+## 8. Nhúng Omni Calculator — sự thật đo được ngày 2026-08-19
+
+Mục này ghi lại kết quả đo thật, vì mọi phỏng đoán trước đó đều sai ít nhất một điểm.
+
+### Iframe trần KHÔNG chạy
+
+`<iframe src="https://www.omnicalculator.com/embed/<slug>">` cho một **khung trắng hoàn
+toàn**, và mọi dấu hiệu đều báo "ổn": HTTP 200, không `x-frame-options`, không
+`frame-ancestors`, bundle của họ tải đủ, console sạch. Hiện tượng này xảy ra **cả khi mở
+thẳng URL embed ngoài site này**, nên nó không liên quan tới CSP, `sandbox` hay tên miền.
+
+**Đây là lý do phép kiểm bằng `curl` đã cho kết luận sai.** `curl` không chạy JavaScript.
+Từ nay công cụ nhúng phải kiểm bằng trình duyệt thật, không phải bằng mã trạng thái.
+
+### Giao thức thật
+
+Đọc từ `https://cdn.omnicalculator.com/sdk.js`:
+
+1. iframe mang hash `#id=<n>` (bắt buộc). `&hasLink=&withLogo=&version=` là tuỳ chọn.
+2. iframe gửi `{type:'LOADED', calculatorId}` lên trang cha.
+3. **Trang cha phải trả lời `{type:'CONFIG', config, currency, showRowControls}`.** Thiếu
+   bước này là khung đứng trắng vĩnh viễn.
+4. iframe gửi `READY` rồi mới vẽ nội dung.
+5. iframe gửi `CHANGE_HEIGHT` mỗi khi nội dung đổi chiều cao.
+
+Đã đo: `version=1` chèn thêm dòng "Dear webmaster: … re-download the widget code" hiển thị
+cho người dùng cuối; `version=2` không có.
+
+Cài đặt nằm ở `apps/web/components/tools/omni-embed.tsx`. **Không** nạp `sdk.js` của họ, vì
+thêm một script bên thứ ba là phải mở `script-src` — nới đúng hàng rào đắt nhất của hệ thống
+để đổi lấy khoảng ba mươi dòng mã.
+
+Chốt chặn: `tests/e2e/omni-embed.spec.ts`, đã kiểm chứng bằng cách phá (bỏ bước `CONFIG` →
+test đỏ).
+
+### NỢ GIẤY PHÉP — chưa trả, phải trả trước khi phát hành công khai
+
+Điều khoản nhúng của Omni ([calculator-widgets](https://www.omnicalculator.com/calculator-widgets)):
+
+| Điều kiện | Trạng thái |
+|---|---|
+| Xin duyệt qua form trên trang máy tính (khai tên, email, **tên miền**) | ❌ chưa làm |
+| Logo Omni hiện trong khung | ❌ **đã tắt** bằng `withLogo=false` (yêu cầu chủ dự án 2026-08-19) |
+| Dòng "Powered by Omni Calculator" gần khung | ❌ **đã gỡ** theo yêu cầu chủ dự án 2026-08-19 |
+| Link về trang gốc của công cụ | ❌ **đã gỡ** cùng lúc |
+| Chiều rộng 400px | ⚠️ khung chiếm trọn cột nội dung (~1200px ở desktop) |
+
+Ba dòng ❌ đều là quyết định có ý thức của chủ dự án, không phải sót. Hệ quả: bản nhúng hiện
+tại **không đạt ba trong bốn điều kiện** của Omni, nên đơn xin duyệt gần như chắc chắn bị từ
+chối nếu nộp nguyên trạng. Muốn được duyệt thì phải đặt lại dòng ghi nguồn và link, rồi đổi
+hai cờ trong `omni-embed.tsx` thành `hasLink=true&withLogo=true`.
+
+### Không thể CSS nội dung bên trong khung
+
+Đã hỏi và đã trả lời dứt điểm: **không**. Nội dung khung ở origin khác, chính sách same-origin
+chặn cả CSS lẫn JavaScript của trang cha. Đòn bẩy DUY NHẤT là hai thứ ứng dụng của họ chịu
+đọc: các cờ trong hash (`hasLink`, `withLogo`, `version`) và đối tượng `CONFIG` gửi qua
+`postMessage`. Ngoài hai đường đó thì không có đường nào.
+
+Cụ thể: `withLogo=false` tắt được logo góc dưới phải (đã đo). Banner "Try the new version
+now!" thì KHÔNG tắt được — nó là nội dung của chính họ.
+
+Form bắt khai tên miền và kiểm khớp, nên **phải chốt tên miền trước khi đăng ký** — đăng ký
+bằng `localhost` là vô nghĩa, và đổi tên miền sau là phải xin lại.
+
+Ràng buộc sâu hơn: **mô hình nhúng không nuôi được cơ chế điểm tín dụng (DEC-B18).** Iframe
+trỏ sang bên thứ ba thì Hub không biết người dùng có bấm tính hay không — không đếm được
+lượt, không trừ được điểm. Xin phép xong vẫn không giải quyết được điều này. Đó là lý do
+cần ít nhất một công cụ tự viết.

@@ -19,6 +19,7 @@
 export const vi = {
   /** Chuỗi chỉ dành cho công nghệ trợ năng — không hiển thị trên màn hình. */
   a11y: {
+    language: 'Chọn ngôn ngữ',
     skipToContent: 'Bỏ qua tới nội dung chính',
     primaryNav: 'Điều hướng chính',
     breadcrumb: 'Đường dẫn',
@@ -188,6 +189,10 @@ export const vi = {
 
   /** Trang kết nối ví Cardano. Chuỗi sản phẩm — không phải copy marketing. */
   wallet: {
+    menuConnect: 'Kết nối ví',
+    menuDialogTitle: 'Chọn ví',
+    menuClose: 'Đóng',
+    menuManage: 'Mở trang ví',
     sendTitle: 'Gửi ADA thử',
     sendLead:
       'Dựng, ký và phát một giao dịch thật trên mạng thử nghiệm Preprod. Không có bước nào đi qua máy chủ Talosmine.',
@@ -236,14 +241,21 @@ export const vi = {
     canDo2: 'Tự kết nối lại ví đã chọn khi bạn tải lại trang.',
     canDo3: 'Đọc địa chỉ nhận, số dư và mã mạng trực tiếp từ ví.',
     canDo4: 'Chặn thao tác nếu ví đang ở mainnet.',
+    canDo5: 'Dựng, ký và phát một giao dịch thật trên mạng thử nghiệm Preprod.',
     cannotTitle: 'Chưa làm',
     cannotBody:
-      'Ký và gửi giao dịch, đối chiếu on-chain, thanh toán. Những phần đó cần backend và một indexer, nằm ngoài phạm vi bản demo.',
+      'Đối chiếu giao dịch on-chain, đơn hàng và webhook thanh toán. Những phần đó cần backend và một indexer, nằm ngoài phạm vi bản demo — giao dịch ở trên do chính ví phát thẳng lên mạng, hệ thống không ghi nhận.',
   },
 
   tools: {
+    embedLoading: 'Đang tải công cụ…',
+    categoryAll: 'Tất cả',
+    resultCount: '{count} công cụ',
+    noResults: 'Không có công cụ nào khớp. Thử bỏ bớt bộ lọc hoặc đổi từ khoá.',
+    filterSubmit: 'Tìm',
+    filterComingSoon: 'Các bộ lọc dưới đây chưa hoạt động.',
     backToAll: 'Tất cả công cụ',
-    poweredBy: 'Công cụ này được cung cấp bởi Omni Calculator.',
+    poweredBy: 'Powered by Omni Calculator. Xem công cụ gốc:',
     breadcrumb: 'Công cụ',
     title: 'Duyệt công cụ AI theo danh mục',
     lead: 'Khám phá bộ sưu tập công cụ AI đang lớn dần, so sánh khả năng và tìm đúng giải pháp cho từng dự án, từng quy trình làm việc.',

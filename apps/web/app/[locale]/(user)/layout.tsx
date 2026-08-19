@@ -86,11 +86,38 @@ export default async function UserLayout({
             accountHref={href('/account')}
             // `/auth` nằm ngoài vùng locale nên `href()` trả nguyên văn — xem localeHref.
             signInHref={href('/auth')}
+            walletHref={href('/wallet')}
+            locale={locale}
             labels={{
+              /*
+                Chuỗi của hộp thoại ví đọc TẠI ĐÂY rồi truyền xuống, không để client tự đọc
+                catalog: một client component `import` catalog sẽ kéo cả hai bản dịch vào
+                bundle trình duyệt — xem ghi chú đầu `header-nav.tsx`.
+              */
+              wallet: {
+                menuConnect: t.wallet.menuConnect,
+                menuDialogTitle: t.wallet.menuDialogTitle,
+                menuClose: t.wallet.menuClose,
+                menuManage: t.wallet.menuManage,
+                searching: t.wallet.searching,
+                noWallet: t.wallet.noWallet,
+                connect: t.wallet.connect,
+                connecting: t.wallet.connecting,
+                disconnect: t.wallet.disconnect,
+                balance: t.wallet.balance,
+                receiveAddress: t.wallet.receiveAddress,
+                mainnetWarning: t.wallet.mainnetWarning,
+                errDeclinedConnect: t.wallet.errDeclinedConnect,
+                errStale: t.wallet.errStale,
+                errStaleReload: t.wallet.errStaleReload,
+                errMissing: t.wallet.errMissing,
+                errUnknown: t.wallet.errUnknown,
+              },
               primaryNav: t.a11y.primaryNav,
               openMenu: t.a11y.openMenu,
               closeMenu: t.a11y.closeMenu,
               account: t.header.account,
+              language: t.a11y.language,
               signIn: t.header.signIn,
               signOut: t.header.signOut,
               signingOut: t.header.signingOut,

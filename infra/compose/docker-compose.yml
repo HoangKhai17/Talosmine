@@ -186,10 +186,176 @@ services:
       LOGTO_OSS_SURVEY_ENDPOINT: ''
     networks: [talosmine-internal]
 
+  # ── Migration — CHẠY MỘT LẦN rồi thoát ────────────────────────────────────
+  #
+  # Không phải service chạy dài. Compose khởi động nó, chờ nó thoát mã 0, rồi mới cho api,
+  # worker và web chạy (`service_completed_successfully` bên dưới). Nhờ vậy `docker compose up`
+  # là lệnh DUY NHẤT cần gõ — không còn bước `pnpm db:migrate` chạy tay ở giữa.
+  #
+  # Image riêng (target `migrate`) vì image runtime cố ý không có `drizzle-kit` — xem ghi chú
+  # trong `infra/docker/control-plane.Dockerfile`.
+  #
+  # NỐI THẲNG `db:5432`, KHÔNG QUA POOLER: DDL cần session ổn định, mà Supavisor chạy
+  # transaction pooling và trả connection về pool giữa các statement (DEC-T09). Đây cũng là
+  # role DUY NHẤT có quyền CREATE/ALTER/DROP.
+  migrate:
+    container_name: talosmine-migrate
+    build:
+      context: ../..
+      dockerfile: infra/docker/control-plane.Dockerfile
+      target: migrate
+    image: talosmine/control-plane-migrate:local
+    # `no` chứ không phải `unless-stopped`: nó THOÁT là đúng, không phải là hỏng.
+    restart: 'no'
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MIGRATION_DATABASE_URL: postgresql://talosmine_migration:${TALOSMINE_MIGRATION_PASSWORD:?bắt buộc}@db:5432/${POSTGRES_DB:-postgres}
+    networks: [talosmine-internal]
+
+  # ── Control Plane — API ───────────────────────────────────────────────────
+  control-plane:
+    container_name: talosmine-api
+    build:
+      context: ../..
+      dockerfile: infra/docker/control-plane.Dockerfile
+      target: runner
+    image: talosmine/control-plane:local
+    restart: unless-stopped
+    # KHÔNG có `ports:` — chỉ Caddy expose (DEC-T11).
+    depends_on:
+      supavisor:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 3001
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # HOSTNAME `supavisor`, KHÔNG phải 127.0.0.1. `.env` chứa URL nhìn từ HOST (qua cổng
+      # publish của overlay dev); trong container thì địa chỉ đó trỏ vào chính container.
+      # Vì vậy URL ở đây DỰNG LẠI từ mật khẩu, không tái dùng ${DATABASE_URL}.
+      #
+      # Tên user có dạng `<role>.<tenant>` — đó là quy ước định tuyến tenant của Supavisor,
+      # không phải lỗi đánh máy.
+      DATABASE_URL: postgresql://talosmine_runtime.${POOLER_TENANT_ID:-talosmine}:${TALOSMINE_RUNTIME_PASSWORD:?bắt buộc}@supavisor:6543/${POSTGRES_DB:-postgres}
+      # DẠNG `KEY:` KHÔNG CÓ GIÁ TRỊ LÀ CỐ Ý — nó nói "lấy từ môi trường, thiếu thì thôi".
+      #
+      # Viết `KEY: ${X:-}` sẽ LUÔN đặt biến với giá trị RỖNG, mà schema env dùng
+      # `z.url()`/`z.string().min(1)` — chuỗi rỗng KHÔNG phải là "không có", nó là giá trị
+      # sai. Kết quả: container chết ngay lúc khởi động với "Invalid URL", dù các biến này
+      # đều `.optional()`. Đã dính đúng lỗi này.
+      OIDC_ISSUER_URL:
+      OIDC_AUDIENCE:
+      OIDC_CLIENT_ID:
+      CATALOG_ALLOWED_HOSTS:
+    healthcheck:
+      # `/health/ready` kiểm cả kết nối database, nên nó là điều kiện đúng để web dựa vào.
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3001/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # App không ghi ra đĩa lúc chạy — ràng buộc mà `control-plane.Dockerfile` đã ghi sẵn.
+    read_only: true
+    tmpfs: ['/tmp']
+    networks: [talosmine-internal]
+
+  # ── Control Plane — worker ────────────────────────────────────────────────
+  #
+  # CÙNG image với api, chỉ khác `command`. Đây là chủ ý kiến trúc: worker KHÔNG phải
+  # microservice riêng. Hai image khác nhau sẽ mở đường cho hai bản code lệch nhau.
+  worker:
+    container_name: talosmine-worker
+    image: talosmine/control-plane:local
+    build:
+      context: ../..
+      dockerfile: infra/docker/control-plane.Dockerfile
+      target: runner
+    command: ['node', 'dist/main-worker.js']
+    restart: unless-stopped
+    depends_on:
+      supavisor:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgresql://talosmine_runtime.${POOLER_TENANT_ID:-talosmine}:${TALOSMINE_RUNTIME_PASSWORD:?bắt buộc}@supavisor:6543/${POSTGRES_DB:-postgres}
+    read_only: true
+    tmpfs: ['/tmp']
+    networks: [talosmine-internal]
+
+  # ── Web — Next.js + BFF ───────────────────────────────────────────────────
+  web:
+    container_name: talosmine-web
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+      target: runner
+    image: talosmine/web:local
+    restart: unless-stopped
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      # Địa chỉ NỘI BỘ — trình duyệt không bao giờ gọi thẳng vào đây; nó chỉ nói chuyện với
+      # web origin, còn credential M2M ở lại phía server. Đó là toàn bộ điểm của BFF.
+      CONTROL_PLANE_BASE_URL: http://control-plane:3001
+      # Ba biến dưới là địa chỉ BROWSER dùng, nên chúng phải là URL công khai thật —
+      # không phải hostname nội bộ của compose.
+      # Dạng `KEY:` không có giá trị — xem ghi chú ở service `control-plane`.
+      APP_BASE_URL:
+      OIDC_ISSUER_URL:
+      OIDC_CLIENT_ID:
+      OIDC_CLIENT_SECRET:
+      CATALOG_ALLOWED_HOSTS:
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/vi').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # `read_only` KHÔNG bật ở đây: Next ghi vào `.next/cache` lúc chạy (image optimizer).
+    # Cấp tmpfs cho đúng thư mục đó — ghi được nhưng không bền qua restart, đúng bản chất
+    # của một cache.
+    tmpfs: ['/tmp', '/app/apps/web/.next/cache']
+    networks: [talosmine-internal]
+
+  # ── Caddy — container DUY NHẤT expose ra ngoài (DEC-T11) ──────────────────
+  caddy:
+    container_name: talosmine-caddy
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    restart: unless-stopped
+    ports:
+      - '${TALOSMINE_HTTP_PORT:-80}:80'
+      - '${TALOSMINE_HTTPS_PORT:-443}:443'
+    depends_on:
+      web:
+        condition: service_healthy
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Cert do Caddy tự cấp. Mất volume này là mỗi lần khởi động lại xin cert mới — với
+      # Let's Encrypt thì đó là đường nhanh nhất tới rate limit.
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      TALOSMINE_SITE_ADDRESS: ${TALOSMINE_SITE_ADDRESS:-talosmine.localhost}
+    networks: [talosmine-internal]
+
+
 volumes:
   db-data:
   # Xem ghi chú ở service `db`: volume này giữ pgsodium key. Không xoá.
   db-config:
+  caddy-data:
+  caddy-config:
 
 networks:
   talosmine-internal:

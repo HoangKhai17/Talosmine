@@ -1,0 +1,221 @@
+/* Nút "Kết nối ví" ở header + hộp thoại chọn ví.
+
+   MÀU LẤY NGUYÊN TỪ NÚT CHÍNH CỦA HỆ THỐNG: `--gradient-green-strong` phủ lên
+   `--color-button-primary`, đúng khuôn `.submitButton` của trang đăng nhập. Nút này đứng
+   ngay cạnh "Đăng nhập" nên hai nút phải trông là một họ; đặt màu xanh đặc riêng ở đây sẽ
+   lệch rõ khi nhìn cạnh nhau.
+
+   `background-color` giữ lại phía dưới gradient, không thừa: nó là màu lui khi ảnh nền chưa
+   vẽ hoặc bị tắt, đảm bảo chữ trắng luôn nằm trên nền tối đủ tương phản. */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-button);
+  background-color: var(--color-button-primary);
+  background-image: var(--gradient-green-strong);
+  color: var(--color-button-text);
+  /* Weight 700 để đồng bộ với `.navLink` bên cạnh — xem ghi chú ở layout.module.css. */
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* `filter: brightness` thay vì đổi màu nền: gradient có ba điểm dừng, đổi từng điểm khi hover
+   sẽ phải viết lại cả gradient. Đây cũng đúng cách `.submitButton` làm. */
+.trigger:hover {
+  filter: brightness(0.92);
+}
+
+.trigger:active {
+  filter: brightness(0.85);
+}
+
+.triggerIcon {
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-button);
+}
+
+/* ── Hộp thoại ────────────────────────────────────────────────────────────── */
+
+/* `<dialog>` gốc có `margin: auto` khi mở bằng `showModal()`, nên nó tự căn giữa. Chỉ cần
+   giới hạn bề ngang và bỏ viền mặc định của trình duyệt. */
+.dialog {
+  width: min(28rem, calc(100vw - var(--space-8)));
+  padding: 0;
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+.dialog::backdrop {
+  background-color: rgb(13 31 45 / 45%);
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.dialogHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.dialogHead h2 {
+  margin: 0;
+}
+
+.close {
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-button);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.close:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+/* ── Danh sách ví ─────────────────────────────────────────────────────────── */
+
+.walletList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.walletOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.walletOption:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-bg-secondary);
+}
+
+.walletOption:disabled {
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
+/* `min-width: 0` để tên ví dài không đẩy nhãn "Kết nối" tràn ra khỏi nút. */
+.walletName {
+  flex: 1;
+  min-width: 0;
+}
+
+.walletIcon {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-button);
+}
+
+/* ── Tóm tắt ví đã kết nối ────────────────────────────────────────────────── */
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.summaryHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.facts dd {
+  margin: 0 0 var(--space-3);
+}
+
+/* Địa chỉ Cardano dài khoảng 100 ký tự và không có dấu cách nào — thiếu dòng này là tràn
+   ngang cả hộp thoại. */
+.address {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, monospace);
+}
+
+.summaryActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.manageLink {
+  color: var(--color-green-primary);
+}
+
+.secondaryButton {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-button-secondary);
+  color: var(--color-button-secondary-text);
+  cursor: pointer;
+}
+
+.secondaryButton:hover {
+  border-color: var(--color-border-hover);
+}
+
+/* ── Lỗi ──────────────────────────────────────────────────────────────────── */
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-text-primary);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-secondary);
+}
+
+.error p {
+  margin: 0;
+}
+
+.errorDetail {
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+}
+
+.warning {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-green-soft);
+}

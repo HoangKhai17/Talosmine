@@ -1,10 +1,14 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import type { WalletMenuLabels } from '../../../components/wallet/wallet-menu';
+import type { Locale } from '../../../i18n/locale';
 import { CloseIcon, MenuIcon } from './icons';
 import styles from './layout.module.css';
+import { LocaleSwitcher } from './locale-switcher';
 import { LogoutButton } from './logout-button';
 
 /**
@@ -31,6 +35,8 @@ export interface HeaderNavItem {
 }
 
 export interface HeaderNavLabels {
+  wallet: WalletMenuLabels;
+  language: string;
   primaryNav: string;
   openMenu: string;
   closeMenu: string;
@@ -43,18 +49,41 @@ export interface HeaderNavLabels {
 
 const PANEL_ID = 'header-nav-panel';
 
+/**
+ * Nút ví CHỈ chạy ở trình duyệt.
+ *
+ * `ssr: false` là BẮT BUỘC: `wallet-menu` kéo theo `@meshsdk/core`, gói này đọc `window`
+ * ngay khi nạp module. Render ở server thì hỏng ở BƯỚC BUILD, không phải lúc chạy — nên lỗi
+ * sẽ không xuất hiện trong `pnpm dev` mà chỉ nổ khi deploy.
+ *
+ * `loading` trả về một nút vô hiệu CÙNG KÍCH THƯỚC thay vì `null`: để trống thì header nhảy
+ * một nhịp khi bundle ví tải xong, và nhịp nhảy đó rơi đúng vào lúc người dùng đang đọc.
+ * Nút chờ mang `aria-hidden` vì nó chưa làm được gì — thông báo nó cho trình đọc màn hình
+ * chỉ tạo ra một đích tab dẫn tới hư không.
+ */
+const WalletMenu = dynamic(() => import('../../../components/wallet/wallet-menu'), {
+  ssr: false,
+  loading: () => (
+    <span className={`typeBody ${styles.walletButtonPlaceholder}`} aria-hidden="true" />
+  ),
+});
+
 export function HeaderNav({
   items,
   signedIn,
   labels,
   accountHref,
   signInHref,
+  walletHref,
+  locale,
 }: {
   items: HeaderNavItem[];
   signedIn: boolean;
   labels: HeaderNavLabels;
   accountHref: string;
   signInHref: string;
+  walletHref: string;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -121,6 +150,19 @@ export function HeaderNav({
           điều hướng nội dung — trình đọc màn hình cần phân biệt hai nhóm này.
         */}
         <div className={styles.accountArea}>
+          {/*
+            THỨ TỰ CỐ ĐỊNH: ngôn ngữ → đăng nhập → kết nối ví (yêu cầu chủ dự án 2026-08-19).
+
+            Cả ba đều là THAO TÁC trên trang đang xem, không phải điều hướng nội dung — nên
+            chúng nằm ngoài `<nav>` chính. Đặt vào `<nav>` sẽ khiến trình đọc màn hình đọc
+            chúng như mục menu, lẫn với danh sách trang.
+
+            Độ nổi bật tăng dần từ trái sang phải: ô chọn ngôn ngữ nhạt nhất, "Đăng nhập" là
+            nút phụ, "Kết nối ví" là nút chính có gradient. Mắt người đọc header từ trái sang,
+            nên thứ tự này đưa hành động quan trọng nhất vào điểm dừng cuối cùng.
+          */}
+          <LocaleSwitcher current={locale} label={labels.language} />
+
           {signedIn ? (
             <>
               <Link className={`typeBody ${styles.navLink}`} href={accountHref}>
@@ -145,10 +187,12 @@ export function HeaderNav({
               transaction OIDC không ai dùng, và kết thúc bằng một request xuyên origin bị
               `connect-src 'self'` chặn.
             */
-            <Link className={`typeBody ${styles.navLink}`} href={signInHref} prefetch={false}>
+            <Link className={`typeBody ${styles.signInButton}`} href={signInHref} prefetch={false}>
               {labels.signIn}
             </Link>
           )}
+
+          <WalletMenu labels={labels.wallet} walletHref={walletHref} />
         </div>
       </div>
     </>

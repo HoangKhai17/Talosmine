@@ -5,7 +5,13 @@ import type { Locale } from '../../../../i18n/locale';
 import { localeHref } from '../../../../i18n/locale';
 import { format, type Messages } from '../../../../i18n/messages';
 import { localeAlternates, type PageLocaleParams } from '../../../../i18n/params';
-import { DEMO_PRODUCTS, type DemoProduct, pick } from '../../../../lib/demo-products';
+import {
+  DEMO_PRODUCTS,
+  type DemoProduct,
+  demoCategories,
+  filterDemoProducts,
+  pick,
+} from '../../../../lib/demo-products';
 import { resolvePageContent } from '../../../../server/site-content';
 import { Breadcrumb } from '../breadcrumb';
 import { ChevronIcon, SearchIcon } from '../icons';
@@ -47,25 +53,54 @@ export async function generateMetadata({ params }: PageLocaleParams): Promise<Me
  * sẻ được link và không cần client component).
  */
 
-/** Nhãn danh mục sẽ đến từ Catalog. Đánh số để không ai nhầm là taxonomy đã chốt. */
-const CATEGORY_TAB_COUNT = 6;
-
 /** Wireframe liệt kê tên thương hiệu ở đây. Đánh số thay vì bịa — danh sách thật chờ DEC-B01. */
 const MODEL_FILTER_COUNT = 6;
 
-export default async function ToolsPage({ params }: PageLocaleParams) {
+/** Bộ lọc nằm trên URL nên link chia sẻ được và nút Back của trình duyệt hoạt động đúng. */
+export interface ToolsSearch {
+  /** Khoá danh mục — LUÔN là nhãn tiếng Việt, xem `filterDemoProducts`. */
+  category?: string;
+  /** Từ khoá tìm kiếm. */
+  q?: string;
+}
+
+export default async function ToolsPage({
+  params,
+  searchParams,
+}: PageLocaleParams & { searchParams: Promise<ToolsSearch> }) {
   const { locale, t } = await resolvePageContent(params);
+  const { category, q } = await searchParams;
+
+  /**
+   * LỌC Ở SERVER, không phải ở trình duyệt.
+   *
+   * Bộ lọc nằm trong query string nên: link chia sẻ được, nút Back đi đúng bước, và trang
+   * vẫn lọc được khi JavaScript chưa tải xong hoặc bị chặn. Đổi lại là mỗi lần lọc phải đi
+   * một vòng mạng — với danh mục mười lăm mục thì đó là cái giá rẻ hơn nhiều so với việc đẩy
+   * cả danh sách xuống client rồi tự dựng lại state, URL và lịch sử duyệt.
+   */
+  const results = filterDemoProducts({ category, query: q });
 
   return (
     <>
-      <BrowseHeader locale={locale} t={t} />
-      <BrowseBody t={t} locale={locale} />
+      <BrowseHeader locale={locale} t={t} category={category} query={q} />
+      <BrowseBody t={t} locale={locale} results={results} category={category} query={q} />
       <Newsletter locale={locale} />
     </>
   );
 }
 
-function BrowseHeader({ locale, t }: { locale: Locale; t: Messages }) {
+function BrowseHeader({
+  locale,
+  t,
+  category,
+  query,
+}: {
+  locale: Locale;
+  t: Messages;
+  category: string | undefined;
+  query: string | undefined;
+}) {
   return (
     <section className={styles.headerSection}>
       <div className="container grid">
@@ -75,7 +110,7 @@ function BrowseHeader({ locale, t }: { locale: Locale; t: Messages }) {
 
         <p className={`typeBodySmall textSecondary ${styles.pageLead}`}>{t.tools.lead}</p>
 
-        <CategoryStrip t={t} />
+        <CategoryStrip locale={locale} t={t} active={category} query={query} />
       </div>
     </section>
   );
@@ -92,10 +127,43 @@ function BrowseHeader({ locale, t }: { locale: Locale; t: Messages }) {
  * KHÔNG đặt `tabindex` lên `<ul>` — nó chỉ thêm một chặng dừng thừa trong luồng Tab mà
  * không mở thêm được nội dung nào.
  */
-function CategoryStrip({ t }: { t: Messages }) {
-  const tabs = Array.from({ length: CATEGORY_TAB_COUNT }, (_, i) =>
-    format(t.tools.categoryTab, { n: i + 1 }),
-  );
+function CategoryStrip({
+  locale,
+  t,
+  active,
+  query,
+}: {
+  locale: Locale;
+  t: Messages;
+  active: string | undefined;
+  query: string | undefined;
+}) {
+  /**
+   * `<Link>` CHỨ KHÔNG PHẢI `<button>`.
+   *
+   * Mỗi danh mục là một địa chỉ thật, nên nó phải là một link: mở tab mới được, chép link
+   * được, và bộ máy tìm kiếm đi theo được. Một `<button>` gắn `onClick` trông giống hệt trên
+   * màn hình nhưng mất cả ba thứ đó.
+   *
+   * Ô tìm kiếm hiện tại được GIỮ LẠI khi đổi danh mục — người dùng vừa gõ từ khoá mà bấm một
+   * danh mục rồi thấy từ khoá biến mất sẽ tưởng mình bấm nhầm.
+   */
+  const link = (category: string | null) => {
+    const params = new URLSearchParams();
+    if (category !== null) params.set('category', category);
+    if (query !== undefined && query !== '') params.set('q', query);
+    const suffix = params.size === 0 ? '' : `?${params.toString()}`;
+    return `${localeHref(locale, '/tools')}${suffix}`;
+  };
+
+  const tabs = [
+    { key: null, label: t.tools.categoryAll, count: DEMO_PRODUCTS.length },
+    ...demoCategories().map((category) => ({
+      key: category.label.vi,
+      label: pick(category.label, locale),
+      count: category.count,
+    })),
+  ];
 
   return (
     <div className={styles.categoryStrip}>
@@ -104,13 +172,25 @@ function CategoryStrip({ t }: { t: Messages }) {
       </button>
 
       <ul className={styles.stripList}>
-        {tabs.map((label) => (
-          <li key={label}>
-            <button type="button" className={`typeBodySmall ${styles.stripTab}`}>
-              {label}
-            </button>
-          </li>
-        ))}
+        {tabs.map((tab) => {
+          const selected = (active ?? null) === tab.key || (active === '' && tab.key === null);
+          return (
+            <li key={tab.key ?? '__tat-ca__'}>
+              {/*
+                `aria-current` chứ không chỉ đổi màu nền: người dùng trình đọc màn hình không
+                thấy màu, nên nếu không có thuộc tính này thì họ không biết mình đang lọc gì.
+              */}
+              <Link
+                className={`typeBodySmall ${styles.stripTab}`}
+                href={link(tab.key)}
+                aria-current={selected ? 'true' : undefined}
+                data-selected={selected || undefined}
+              >
+                {tab.label} ({tab.count})
+              </Link>
+            </li>
+          );
+        })}
       </ul>
 
       <button type="button" className={styles.stripArrow} aria-label={t.a11y.nextCategory}>
@@ -120,46 +200,72 @@ function CategoryStrip({ t }: { t: Messages }) {
   );
 }
 
-function BrowseBody({ t, locale }: { t: Messages; locale: Locale }) {
+function BrowseBody({
+  t,
+  locale,
+  results,
+  category,
+  query,
+}: {
+  t: Messages;
+  locale: Locale;
+  results: DemoProduct[];
+  category: string | undefined;
+  query: string | undefined;
+}) {
   return (
     <section className={styles.bodySection}>
       <div className="container grid">
-        <FilterSidebar t={t} />
+        <FilterSidebar t={t} locale={locale} category={category} query={query} />
 
         {/*
-          Dữ liệu THẬT từ `lib/demo-products.ts`, thay cho mảng `RESULT_IDS` giữ chỗ trước đây.
-          Bố cục, lưới và bộ lọc giữ NGUYÊN — đúng ghi chú D2 của `pending-work.md`: sang giai
-          đoạn có dữ liệu thì chỉ thay nguồn, không dựng lại layout.
-
-          Bộ lọc bên trái vẫn chưa nối (chúng lọc theo taxonomy chưa tồn tại) — đó là giới hạn
-          đã biết, không phải mới phát sinh ở đây.
+          Kết quả ĐÃ LỌC theo danh mục và từ khoá trên URL. Bố cục và lưới giữ NGUYÊN — đúng
+          ghi chú D2 của `pending-work.md`: sang giai đoạn có dữ liệu thì chỉ thay nguồn, không
+          dựng lại layout.
         */}
-        <ul className={styles.results} aria-label={t.a11y.results}>
-          {DEMO_PRODUCTS.map((product) => (
-            <li key={product.key} className={styles.resultItem}>
-              <ToolCard product={product} locale={locale} t={t} />
-            </li>
-          ))}
-        </ul>
+        {results.length === 0 ? (
+          <p className={`typeBody ${styles.emptyState}`}>{t.tools.noResults}</p>
+        ) : (
+          <ul className={styles.results} aria-label={t.a11y.results}>
+            {results.map((product) => (
+              <li key={product.key} className={styles.resultItem}>
+                <ToolCard product={product} locale={locale} t={t} />
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/*
-          Nút nằm ở ô lưới RIÊNG chứ không nhét vào `<ul>`: nó không phải một kết quả, và
-          trình đọc màn hình không nên nghe nó là mục thứ 10 của danh sách.
+          SỐ KẾT QUẢ, KHÔNG PHẢI NÚT "XEM THÊM".
 
-          Ở desktop nó bắt đầu từ cột 4 để căn giữa theo LƯỚI KẾT QUẢ, không phải giữa trang
-          — đúng như wireframe.
+          Trước đây chỗ này là nút "Xem thêm" không gắn hành vi. Với danh mục mười lăm mục thì
+          toàn bộ đã hiện sẵn — một nút "Xem thêm" ở đó nói dối rằng còn thứ chưa hiện, và
+          người bấm sẽ tưởng trang hỏng. Khi danh mục đủ lớn để cần phân trang thì nút quay
+          lại, kèm `?page=` trên URL cho đúng khuôn với bộ lọc.
+
+          Ô lưới giữ NGUYÊN vị trí cũ để nhịp dọc của trang không đổi.
         */}
         <div className={styles.loadMoreRow}>
-          <button type="button" className={`typeBodySmall ${styles.loadMore}`}>
-            {t.common.loadMore}
-          </button>
+          <p className={`typeBodySmall textSecondary ${styles.resultCount}`}>
+            {format(t.tools.resultCount, { count: results.length })}
+          </p>
         </div>
       </div>
     </section>
   );
 }
 
-function FilterSidebar({ t }: { t: Messages }) {
+function FilterSidebar({
+  t,
+  locale,
+  category,
+  query,
+}: {
+  t: Messages;
+  locale: Locale;
+  category: string | undefined;
+  query: string | undefined;
+}) {
   /**
    * Bộ lọc theo tính năng. Giữ nhãn mang nghĩa (không phải "Tính năng 1") vì ĐỘ DÀI NHÃN là
    * thứ đang cần xem: nhãn dài quyết định cột trái có bị vỡ hay không.
@@ -180,7 +286,21 @@ function FilterSidebar({ t }: { t: Messages }) {
 
   return (
     <aside className={styles.sidebar} aria-label={t.a11y.filters}>
-      <div className={styles.filterField}>
+      {/*
+        FORM GET THẬT, không phải ô nhập trang trí.
+
+        `method="get"` gửi thẳng lên chính URL này dạng `?q=...`, nên ô tìm kiếm CHẠY ĐƯỢC KHI
+        KHÔNG CÓ JAVASCRIPT — không cần một dòng JS nào, không cần client component. Đây cũng
+        là lý do bộ lọc nằm trên query string chứ không trong state.
+
+        `<input type="hidden" name="category">` giữ danh mục đang chọn: thiếu nó thì mỗi lần
+        gõ tìm kiếm, danh mục người dùng vừa chọn lại âm thầm bị xoá.
+      */}
+      <form className={styles.filterField} method="get" action={localeHref(locale, '/tools')}>
+        {category !== undefined && category !== '' && (
+          <input type="hidden" name="category" value={category} />
+        )}
+
         <label className="typeBodySmall" htmlFor="filter-name">
           {t.tools.filterNameLabel}
         </label>
@@ -191,20 +311,41 @@ function FilterSidebar({ t }: { t: Messages }) {
             className={`typeBodySmall ${styles.filterSearchInput}`}
             type="search"
             name="q"
+            defaultValue={query ?? ''}
             placeholder={t.tools.filterSearchPlaceholder}
           />
         </div>
-      </div>
+
+        {/*
+          Nút gửi ẨN KHỎI TẦM NHÌN nhưng vẫn tồn tại: nhấn Enter trong ô tìm kiếm cần một nút
+          submit để gửi form. Không hiện nút vì wireframe không có, và Enter là thao tác mà ai
+          cũng làm sẵn trong một ô tìm kiếm.
+        */}
+        <button type="submit" className="visuallyHidden">
+          {t.tools.filterSubmit}
+        </button>
+      </form>
+
+      {/*
+        CÁC BỘ LỌC DƯỚI ĐÂY CHƯA NỐI, và vì thế chúng THẬT SỰ `disabled`.
+
+        Chúng lọc theo taxonomy của công cụ AI (mô hình, có API, mã nguồn mở) — thứ không áp
+        dụng được cho máy tính tài chính, và danh sách thật còn chờ DEC-B01. Để chúng bấm được
+        rồi không có gì xảy ra là kiểu hỏng khó chịu nhất: người dùng tưởng mình lọc sai chứ
+        không nghĩ là tính năng chưa có.
+      */}
+      <p className={`typeCaption textSecondary ${styles.filterNote}`}>{t.tools.filterComingSoon}</p>
 
       <div className={styles.filterField}>
         <label className="typeBodySmall" htmlFor="filter-price">
           {t.tools.filterPriceLabel}
         </label>
-        {/*
-          `<select>` gốc chứ không dựng dropdown riêng: nó đã đúng trên di động, đúng với
-          bàn phím và đúng với trình đọc màn hình mà không cần một dòng JS nào.
-        */}
-        <select id="filter-price" className={`typeBodySmall ${styles.filterSelect}`} name="price">
+        <select
+          id="filter-price"
+          className={`typeBodySmall ${styles.filterSelect}`}
+          name="price"
+          disabled
+        >
           {/* `value` là mã máy đọc — KHÔNG dịch. Chỉ nhãn hiển thị mới đổi theo ngôn ngữ. */}
           <option value="">{t.tools.priceAll}</option>
           <option value="free">{t.tools.priceFree}</option>
@@ -221,7 +362,7 @@ function FilterSidebar({ t }: { t: Messages }) {
           <legend className="typeBodySmall">{t.tools.featureLegend}</legend>
           {features.map((label) => (
             <label key={label} className={`typeCaption ${styles.checkRow}`}>
-              <input type="checkbox" name="feature" value={label} />
+              <input type="checkbox" name="feature" value={label} disabled />
               {label}
             </label>
           ))}
@@ -231,7 +372,7 @@ function FilterSidebar({ t }: { t: Messages }) {
           <legend className="typeBodySmall">{t.tools.modelLegend}</legend>
           {models.map((label) => (
             <label key={label} className={`typeCaption ${styles.checkRow}`}>
-              <input type="checkbox" name="model" value={label} />
+              <input type="checkbox" name="model" value={label} disabled />
               {label}
             </label>
           ))}
@@ -242,7 +383,7 @@ function FilterSidebar({ t }: { t: Messages }) {
           <legend className="typeBodySmall">{t.tools.sortLegend}</legend>
           {sortOptions.map((label, index) => (
             <label key={label} className={`typeCaption ${styles.checkRow}`}>
-              <input type="radio" name="sort" value={label} defaultChecked={index === 0} />
+              <input type="radio" name="sort" value={label} defaultChecked={index === 0} disabled />
               {label}
             </label>
           ))}

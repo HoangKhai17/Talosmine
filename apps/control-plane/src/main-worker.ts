@@ -30,8 +30,27 @@ async function bootstrap(): Promise<void> {
 
   logger.log('Control Plane worker đã khởi động (chưa có job nào — job đầu tiên ở P5).');
 
+  /**
+   * GIỮ TIẾN TRÌNH SỐNG.
+   *
+   * `process.on(...)` KHÔNG giữ Node sống — đăng ký handler không phải là việc đang chờ.
+   * Chưa có job nào nên event loop rỗng ngay sau dòng log trên, và tiến trình thoát với mã 0.
+   *
+   * VÌ SAO KHÔNG AI THẤY LỖI NÀY TRƯỚC ĐÓ: ở dev, `tsx watch` giữ tiến trình sống hộ. Lỗi
+   * chỉ lộ ra khi chạy trong container — worker in "đã khởi động" rồi thoát, và
+   * `restart: unless-stopped` khởi động lại vô tận. Đã gặp thật ngày 2026-08-19.
+   *
+   * Timer là cách giữ sống DUY NHẤT đáng tin: một Promise không bao giờ resolve cũng không
+   * giữ được event loop nếu không có I/O nào đang chờ.
+   *
+   * KHI P5 THÊM JOB THẬT (scheduler, queue consumer) thì chính chúng giữ tiến trình sống và
+   * dòng này nên được gỡ. Để lại lúc đó là một timer vô nghĩa chạy mãi.
+   */
+  const keepAlive = setInterval(() => {}, 1 << 30);
+
   const shutdown = async (signal: string): Promise<void> => {
     logger.log(`Nhận ${signal}, đang tắt worker...`);
+    clearInterval(keepAlive);
     await app.close();
     process.exit(0);
   };

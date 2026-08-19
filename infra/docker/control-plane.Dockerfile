@@ -57,6 +57,30 @@ COPY apps/control-plane apps/control-plane
 RUN pnpm --filter @talosmine/control-plane run build
 
 # ─────────────────────────────────────────────────────────────────────────────
+# migrate — image RIÊNG chỉ để áp migration, chạy một lần rồi thoát.
+#
+# VÌ SAO KHÔNG GỘP VÀO `runner`: stage `prod-deps` cố ý không có `drizzle-kit` (xem ghi chú
+# ở đó). Migration cần quyền DDL và một session ổn định nối THẲNG PostgreSQL, còn container
+# runtime chạy bằng role không có CREATE/ALTER/DROP và đi qua pooler. Gộp hai thứ vào một
+# image là mở đường chạy DDL từ chỗ không được phép.
+#
+# Image này dựng từ stage `deps` nên có đủ devDependency. Nó KHÔNG được deploy như một
+# service chạy dài — compose gọi nó một lần với `restart: "no"` rồi để nó thoát.
+FROM deps AS migrate
+WORKDIR /app/apps/control-plane
+
+# `drizzle.config.ts` đọc `MIGRATION_DATABASE_URL` từ môi trường; thiếu là nó tự ném lỗi
+# với thông điệp rõ ràng, nên không cần kiểm lại ở đây.
+COPY apps/control-plane/drizzle.config.ts ./
+COPY apps/control-plane/drizzle ./drizzle
+# `schema: './src/**/schema.ts'` trong config — `drizzle-kit migrate` không đọc schema
+# (chỉ `generate` mới cần), nhưng thiếu thư mục thì glob báo lỗi trước khi kịp chạy.
+COPY apps/control-plane/src ./src
+
+USER node
+CMD ["node_modules/.bin/drizzle-kit", "migrate"]
+
+# ─────────────────────────────────────────────────────────────────────────────
 # runner — least privilege.
 FROM base AS runner
 ENV NODE_ENV=production

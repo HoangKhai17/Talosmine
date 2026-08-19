@@ -181,10 +181,9 @@ export function fallbackNav(locale: Locale): SiteNav {
   return {
     'header.primary': [
       { id: 'fallback-tools', label: t.nav.tools, href: '/tools' },
-      // Trang kết nối ví Cardano. Có mặt trong menu DỰ PHÒNG chứ không chỉ trong CMS: bản
-      // demo Catalyst deploy KHÔNG kèm Control Plane, nên menu người chấm nhìn thấy chính là
-      // menu này. Thiếu ở đây là trang tồn tại mà không ai tới được.
-      { id: 'fallback-wallet', label: t.nav.wallet, href: '/wallet' },
+      // KHÔNG có mục ví ở đây có chủ đích: kết nối ví là một hành động, không phải một đích
+      // điều hướng, nên nó là nút ở khu tài khoản của header (`components/wallet/wallet-menu`).
+      // Trang `/wallet` vẫn còn — nó giữ phần gửi ADA — và hộp thoại ví có link sang đó.
       { id: 'fallback-blog', label: t.nav.blog, href: '/blog' },
       { id: 'fallback-contact', label: t.nav.contact, href: '/contact' },
     ],

@@ -1,0 +1,49 @@
+/* Khung nhúng Omni.
+
+   CHIỀU CAO DO CHÍNH IFRAME BÁO VỀ qua `CHANGE_HEIGHT` — không đặt cứng ở đây, nếu không nội
+   dung dài sẽ bị cắt hoặc để lại một khoảng trắng lớn. */
+
+.wrap {
+  position: relative;
+
+  /* KHÔNG GIỚI HẠN BỀ NGANG. Đã thử bó lại 46rem và chủ dự án yêu cầu trả lại (2026-08-19):
+     khung phải giữ đúng tỉ lệ cũ, chiếm trọn cột nội dung.
+
+     `min-width: 0` vẫn cần — cùng bài học từ bản vá tràn ngang của `/admin`: phần tử con
+     không khai điều này sẽ giữ sàn theo kích thước nội dung và đẩy cả trang cuộn ngang trên
+     màn hình hẹp. */
+  width: 100%;
+  min-width: 0;
+
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background-color: var(--color-bg-primary);
+
+  /* Bóng rất nhẹ để khung nổi khỏi nền trang. Dùng màu chữ chính pha loãng thay vì đen thuần
+     — bảng màu của dự án là xanh lá trên nền trắng ngà, bóng đen thuần trông bẩn. */
+  box-shadow:
+    0 1px 2px rgb(13 31 45 / 4%),
+    0 8px 24px rgb(13 31 45 / 6%);
+}
+
+.frame {
+  display: block;
+  width: 100%;
+  border: none;
+
+  /* Nền trắng trong lúc chờ: mặc định iframe trong suốt, nên nếu không đặt thì trong khoảnh
+     khắc đầu người dùng thấy nền trang xuyên qua khung. */
+  background-color: var(--color-bg-primary);
+}
+
+/* Chữ chờ nằm dưới iframe và bị nó che khi nội dung vẽ xong. `pointer-events: none` để nó
+   không chặn thao tác nếu vì lý do nào đó vẫn còn hiển thị. */
+.loading {
+  position: absolute;
+  inset-block-start: var(--space-6);
+  inset-inline: 0;
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+}

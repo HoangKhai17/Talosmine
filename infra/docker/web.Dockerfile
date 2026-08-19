@@ -74,6 +74,11 @@ ENV HOSTNAME=0.0.0.0
 COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=prod-deps --chown=node:node /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=build --chown=node:node /app/apps/web/.next ./apps/web/.next
+# `public/` LÀ BẮT BUỘC, không phải tuỳ chọn: `next start` phục vụ tài sản tĩnh (ảnh minh hoạ
+# sản phẩm, favicon, robots.txt) TỪ THƯ MỤC NÀY lúc chạy — chúng không được gói vào `.next`.
+# Thiếu dòng này thì mọi ảnh trả 404 CHỈ Ở BẢN CONTAINER, còn `pnpm dev` và `next start` trên
+# máy vẫn đúng vì thư mục nằm sẵn đó. Đã dính đúng lỗi này ngày 2026-08-19.
+COPY --chown=node:node apps/web/public ./apps/web/public
 COPY --chown=node:node apps/web/package.json apps/web/next.config.ts ./apps/web/
 
 USER node

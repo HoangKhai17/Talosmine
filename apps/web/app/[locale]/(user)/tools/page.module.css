@@ -467,3 +467,33 @@
   height: 100%;
   object-fit: cover;
 }
+
+/* Danh mục đang được chọn. `aria-current` là phần máy đọc; đây là phần mắt nhìn — cả hai
+ * đều cần, một mình màu nền thì người dùng trình đọc màn hình không biết đang lọc gì. */
+.stripTab[data-selected] {
+  border-color: var(--color-green-primary);
+  background-color: var(--color-green-primary);
+  color: var(--color-text-inverse);
+}
+
+/* `.stripTab` giờ là `<a>` chứ không phải `<button>` — bỏ gạch chân mặc định của link. */
+.stripTab {
+  text-decoration: none;
+}
+
+.emptyState {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-8) 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.resultCount {
+  margin: 0;
+  text-align: center;
+}
+
+.filterNote {
+  margin: 0;
+}

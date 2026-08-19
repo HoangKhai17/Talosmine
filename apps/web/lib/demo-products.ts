@@ -67,11 +67,15 @@ const OMNI = 'https://www.omnicalculator.com/embed';
 const IMG = '/demo-tools';
 
 /**
- * Bảy công cụ, chọn theo MỘT tệp người dùng: người bán hàng online.
+ * Mười lăm công cụ, chọn theo MỘT tệp người dùng: người bán hàng và doanh nghiệp nhỏ.
  *
- * Cố ý không lấy máy tính BMI hay công cụ tổng quát: lưu lượng chúng kéo về là đám đông không
- * liên quan. Bảy mục dưới đây đều nằm trong quy trình thật của một người bán hàng — tính giá,
- * tính chiết khấu, tính hoà vốn, tính hoa hồng.
+ * Cố ý không lấy máy tính BMI hay công cụ tổng quát — Omni CÓ những thứ đó và chúng nhúng
+ * được, nhưng lưu lượng chúng kéo về là đám đông không liên quan tới thứ Hub bán. Mọi mục
+ * dưới đây đều nằm trong quy trình thật của một người bán hàng hoặc chủ doanh nghiệp nhỏ:
+ * định giá, chiết khấu, hoà vốn, hoa hồng, vay vốn, trả lương.
+ *
+ * MỖI `iframeSrc` PHẢI ĐƯỢC KIỂM TRƯỚC KHI THÊM — xem phát hiện số 3 ở đầu file. Cả mười lăm
+ * mục đã đo `curl -sI .../embed/<slug>` trả 200 và không có `x-frame-options`.
  */
 export const DEMO_PRODUCTS: DemoProduct[] = [
   {
@@ -151,6 +155,95 @@ export const DEMO_PRODUCTS: DemoProduct[] = [
     image: `${IMG}/tinh-phan-tram.svg`,
     iframeSrc: `${OMNI}/math/percentage`,
   },
+
+  {
+    key: 'tinh-gia-ban',
+    title: { vi: 'Tính giá bán theo mức lãi', en: 'Markup' },
+    description: {
+      vi: 'Từ giá vốn và mức lãi mong muốn, ra giá niêm yết.',
+      en: 'Turn cost price and target markup into a list price.',
+    },
+    category: { vi: 'Kinh doanh', en: 'Business' },
+    image: `${IMG}/tinh-gia-ban.svg`,
+    iframeSrc: `${OMNI}/finance/markup`,
+  },
+  {
+    key: 'tinh-loi-nhuan',
+    title: { vi: 'Tính lợi nhuận', en: 'Profit' },
+    description: {
+      vi: 'Doanh thu trừ chi phí — số tiền thực sự còn lại.',
+      en: 'Revenue minus costs — what you actually keep.',
+    },
+    category: { vi: 'Kinh doanh', en: 'Business' },
+    image: `${IMG}/tinh-loi-nhuan.svg`,
+    iframeSrc: `${OMNI}/finance/profit`,
+  },
+  {
+    key: 'tinh-khoan-vay',
+    title: { vi: 'Tính khoản vay trả góp', en: 'Loan' },
+    description: {
+      vi: 'Số tiền phải trả mỗi kỳ cho một khoản vay kinh doanh.',
+      en: 'The repayment due each period on a business loan.',
+    },
+    category: { vi: 'Tài chính', en: 'Finance' },
+    image: `${IMG}/tinh-khoan-vay.svg`,
+    iframeSrc: `${OMNI}/finance/loan`,
+  },
+  {
+    key: 'tinh-lai-kep',
+    title: { vi: 'Tính lãi kép', en: 'Compound interest' },
+    description: {
+      vi: 'Một khoản vốn lớn lên thế nào khi lãi được nhập gốc.',
+      en: 'How a balance grows when interest is reinvested.',
+    },
+    category: { vi: 'Tài chính', en: 'Finance' },
+    image: `${IMG}/tinh-lai-kep.svg`,
+    iframeSrc: `${OMNI}/finance/compound-interest`,
+  },
+  {
+    key: 'tinh-tiet-kiem',
+    title: { vi: 'Lập kế hoạch tiết kiệm', en: 'Savings' },
+    description: {
+      vi: 'Cần để dành bao nhiêu mỗi tháng để đạt một mục tiêu.',
+      en: 'How much to set aside each month to hit a goal.',
+    },
+    category: { vi: 'Tài chính', en: 'Finance' },
+    image: `${IMG}/tinh-tiet-kiem.svg`,
+    iframeSrc: `${OMNI}/finance/savings`,
+  },
+  {
+    key: 'tinh-luong',
+    title: { vi: 'Quy đổi lương', en: 'Salary' },
+    description: {
+      vi: 'Đổi qua lại giữa lương giờ, lương tháng và lương năm.',
+      en: 'Convert between hourly, monthly and yearly pay.',
+    },
+    category: { vi: 'Nhân sự', en: 'People' },
+    image: `${IMG}/tinh-luong.svg`,
+    iframeSrc: `${OMNI}/finance/salary`,
+  },
+  {
+    key: 'tinh-gio-cong',
+    title: { vi: 'Tính giờ công', en: 'Time card' },
+    description: {
+      vi: 'Cộng giờ làm trong kỳ để tính công cho nhân viên.',
+      en: 'Add up hours worked in a period to calculate pay.',
+    },
+    category: { vi: 'Nhân sự', en: 'People' },
+    image: `${IMG}/tinh-gio-cong.svg`,
+    iframeSrc: `${OMNI}/everyday-life/time-card`,
+  },
+  {
+    key: 'tinh-thay-doi-phan-tram',
+    title: { vi: 'Tính mức thay đổi phần trăm', en: 'Percentage change' },
+    description: {
+      vi: 'Doanh số tháng này so tháng trước tăng hay giảm bao nhiêu.',
+      en: 'How much this month rose or fell against the last.',
+    },
+    category: { vi: 'Tiện ích', en: 'Utilities' },
+    image: `${IMG}/tinh-thay-doi-phan-tram.svg`,
+    iframeSrc: `${OMNI}/math/percentage-change`,
+  },
 ];
 
 /** Một danh mục cùng số công cụ thuộc về nó. */
@@ -181,6 +274,66 @@ export function demoCategories(): DemoCategory[] {
   }
 
   return Array.from(seen.values());
+}
+
+/**
+ * Lọc danh sách theo danh mục và từ khoá.
+ *
+ * SO KHỚP DANH MỤC BẰNG KHOÁ TIẾNG VIỆT, vì đó là khoá gộp mà `demoCategories()` dùng. Nhờ
+ * vậy một link `?category=Kinh doanh` chia sẻ được giữa hai ngôn ngữ: mở ở `/en` vẫn ra đúng
+ * nhóm đó, chỉ nhãn hiển thị đổi. Nếu khớp theo nhãn đang hiển thị thì link sẽ chết ngay khi
+ * người nhận xem ở ngôn ngữ khác.
+ *
+ * TÌM KIẾM SO KHỚP CẢ HAI NGÔN NGỮ, không chỉ ngôn ngữ đang xem: người Việt gõ "vat" hay
+ * "margin" là chuyện thường, và chặn họ lại chẳng được lợi gì.
+ *
+ * BỎ DẤU TRƯỚC KHI SO KHỚP. Người Việt gõ không dấu là chuyện bình thường — "luong", "hoa
+ * hong", "thue" — và trước khi có bước này thì "luong" trả về RỖNG trong khi "lương" trả về
+ * hai kết quả. Bỏ dấu cả hai vế làm hai cách gõ cho cùng một kết quả.
+ */
+
+/**
+ * Bỏ dấu tiếng Việt để so khớp.
+ *
+ * `NFD` tách nguyên âm khỏi dấu thanh rồi xoá phần dấu — xử lý được à/á/ả/ã/ạ, ă, â, ê, ô, ơ, ư.
+ * NHƯNG `đ` KHÔNG PHẢI nguyên âm có dấu phụ: nó là một chữ cái riêng trong Unicode và `NFD`
+ * không tách nó ra. Phải thay tay, nếu không "dong ho" sẽ không khớp "đồng hồ".
+ */
+function stripDiacritics(value: string): string {
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+}
+/** Hạ chữ theo locale rồi bỏ dấu — dùng cho CẢ hai vế của phép so khớp. */
+function normalize(value: string): string {
+  return stripDiacritics(value.trim().toLocaleLowerCase());
+}
+
+export function filterDemoProducts(input: {
+  category?: string | undefined;
+  query?: string | undefined;
+}): DemoProduct[] {
+  const category = input.category?.trim();
+  const query = input.query === undefined ? undefined : normalize(input.query);
+
+  return DEMO_PRODUCTS.filter((product) => {
+    if (category !== undefined && category !== '' && product.category.vi !== category) {
+      return false;
+    }
+
+    if (query === undefined || query === '') return true;
+
+    const haystack = normalize(
+      [
+        product.title.vi,
+        product.title.en,
+        product.description.vi,
+        product.description.en,
+        product.category.vi,
+        product.category.en,
+      ].join(' '),
+    );
+
+    return haystack.includes(query);
+  });
 }
 
 /** Tra một sản phẩm theo `key`. Trả `undefined` nếu không có — caller tự quyết 404. */

@@ -335,3 +335,56 @@
       border-color 150ms ease;
   }
 }
+
+/* Chỗ giữ nhịp cho nút ví trong lúc bundle của nó đang tải (`ssr: false`).
+ * Kích thước khớp `.trigger` ở `wallet-menu.module.css` — mục đích duy nhất là để header
+ * không nhảy một nhịp khi nút thật xuất hiện. */
+.walletButtonPlaceholder {
+  display: inline-block;
+  width: 8.5rem;
+  height: calc(var(--space-5) + var(--space-4));
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-secondary);
+}
+
+/* Bộ đổi ngôn ngữ. Nút phụ, cố ý KHÔNG dùng gradient của nút chính — nút chính trong khu
+ * này là "Kết nối ví", và hai nút cùng độ nổi bật thì không còn nút nào nổi bật. */
+.localeSelect {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-button-secondary);
+  color: var(--color-button-secondary-text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.localeSelect:hover {
+  border-color: var(--color-border-hover);
+}
+
+/* Nút "Đăng nhập" — NÚT PHỤ của hệ thống (`--color-button-secondary`), đứng giữa ô chọn
+ * ngôn ngữ và nút "Kết nối ví".
+ *
+ * Nền trắng nên PHẢI có viền: header cũng nền trắng, bỏ viền là nút biến mất hoàn toàn.
+ * Đây là điểm khác duy nhất so với token — token chỉ khai màu nền và màu chữ, không khai
+ * viền, vì nút phụ ở trên nền màu thì không cần. */
+.signInButton {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-button-secondary);
+  color: var(--color-button-secondary-text);
+  /* Weight 700 để cùng họ với `.navLink` và nút ví bên cạnh. */
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.signInButton:hover {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-bg-secondary);
+}

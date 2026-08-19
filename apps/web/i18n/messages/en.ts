@@ -12,6 +12,7 @@ import type { Messages } from './vi';
  */
 export const en = {
   a11y: {
+    language: 'Choose a language',
     skipToContent: 'Skip to main content',
     primaryNav: 'Main navigation',
     breadcrumb: 'Breadcrumb',
@@ -167,6 +168,10 @@ export const en = {
   },
 
   wallet: {
+    menuConnect: 'Connect wallet',
+    menuDialogTitle: 'Choose a wallet',
+    menuClose: 'Close',
+    menuManage: 'Open wallet page',
     sendTitle: 'Send test ADA',
     sendLead:
       'Build, sign and submit a real transaction on the Preprod test network. No step goes through a Talosmine server.',
@@ -215,14 +220,21 @@ export const en = {
     canDo2: 'Reconnects the chosen wallet when you reload the page.',
     canDo3: 'Reads the receiving address, balance and network id straight from the wallet.',
     canDo4: 'Blocks actions when the wallet is on mainnet.',
+    canDo5: 'Builds, signs and submits a real transaction on the Preprod testnet.',
     cannotTitle: 'Not included',
     cannotBody:
-      'Signing and submitting transactions, on-chain reconciliation, payments. Those need a backend and an indexer, which is outside the scope of this demo.',
+      'On-chain reconciliation, orders and payment webhooks. Those need a backend and an indexer, which is outside the scope of this demo — the transaction above is submitted by the wallet itself, and the system does not record it.',
   },
 
   tools: {
+    embedLoading: 'Loading the tool…',
+    categoryAll: 'All',
+    resultCount: 'Tools: {count}',
+    noResults: 'No tools match. Try removing a filter or changing the keyword.',
+    filterSubmit: 'Search',
+    filterComingSoon: 'The filters below are not active yet.',
     backToAll: 'All tools',
-    poweredBy: 'This tool is provided by Omni Calculator.',
+    poweredBy: 'Powered by Omni Calculator. See the original tool:',
     breadcrumb: 'Tools',
     title: 'Browse AI tools by category',
     lead: 'Explore a growing collection of AI tools, compare capabilities and find the right fit for each project and workflow.',
