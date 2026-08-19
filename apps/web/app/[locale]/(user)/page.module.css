@@ -241,17 +241,49 @@
   margin-inline-end: var(--space-16);
 }
 
-.marqueeLogo {
+/* Ô ảnh công cụ. Tỉ lệ 16:10 khớp ảnh nguồn 640×400, nên ảnh không bị méo và ô không nhảy
+   kích thước trước khi ảnh tải xong. */
+.marqueeThumb {
   flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--space-12);
-  height: var(--space-12);
-  color: var(--color-text-primary);
+  display: block;
+  width: calc(var(--space-16) + var(--space-8));
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-primary);
+}
+
+.marqueeThumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Cả ô là một vùng bấm. `color: inherit` + bỏ gạch chân để link không tự đổi kiểu chữ. */
+.marqueeLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: inherit;
+  text-decoration: none;
+}
+
+.marqueeLink:hover .marqueeName {
+  text-decoration: underline;
+}
+
+/* Tiêu đề và mô tả xếp dọc cạnh ảnh. `min-width: 0` để mô tả dài không đẩy ô phình ngang. */
+.marqueeCopy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .marqueeName {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-primary);
   white-space: nowrap;
 }
 

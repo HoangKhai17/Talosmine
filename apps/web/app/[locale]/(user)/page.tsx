@@ -4,7 +4,13 @@ import Link from 'next/link';
 import { type Locale, localeHref } from '../../../i18n/locale';
 import { format, type Messages } from '../../../i18n/messages';
 import { localeAlternates, type PageLocaleParams } from '../../../i18n/params';
-import { DEMO_PRODUCTS, demoCategories, pick } from '../../../lib/demo-products';
+import {
+  DEMO_PRODUCTS,
+  type DemoProduct,
+  demoCategories,
+  isVectorImage,
+  pick,
+} from '../../../lib/demo-products';
 import { resolvePageContent } from '../../../server/site-content';
 import { ChevronIcon, ImageIcon, SearchIcon } from './icons';
 import { Newsletter } from './newsletter';
@@ -51,7 +57,6 @@ export async function generateMetadata({ params }: PageLocaleParams): Promise<Me
 // Bảy ô = đúng MỘT chu kỳ nhịp xen kẽ (3+5+4 rồi 3+4+3+2), tức hai hàng đầy.
 
 const NEWS_IDS = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6'];
-const PARTNER_IDS = ['p1', 'p2', 'p3', 'p4', 'p5'];
 
 export default async function UserHomePage({ params }: PageLocaleParams) {
   // `t` đã merge chữ CMS (nếu có) đè lên message catalog — component bên dưới không đổi.
@@ -60,7 +65,7 @@ export default async function UserHomePage({ params }: PageLocaleParams) {
   return (
     <>
       <Hero locale={locale} t={t} />
-      <PartnerMarquee t={t} />
+      <ToolMarquee locale={locale} t={t} />
       <ToolsSection locale={locale} t={t} />
       <CategoriesSection locale={locale} t={t} />
       <WhatsNewSection t={t} />
@@ -139,10 +144,20 @@ function Hero({ locale, t }: { locale: Locale; t: Messages }) {
   );
 }
 
-function PartnerMarquee({ t }: { t: Messages }) {
+/**
+ * Dải chạy ngang — CÔNG CỤ THẬT, không phải logo đối tác giả.
+ *
+ * Trước đây đây là năm ô "Logo · A short partner description will appear here once there is
+ * real content" lặp lại y hệt nhau. Với người xem, một dải chữ giữ chỗ trôi ngang không nói
+ * lên điều gì ngoài việc trang chưa xong.
+ *
+ * Giờ nó chạy ảnh và mô tả ngắn của chính mười lăm công cụ — vừa có nội dung thật, vừa là
+ * chỗ thứ hai người dùng nhìn thấy sản phẩm ngay khi mở trang.
+ */
+function ToolMarquee({ locale, t }: { locale: Locale; t: Messages }) {
   return (
     // TRÀN VIỀN: không bọc `.container` — xem ghi chú ở page.module.css.
-    <section className={styles.marquee} aria-label={t.a11y.partners}>
+    <section className={styles.marquee} aria-label={t.a11y.toolHighlights}>
       <div className={styles.marqueeTrack}>
         {/*
           Danh sách render HAI LẦN, phẳng trong cùng một track. Animation dịch đúng -50%,
@@ -151,26 +166,65 @@ function PartnerMarquee({ t }: { t: Messages }) {
 
           Bản sao mang `aria-hidden` để trình đọc màn hình không đọc lặp toàn bộ nội dung.
         */}
-        {PARTNER_IDS.map((id) => (
-          <PartnerItem key={id} t={t} />
+        {DEMO_PRODUCTS.map((product) => (
+          <MarqueeTool key={product.key} product={product} locale={locale} />
         ))}
-        {PARTNER_IDS.map((id) => (
-          <PartnerItem key={`${id}-copy`} t={t} duplicate />
+        {DEMO_PRODUCTS.map((product) => (
+          <MarqueeTool key={`${product.key}-copy`} product={product} locale={locale} duplicate />
         ))}
       </div>
     </section>
   );
 }
 
-function PartnerItem({ t, duplicate = false }: { t: Messages; duplicate?: boolean }) {
+function MarqueeTool({
+  product,
+  locale,
+  duplicate = false,
+}: {
+  product: DemoProduct;
+  locale: Locale;
+  duplicate?: boolean;
+}) {
   return (
+    /*
+      BẢN SAO KHÔNG PHẢI LINK. `aria-hidden` giấu nó khỏi trình đọc màn hình, nhưng một `<a>`
+      bên trong vùng `aria-hidden` vẫn TAB tới được — người dùng bàn phím sẽ rơi vào một link
+      mà trình đọc màn hình không đọc tên. Vì vậy bản sao render bằng `<div>` trơ.
+    */
     <div className={styles.marqueeItem} {...(duplicate ? { 'aria-hidden': true } : {})}>
-      <span className={styles.marqueeLogo}>
-        <ImageIcon />
-      </span>
-      <p className={`typeH3 ${styles.marqueeName}`}>{t.home.partnerName}</p>
-      <p className={`typeBodySmall ${styles.marqueeText}`}>{t.home.partnerText}</p>
+      {duplicate ? (
+        <MarqueeToolBody product={product} locale={locale} />
+      ) : (
+        <Link className={styles.marqueeLink} href={localeHref(locale, `/tools/${product.key}`)}>
+          <MarqueeToolBody product={product} locale={locale} />
+        </Link>
+      )}
     </div>
+  );
+}
+
+function MarqueeToolBody({ product, locale }: { product: DemoProduct; locale: Locale }) {
+  return (
+    <>
+      <span className={styles.marqueeThumb}>
+        {/* `alt=""`: tên công cụ nằm ngay bên cạnh, chữ thay thế lặp lại chỉ khiến trình đọc
+            màn hình đọc hai lần. */}
+        <Image
+          src={product.image}
+          alt=""
+          width={640}
+          height={400}
+          unoptimized={isVectorImage(product.image)}
+        />
+      </span>
+      <span className={styles.marqueeCopy}>
+        <span className={`typeCardTitle ${styles.marqueeName}`}>{pick(product.title, locale)}</span>
+        <span className={`typeBodySmall ${styles.marqueeText}`}>
+          {pick(product.description, locale)}
+        </span>
+      </span>
+    </>
   );
 }
 
@@ -221,10 +275,10 @@ function ToolsSection({ locale, t }: { locale: Locale; t: Messages }) {
                     {/*
                       `alt=""` có chủ đích: tiêu đề ngay bên dưới đã nói đúng nội dung.
                     
-                      `unoptimized` vì ảnh là SVG. Bộ tối ưu ảnh của Next không xử lý SVG trừ khi bật
-                      `dangerouslyAllowSVG` — một công tắc mở cho MỌI nguồn ảnh, trong khi ở đây chỉ có
-                      vài file tĩnh của chính ta. SVG vốn đã nhẹ và co giãn vô cấp, nên đi qua bộ tối ưu
-                      cũng không được gì. `width`/`height` giữ đúng 640×400 để khung không nhảy.
+                      `unoptimized` SUY RA TỪ ĐUÔI TỆP, không đặt cứng: SVG phải bỏ qua bộ tối ưu (Next
+                      không xử lý SVG trừ khi bật `dangerouslyAllowSVG`, một công tắc mở cho mọi nguồn
+                      ảnh), còn PNG/JPG thì ngược lại, cần bộ tối ưu để có bản đúng cỡ màn hình. Nhờ vậy
+                      thay ảnh minh hoạ bằng ảnh thật chỉ là sửa đường dẫn — xem `demo-products.ts`.
                     */}
                     <Image
                       className={styles.thumbImage}
@@ -232,7 +286,7 @@ function ToolsSection({ locale, t }: { locale: Locale; t: Messages }) {
                       alt=""
                       width={640}
                       height={400}
-                      unoptimized
+                      unoptimized={isVectorImage(product.image)}
                     />
                   </div>
                   <div className={styles.cardBody}>

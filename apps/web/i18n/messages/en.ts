@@ -16,7 +16,7 @@ export const en = {
     skipToContent: 'Skip to main content',
     primaryNav: 'Main navigation',
     breadcrumb: 'Breadcrumb',
-    partners: 'Partners',
+    toolHighlights: 'Featured tools',
     results: 'Results',
     filters: 'Filters',
     searchTools: 'Search tools',
@@ -68,6 +68,7 @@ export const en = {
   },
 
   nav: {
+    resources: 'Resources',
     wallet: 'Cardano wallet',
     tools: 'Tools',
     blog: 'Blog',
@@ -107,6 +108,7 @@ export const en = {
   },
 
   meta: {
+    resources: 'Kolo — Resources',
     home: 'Kolo — Discover tools to build and grow',
     tools: 'Kolo — Browse tools by category',
     blog: 'Kolo — Blog',
@@ -314,6 +316,9 @@ export const en = {
   },
 
   comingSoon: {
+    resourcesTitle: 'Resources',
+    resourcesDescription:
+      'Guides, templates and documentation to help you get more out of the tools.',
     body: 'This section has not been built yet. The application catalogue belongs to a later stage and still depends on the Hub application list being decided.',
     categoriesTitle: 'Categories',
     categoriesDescription: 'Groups of tools organised by what you use them for.',

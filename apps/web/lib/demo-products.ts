@@ -66,6 +66,21 @@ const OMNI = 'https://www.omnicalculator.com/embed';
  */
 const IMG = '/demo-tools';
 
+/*
+ * ─────────────────────────────────────────────────────────────────────────────────────────
+ * THAY ẢNH MINH HOẠ BẰNG ẢNH THẬT
+ * ─────────────────────────────────────────────────────────────────────────────────────────
+ *
+ * Ảnh hiện tại là SVG minh hoạ phẳng — đủ để bố cục không trống, KHÔNG phải ảnh sản phẩm.
+ *
+ * Để thay: đặt file vào `apps/web/public/demo-tools/` rồi sửa `image` của mục tương ứng
+ * bên dưới. Nhận mọi định dạng `next/image` đọc được (PNG, JPG, WebP, AVIF, SVG) — phần
+ * `unoptimized` tự suy ra từ đuôi tệp qua `isVectorImage`, không phải sửa component nào.
+ *
+ * Tỉ lệ nên là 16:10 (ví dụ 1280×800). Lệch tỉ lệ vẫn chạy — `object-fit: cover` sẽ cắt —
+ * nhưng phần bị cắt là phần rìa, nên chủ thể phải nằm giữa khung.
+ */
+
 /**
  * Mười lăm công cụ, chọn theo MỘT tệp người dùng: người bán hàng và doanh nghiệp nhỏ.
  *
@@ -352,6 +367,23 @@ export function findDemoProduct(key: string): DemoProduct | undefined {
 export const DEMO_FRAME_ORIGINS: string[] = Array.from(
   new Set(DEMO_PRODUCTS.map((product) => new URL(product.iframeSrc).origin)),
 );
+
+/**
+ * Ảnh này có phải ảnh vector (SVG) không?
+ *
+ * QUAN TRỌNG VỚI `next/image`: bộ tối ưu ảnh của Next KHÔNG xử lý SVG trừ khi bật
+ * `dangerouslyAllowSVG` — một công tắc mở cho MỌI nguồn ảnh, kể cả URL do người dùng nhập.
+ * Vì vậy ảnh SVG phải đi kèm `unoptimized`.
+ *
+ * Ảnh raster (PNG/JPG/WebP) thì NGƯỢC LẠI: chúng cần bộ tối ưu để có bản đúng kích thước
+ * màn hình. Đặt `unoptimized` cho chúng là bắt người dùng di động tải ảnh cỡ desktop.
+ *
+ * Vì vậy cờ đó phải suy ra từ ĐUÔI TỆP, không đặt cứng. Nhờ vậy thay một file `.svg` bằng
+ * `.png` là chỉ sửa đường dẫn trong bảng dưới — không phải sửa ba component đang render nó.
+ */
+export function isVectorImage(src: string): boolean {
+  return src.toLowerCase().endsWith('.svg');
+}
 
 /** Đọc một trường song ngữ theo locale đang xem. */
 export function pick(value: Localized, locale: string): string {

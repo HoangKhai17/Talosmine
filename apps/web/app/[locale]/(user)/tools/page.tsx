@@ -10,6 +10,7 @@ import {
   type DemoProduct,
   demoCategories,
   filterDemoProducts,
+  isVectorImage,
   pick,
 } from '../../../../lib/demo-products';
 import { resolvePageContent } from '../../../../server/site-content';
@@ -401,10 +402,9 @@ function ToolCard({ product, locale, t }: { product: DemoProduct; locale: Locale
           {/*
             `alt=""` có chủ đích: tiêu đề ngay bên dưới đã nói đúng nội dung.
           
-            `unoptimized` vì ảnh là SVG. Bộ tối ưu ảnh của Next không xử lý SVG trừ khi bật
-            `dangerouslyAllowSVG` — một công tắc mở cho MỌI nguồn ảnh, trong khi ở đây chỉ có
-            vài file tĩnh của chính ta. SVG vốn đã nhẹ và co giãn vô cấp, nên đi qua bộ tối ưu
-            cũng không được gì. `width`/`height` giữ đúng 640×400 để khung không nhảy.
+            `unoptimized` SUY RA TỪ ĐUÔI TỆP, không đặt cứng — xem `isVectorImage`. SVG phải bỏ
+            qua bộ tối ưu; PNG/JPG thì cần nó. `width`/`height` giữ đúng 640×400 để khung không
+            nhảy trước khi ảnh tải xong.
           */}
           <Image
             className={styles.thumbImage}
@@ -412,7 +412,7 @@ function ToolCard({ product, locale, t }: { product: DemoProduct; locale: Locale
             alt=""
             width={640}
             height={400}
-            unoptimized
+            unoptimized={isVectorImage(product.image)}
           />
         </div>
 

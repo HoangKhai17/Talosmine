@@ -23,7 +23,7 @@ export const vi = {
     skipToContent: 'Bỏ qua tới nội dung chính',
     primaryNav: 'Điều hướng chính',
     breadcrumb: 'Đường dẫn',
-    partners: 'Đối tác',
+    toolHighlights: 'Công cụ nổi bật',
     results: 'Kết quả',
     filters: 'Bộ lọc',
     searchTools: 'Tìm kiếm công cụ',
@@ -75,6 +75,7 @@ export const vi = {
   },
 
   nav: {
+    resources: 'Tài nguyên',
     wallet: 'Ví Cardano',
     tools: 'Công cụ',
     blog: 'Blog',
@@ -130,6 +131,7 @@ export const vi = {
   },
 
   meta: {
+    resources: 'Kolo — Tài nguyên',
     home: 'Kolo — Khám phá công cụ để xây dựng và phát triển',
     tools: 'Kolo — Duyệt công cụ theo danh mục',
     blog: 'Kolo — Blog',
@@ -335,6 +337,8 @@ export const vi = {
   },
 
   comingSoon: {
+    resourcesTitle: 'Tài nguyên',
+    resourcesDescription: 'Hướng dẫn, mẫu và tài liệu giúp bạn dùng công cụ hiệu quả hơn.',
     body: 'Phần này chưa được xây dựng. Danh mục ứng dụng thuộc giai đoạn sau và còn chờ chốt danh sách ứng dụng của Hub.',
     categoriesTitle: 'Danh mục',
     categoriesDescription: 'Các nhóm công cụ được phân loại theo mục đích sử dụng.',

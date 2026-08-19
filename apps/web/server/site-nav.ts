@@ -184,6 +184,7 @@ export function fallbackNav(locale: Locale): SiteNav {
       // KHÔNG có mục ví ở đây có chủ đích: kết nối ví là một hành động, không phải một đích
       // điều hướng, nên nó là nút ở khu tài khoản của header (`components/wallet/wallet-menu`).
       // Trang `/wallet` vẫn còn — nó giữ phần gửi ADA — và hộp thoại ví có link sang đó.
+      { id: 'fallback-resources', label: t.nav.resources, href: '/resources' },
       { id: 'fallback-blog', label: t.nav.blog, href: '/blog' },
       { id: 'fallback-contact', label: t.nav.contact, href: '/contact' },
     ],
