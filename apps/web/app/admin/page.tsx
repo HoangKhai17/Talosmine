@@ -92,37 +92,35 @@ export default function AdminAccountsPage() {
 
       {results !== null && results.length > 0 ? (
         <AdminTable>
-            <AdminTableCaption className="typeBodySmall">
-              {results.length} kết quả
-            </AdminTableCaption>
-            <thead>
-              <tr>
-                <AdminTableHeadCell scope="col">Email</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">Ngày tạo</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">
-                  <span className="visuallyHidden">Hành động</span>
-                </AdminTableHeadCell>
-              </tr>
-            </thead>
-            <tbody>
-              {results.map((account) => (
-                <AdminTableBodyRow key={account.id}>
-                  <AdminTableCell className={styles.mono}>{account.email ?? '—'}</AdminTableCell>
-                  <AdminTableCell>{account.displayName ?? '—'}</AdminTableCell>
-                  <AdminTableCell>
-                    <span className={styles.tag}>{statusLabel(account.status)}</span>
-                  </AdminTableCell>
-                  <AdminTableCell>{formatDate(account.createdAt)}</AdminTableCell>
-                  <AdminTableCell>
-                    <Link className="typeBodySmall" href={`/admin/accounts/${account.id}`}>
-                      Xem chi tiết
-                    </Link>
-                  </AdminTableCell>
-                </AdminTableBodyRow>
-              ))}
-            </tbody>
+          <AdminTableCaption className="typeBodySmall">{results.length} kết quả</AdminTableCaption>
+          <thead>
+            <tr>
+              <AdminTableHeadCell scope="col">Email</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">Ngày tạo</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">
+                <span className="visuallyHidden">Hành động</span>
+              </AdminTableHeadCell>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((account) => (
+              <AdminTableBodyRow key={account.id}>
+                <AdminTableCell className={styles.mono}>{account.email ?? '—'}</AdminTableCell>
+                <AdminTableCell>{account.displayName ?? '—'}</AdminTableCell>
+                <AdminTableCell>
+                  <span className={styles.tag}>{statusLabel(account.status)}</span>
+                </AdminTableCell>
+                <AdminTableCell>{formatDate(account.createdAt)}</AdminTableCell>
+                <AdminTableCell>
+                  <Link className="typeBodySmall" href={`/admin/accounts/${account.id}`}>
+                    Xem chi tiết
+                  </Link>
+                </AdminTableCell>
+              </AdminTableBodyRow>
+            ))}
+          </tbody>
         </AdminTable>
       ) : null}
     </div>

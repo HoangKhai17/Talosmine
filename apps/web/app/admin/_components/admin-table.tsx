@@ -14,11 +14,7 @@ export function AdminTable({
 }: AdminTableProps) {
   const wrapperClassName =
     presentation === 'plain' ? `${styles.wrapper} ${styles.plain}` : styles.wrapper;
-  const tableClassName = [
-    'typeBodySmall',
-    styles.table,
-    styles[minWidth],
-  ]
+  const tableClassName = ['typeBodySmall', styles.table, styles[minWidth]]
     .filter(Boolean)
     .join(' ');
 
@@ -37,10 +33,7 @@ type CaptionProps = ComponentPropsWithoutRef<'caption'> & { unstyled?: boolean }
 
 export function AdminTableCaption({ className, unstyled = false, ...props }: CaptionProps) {
   return (
-    <caption
-      className={classNames(unstyled ? undefined : styles.caption, className)}
-      {...props}
-    />
+    <caption className={classNames(unstyled ? undefined : styles.caption, className)} {...props} />
   );
 }
 

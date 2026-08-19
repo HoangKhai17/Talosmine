@@ -41,6 +41,14 @@ export interface ControlPlaneRequest {
    * phần lớn lời gọi qua ranh giới này (trang admin đọc dữ liệu…) không cần theo dõi riêng.
    */
   readonly correlationId?: string | undefined;
+
+  /**
+   * Ghi đè tín hiệu huỷ. Bỏ trống thì dùng trần thời gian mặc định.
+   *
+   * Có mặt để lời gọi nào thật sự cần chờ lâu hơn (tải file lớn) tự khai, thay vì phải nới
+   * trần chung cho mọi lời gọi.
+   */
+  readonly signal?: AbortSignal | undefined;
 }
 
 /**
@@ -55,6 +63,9 @@ export interface ControlPlaneRequest {
  * (`shared/correlation.ts`). Không có nó thì mọi audit event do lời gọi qua ranh giới này
  * tạo ra chỉ có một ID tự sinh ở phía Control Plane, không nối lại được với log phía BFF.
  */
+/** Trần thời gian cho MỌI lời gọi sang Control Plane. Xem ghi chú trong `callControlPlane`. */
+const CONTROL_PLANE_TIMEOUT_MS = 5_000;
+
 export async function callControlPlane(request: ControlPlaneRequest): Promise<Response> {
   const env = readServerEnv();
   const baseUrl = env.CONTROL_PLANE_BASE_URL;
@@ -74,5 +85,19 @@ export async function callControlPlane(request: ControlPlaneRequest): Promise<Re
     headers,
     ...(request.body !== undefined ? { body: request.body } : {}),
     cache: 'no-store',
+    // TIMEOUT BẮT BUỘC — `fetch` không có `signal` sẽ chờ tới hạn của hệ điều hành, tính bằng
+    // phút.
+    //
+    // Vì sao nó quan trọng hơn vẻ ngoài: bốn thứ render ở MỌI trang công khai (menu, cấu hình
+    // site, logo, khe nội dung) đều đi qua đây và đều có đường rơi về giá trị mặc định. Nhưng
+    // đường rơi đó chỉ chạy SAU khi fetch kết thúc — nên Control Plane chết thì trang không
+    // hỏng, nó chỉ TREO. Đo được trên máy dev lúc Control Plane tắt: `GET /en 200 in 24.8s`.
+    //
+    // Trên hạ tầng serverless, 24 giây vượt trần thời gian của function → người dùng nhận 500
+    // thay vì trang có menu mặc định. Chặn nhanh rồi rơi về mặc định luôn tốt hơn chờ lâu rồi
+    // rơi về đúng chỗ đó.
+    //
+    // 5 giây: đủ rộng cho một lời gọi nội mạng chậm, đủ hẹp để người dùng không bỏ đi.
+    signal: request.signal ?? AbortSignal.timeout(CONTROL_PLANE_TIMEOUT_MS),
   });
 }

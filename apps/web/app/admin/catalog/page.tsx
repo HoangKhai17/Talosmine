@@ -141,46 +141,44 @@ export default function AdminCatalogPage() {
               </p>
             ) : (
               <AdminTable minWidth="wide">
-                  <AdminTableCaption className="typeBodySmall">
-                    {applications.length} ứng dụng ·{' '}
-                    {applications.filter((a) => a.status === 'active').length} đang hoạt động
-                  </AdminTableCaption>
-                  <thead>
-                    <tr>
-                      <AdminTableHeadCell scope="col">Mã</AdminTableHeadCell>
-                      <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
-                      <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
-                      <AdminTableHeadCell scope="col">URL mở ứng dụng</AdminTableHeadCell>
-                      <AdminTableHeadCell scope="col">
-                        <span className="visuallyHidden">Hành động</span>
-                      </AdminTableHeadCell>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {applications.map((application) => (
-                      <AdminTableBodyRow key={application.id}>
-                        <AdminTableCell className={styles.mono}>
-                          {application.key}
-                        </AdminTableCell>
-                        <AdminTableCell>{application.displayName}</AdminTableCell>
-                        <AdminTableCell>
-                          <StatusBadge status={application.status} />
-                        </AdminTableCell>
-                        {/* URL dài không được đẩy bảng tràn ngang — xem `.urlCell`. */}
-                        <AdminTableCell className={`${styles.mono} ${styles.urlCell}`}>
-                          {application.launchUrl}
-                        </AdminTableCell>
-                        <AdminTableCell>
-                          <Link
-                            className={`typeBodySmall ${styles.link}`}
-                            href={`/admin/catalog/${application.id}`}
-                          >
-                            Quản lý
-                          </Link>
-                        </AdminTableCell>
-                      </AdminTableBodyRow>
-                    ))}
-                  </tbody>
+                <AdminTableCaption className="typeBodySmall">
+                  {applications.length} ứng dụng ·{' '}
+                  {applications.filter((a) => a.status === 'active').length} đang hoạt động
+                </AdminTableCaption>
+                <thead>
+                  <tr>
+                    <AdminTableHeadCell scope="col">Mã</AdminTableHeadCell>
+                    <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
+                    <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+                    <AdminTableHeadCell scope="col">URL mở ứng dụng</AdminTableHeadCell>
+                    <AdminTableHeadCell scope="col">
+                      <span className="visuallyHidden">Hành động</span>
+                    </AdminTableHeadCell>
+                  </tr>
+                </thead>
+                <tbody>
+                  {applications.map((application) => (
+                    <AdminTableBodyRow key={application.id}>
+                      <AdminTableCell className={styles.mono}>{application.key}</AdminTableCell>
+                      <AdminTableCell>{application.displayName}</AdminTableCell>
+                      <AdminTableCell>
+                        <StatusBadge status={application.status} />
+                      </AdminTableCell>
+                      {/* URL dài không được đẩy bảng tràn ngang — xem `.urlCell`. */}
+                      <AdminTableCell className={`${styles.mono} ${styles.urlCell}`}>
+                        {application.launchUrl}
+                      </AdminTableCell>
+                      <AdminTableCell>
+                        <Link
+                          className={`typeBodySmall ${styles.link}`}
+                          href={`/admin/catalog/${application.id}`}
+                        >
+                          Quản lý
+                        </Link>
+                      </AdminTableCell>
+                    </AdminTableBodyRow>
+                  ))}
+                </tbody>
               </AdminTable>
             )}
           </section>

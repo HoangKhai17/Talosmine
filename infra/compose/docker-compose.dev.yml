@@ -42,7 +42,11 @@ services:
     ports:
       # 15432 -> đường TRỰC TIẾP tới PostgreSQL, không qua pooler.
       # Dùng cho: `pnpm db:migrate` (role migration cần session ổn định để chạy DDL).
-      - '127.0.0.1:15432:5432'
+      # ĐỔI 15432 -> 15433 (2026-08-19): dự án khác trên cùng máy (`tms-postgres`) đã bind
+      # 0.0.0.0:15432. Khi container db của Talosmine khởi động lại, bind thất bại và Docker
+      # bỏ luôn phần gắn MẠNG — khiến `logto` và `supavisor` mất đường tới `db` rồi crash-loop.
+      # Triệu chứng nhìn thấy: Logto "Up 8 seconds" lặp mãi, DB log KHÔNG có kết nối nào.
+      - '127.0.0.1:15433:5432'
 
   supavisor:
     ports:

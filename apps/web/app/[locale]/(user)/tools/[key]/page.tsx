@@ -7,7 +7,7 @@ import {
   type PageLocaleParams,
   resolvePageI18n,
 } from '../../../../../i18n/params';
-import { DEMO_PRODUCTS, findDemoProduct } from '../../../../../lib/demo-products';
+import { DEMO_PRODUCTS, findDemoProduct, pick } from '../../../../../lib/demo-products';
 import styles from './page.module.css';
 
 type Params = PageLocaleParams & { params: Promise<{ locale: string; key: string }> };
@@ -47,8 +47,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!product) return { title: 'Không tìm thấy công cụ' };
 
   return {
-    title: `${product.title} — KOLO`,
-    description: product.description,
+    title: pick(product.title, locale),
+    description: pick(product.description, locale),
     alternates: localeAlternates(locale, `/tools/${product.key}`),
   };
 }
@@ -70,7 +70,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * ngay, không phải tạo tài khoản.
  */
 export default async function ToolDetailPage({ params }: Params) {
-  const { locale } = await resolvePageI18n(params);
+  const { locale, t } = await resolvePageI18n(params);
   const { key } = await params;
   const product = findDemoProduct(key);
 
@@ -79,26 +79,26 @@ export default async function ToolDetailPage({ params }: Params) {
   return (
     <div className="container section">
       <p className="typeBodySmall">
-        <Link href={localeHref(locale, '/tools')}>← Tất cả công cụ</Link>
+        <Link href={localeHref(locale, '/tools')}>← {t.tools.backToAll}</Link>
       </p>
 
       <div className={styles.header}>
-        <p className={`typeCaption ${styles.category}`}>{product.category}</p>
-        <h1 className="typeH2">{product.title}</h1>
-        <p className={`typeBody ${styles.lead}`}>{product.description}</p>
+        <p className={`typeCaption ${styles.category}`}>{pick(product.category, locale)}</p>
+        <h1 className="typeH2">{pick(product.title, locale)}</h1>
+        <p className={`typeBody ${styles.lead}`}>{pick(product.description, locale)}</p>
       </div>
 
       <div className={styles.frameWrap}>
         <iframe
           className={styles.frame}
           src={product.iframeSrc}
-          title={product.title}
+          title={pick(product.title, locale)}
           sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
           loading="lazy"
         />
       </div>
 
-      <p className={`typeCaption ${styles.note}`}>Công cụ này được cung cấp bởi Omni Calculator.</p>
+      <p className={`typeCaption ${styles.note}`}>{t.tools.poweredBy}</p>
     </div>
   );
 }

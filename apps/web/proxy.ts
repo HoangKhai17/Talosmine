@@ -7,7 +7,7 @@ import {
   negotiateLocale,
   splitLocale,
 } from './i18n/locale';
-import { DEMO_FRAME_ORIGINS } from './lib/demo-products';
+import { DEMO_FRAME_ORIGINS, DEMO_PRODUCTS } from './lib/demo-products';
 import { decideAdminAccess, isAdminPath } from './server/admin-authorization';
 import { logWarn } from './server/logger';
 
@@ -57,8 +57,38 @@ function allowedImageHosts(): string[] {
  * KHÔNG phải nới lỏng — không có wildcard, không có `'unsafe-inline'` cho script.
  * Next tự đọc nonce từ CSP của request header và gắn vào script của nó.
  */
+/**
+ * Trả về đường dẫn "không tồn tại" nếu path là `/<locale>/tools/<key>` mà `key` không có
+ * trong danh mục; ngược lại trả `null`.
+ *
+ * Chỉ xét đúng MỘT segment sau `tools` — `/tools` (trang danh sách) và các đường sâu hơn đều
+ * bỏ qua.
+ */
+function matchUnknownToolPath(pathname: string): string | null {
+  const parts = pathname.split('/').filter((part) => part !== '');
+  if (parts.length !== 3 || parts[1] !== 'tools') return null;
+
+  const key = parts[2];
+  if (DEMO_PRODUCTS.some((product) => product.key === key)) return null;
+
+  // Đường dẫn không khớp route nào → Next tự trả 404 kèm trang `not-found`.
+  return `/${parts[0]}/__khong-tim-thay__`;
+}
+
 function buildContentSecurityPolicy(nonce: string): string {
-  const scriptSrc = [`'self'`, `'nonce-${nonce}'`, `'strict-dynamic'`];
+  // `'wasm-unsafe-eval'` cho @meshsdk/core (kết nối ví Cardano).
+  //
+  // Mesh kéo theo libsodium và blake2b-wasm; cả hai gọi `WebAssembly.compile()` NGAY LÚC NẠP
+  // MODULE, trước bất kỳ thao tác ví nào. Thiếu nó thì lời gọi đó ném `CompileError`, cả chunk
+  // chết, và trang `/wallet` đứng mãi ở dòng "đang tải".
+  //
+  // BẪY: khối `if (!isProduction)` bên dưới thêm `'unsafe-eval'` cho React Refresh, mà
+  // `'unsafe-eval'` cũng cho phép biên dịch WASM. Nên ở `next dev` mọi thứ chạy ngon và lỗi
+  // CHỈ xuất hiện trên bản production — đúng nơi không ai thử trước khi deploy.
+  //
+  // Đây KHÔNG phải nới lỏng như `'unsafe-eval'`: `'wasm-unsafe-eval'` chỉ cho phép biên dịch
+  // WebAssembly, không cho `eval()` hay `new Function()` trên chuỗi JavaScript.
+  const scriptSrc = [`'self'`, `'nonce-${nonce}'`, `'strict-dynamic'`, `'wasm-unsafe-eval'`];
   const styleSrc = [`'self'`];
   const connectSrc = [`'self'`];
   // `'self'` và `data:` luôn đứng trước — bộ test CSP kiểm baseline bằng chuỗi con.
@@ -235,6 +265,30 @@ const proxy: NextProxy = async (request: NextRequest) => {
     }
   }
 
+  /**
+   * `/tools/<key>` không có thật → trả 404 THẬT, ngay tại đây.
+   *
+   * VÌ SAO PHẢI Ở PROXY, không phải trong page: `[key]` là segment động nên nó khớp MỌI giá
+   * trị — route luôn tồn tại, Next bắt đầu render, rồi mới tới `notFound()`. Lúc đó phản hồi
+   * đã stream nên không đặt lại được mã trạng thái: trang trả **200 kèm nội dung 404**.
+   *
+   * Đo được, và phép so sánh chỉ đúng thủ phạm: `/vi/khong-ton-tai-gi-ca` → 404,
+   * `/vi/account/khong-co` → 404, nhưng `/vi/tools/khong-co-that` → **200**. Chỉ route có
+   * segment động mới lệch. `export const dynamicParams = false` KHÔNG sửa được điều này.
+   *
+   * Cùng lập luận với khối `/auth` bên trên: proxy chạy TRƯỚC khi render nên nó còn đặt được
+   * mã trạng thái, còn Server Component thì không.
+   *
+   * Cách làm: viết lại sang một đường dẫn KHÔNG có route nào khớp, để chính Next trả 404 kèm
+   * trang `not-found` chuẩn — thay vì ta tự dựng một phản hồi 404 trần trụi.
+   */
+  const unknownTool = matchUnknownToolPath(request.nextUrl.pathname);
+  if (unknownTool) {
+    return NextResponse.rewrite(new URL(unknownTool, request.nextUrl.origin), {
+      headers: { 'Content-Security-Policy': contentSecurityPolicy },
+    });
+  }
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', contentSecurityPolicy);
@@ -250,9 +304,22 @@ const proxy: NextProxy = async (request: NextRequest) => {
 };
 
 export const config: ProxyConfig = {
-  // Bỏ qua static asset và favicon: chúng không phải document nên không cần CSP,
-  // và giữ chúng ngoài proxy tránh sinh nonce thừa mỗi request.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  /**
+   * Bỏ qua tài sản tĩnh: chúng không phải document nên không cần CSP, và giữ chúng ngoài
+   * proxy tránh sinh nonce thừa mỗi request.
+   *
+   * PHẦN ĐUÔI TỆP LÀ BẮT BUỘC, KHÔNG PHẢI TỐI ƯU. Trước đây danh sách chỉ có `_next/*` và
+   * `favicon.ico`, nên MỌI tệp trong `public/` đều rơi vào proxy và bị định tuyến ngôn ngữ
+   * chuyển hướng: `/demo-tools/a.svg` → **307** sang `/vi/demo-tools/a.svg` → 404. Ảnh nằm
+   * đúng chỗ, đường dẫn viết đúng, mà trang vẫn trống — và không có lỗi nào ở console server.
+   * Đã mất thời gian vì đúng lỗi này.
+   *
+   * Liệt kê ĐÍCH DANH từng đuôi thay vì loại mọi đường có dấu chấm: một slug bài viết chứa
+   * dấu chấm vẫn là document và vẫn phải nhận CSP. Thêm loại tệp mới thì thêm vào đây.
+   */
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|txt|xml|json|woff|woff2|ttf|otf|mp4|webm|pdf)$).*)',
+  ],
 };
 
 export default proxy;

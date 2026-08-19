@@ -231,33 +231,33 @@ export default function AdminAccountDetailPage({
               </p>
             ) : (
               <AdminTable minWidth="narrow">
-                  <AdminTableCaption className="typeBodySmall">
-                    {activeSessions} phiên còn hiệu lực trên tổng số {sessions.length}
-                  </AdminTableCaption>
-                  <thead>
-                    <tr>
-                      <AdminTableHeadCell scope="col">Tạo lúc</AdminTableHeadCell>
-                      <AdminTableHeadCell scope="col">Hoạt động gần nhất</AdminTableHeadCell>
-                      <AdminTableHeadCell scope="col">Hết hạn</AdminTableHeadCell>
-                      <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sessions.map((session) => (
-                      <AdminTableBodyRow key={session.id}>
-                        <AdminTableCell>{formatDateTime(session.createdAt)}</AdminTableCell>
-                        <AdminTableCell>{formatDateTime(session.lastSeenAt)}</AdminTableCell>
-                        <AdminTableCell>{formatDateTime(session.expiresAt)}</AdminTableCell>
-                        <AdminTableCell>
-                          {session.revokedAt ? (
-                            <span className={styles.revoked}>Đã thu hồi</span>
-                          ) : (
-                            'Đang hoạt động'
-                          )}
-                        </AdminTableCell>
-                      </AdminTableBodyRow>
-                    ))}
-                  </tbody>
+                <AdminTableCaption className="typeBodySmall">
+                  {activeSessions} phiên còn hiệu lực trên tổng số {sessions.length}
+                </AdminTableCaption>
+                <thead>
+                  <tr>
+                    <AdminTableHeadCell scope="col">Tạo lúc</AdminTableHeadCell>
+                    <AdminTableHeadCell scope="col">Hoạt động gần nhất</AdminTableHeadCell>
+                    <AdminTableHeadCell scope="col">Hết hạn</AdminTableHeadCell>
+                    <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map((session) => (
+                    <AdminTableBodyRow key={session.id}>
+                      <AdminTableCell>{formatDateTime(session.createdAt)}</AdminTableCell>
+                      <AdminTableCell>{formatDateTime(session.lastSeenAt)}</AdminTableCell>
+                      <AdminTableCell>{formatDateTime(session.expiresAt)}</AdminTableCell>
+                      <AdminTableCell>
+                        {session.revokedAt ? (
+                          <span className={styles.revoked}>Đã thu hồi</span>
+                        ) : (
+                          'Đang hoạt động'
+                        )}
+                      </AdminTableCell>
+                    </AdminTableBodyRow>
+                  ))}
+                </tbody>
               </AdminTable>
             )}
           </section>

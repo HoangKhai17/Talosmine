@@ -497,40 +497,38 @@ function RedirectSection({
         <p className={`typeBody ${styles.empty}`}>Chưa có redirect URI nào.</p>
       ) : (
         <AdminTable minWidth="wide">
-            <AdminTableCaption className="typeBodySmall">
-              {redirectUris.length} URI
-            </AdminTableCaption>
-            <thead>
-              <tr>
-                <AdminTableHeadCell scope="col">Mục đích</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">URI (đã chuẩn hoá)</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">
-                  <span className="visuallyHidden">Hành động</span>
-                </AdminTableHeadCell>
-              </tr>
-            </thead>
-            <tbody>
-              {redirectUris.map((entry) => (
-                <AdminTableBodyRow key={entry.id}>
-                  <AdminTableCell>
-                    {entry.purpose === 'login' ? 'Đăng nhập' : 'Đăng xuất'}
-                  </AdminTableCell>
-                  <AdminTableCell className={`${styles.mono} ${styles.urlCell}`}>
-                    {entry.uri}
-                  </AdminTableCell>
-                  <AdminTableCell>
-                    <button
-                      type="button"
-                      className={`typeBodySmall ${styles.buttonSecondary}`}
-                      onClick={() => remove(entry)}
-                      disabled={pending !== null}
-                    >
-                      {pending === entry.id ? 'Đang gỡ…' : 'Gỡ'}
-                    </button>
-                  </AdminTableCell>
-                </AdminTableBodyRow>
-              ))}
-            </tbody>
+          <AdminTableCaption className="typeBodySmall">{redirectUris.length} URI</AdminTableCaption>
+          <thead>
+            <tr>
+              <AdminTableHeadCell scope="col">Mục đích</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">URI (đã chuẩn hoá)</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">
+                <span className="visuallyHidden">Hành động</span>
+              </AdminTableHeadCell>
+            </tr>
+          </thead>
+          <tbody>
+            {redirectUris.map((entry) => (
+              <AdminTableBodyRow key={entry.id}>
+                <AdminTableCell>
+                  {entry.purpose === 'login' ? 'Đăng nhập' : 'Đăng xuất'}
+                </AdminTableCell>
+                <AdminTableCell className={`${styles.mono} ${styles.urlCell}`}>
+                  {entry.uri}
+                </AdminTableCell>
+                <AdminTableCell>
+                  <button
+                    type="button"
+                    className={`typeBodySmall ${styles.buttonSecondary}`}
+                    onClick={() => remove(entry)}
+                    disabled={pending !== null}
+                  >
+                    {pending === entry.id ? 'Đang gỡ…' : 'Gỡ'}
+                  </button>
+                </AdminTableCell>
+              </AdminTableBodyRow>
+            ))}
+          </tbody>
         </AdminTable>
       )}
 
@@ -655,50 +653,50 @@ function FeatureSection({
         <p className={`typeBody ${styles.empty}`}>Chưa có tính năng nào.</p>
       ) : (
         <AdminTable minWidth="wide">
-            <AdminTableCaption className="typeBodySmall">
-              {features.length} tính năng
-            </AdminTableCaption>
-            <thead>
-              <tr>
-                <AdminTableHeadCell scope="col">Mã</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
-                <AdminTableHeadCell scope="col">
-                  <span className="visuallyHidden">Hành động</span>
-                </AdminTableHeadCell>
-              </tr>
-            </thead>
-            <tbody>
-              {features.map((feature) => {
-                const next = allowedTransitions(feature.status);
-                return (
-                  <AdminTableBodyRow key={feature.id}>
-                    <AdminTableCell className={styles.mono}>{feature.key}</AdminTableCell>
-                    <AdminTableCell>{feature.displayName}</AdminTableCell>
-                    <AdminTableCell>
-                      <StatusBadge status={feature.status} />
-                    </AdminTableCell>
-                    <AdminTableCell>
-                      {next.map((target) => (
-                        <button
-                          key={target}
-                          type="button"
-                          className={`typeBodySmall ${styles.buttonSecondary}`}
-                          onClick={() => changeStatus(feature, target)}
-                          disabled={pending !== null}
-                        >
-                          {pending === feature.id
-                            ? 'Đang đổi…'
-                            : target === 'active'
-                              ? 'Kích hoạt'
-                              : 'Tắt'}
-                        </button>
-                      ))}
-                    </AdminTableCell>
-                  </AdminTableBodyRow>
-                );
-              })}
-            </tbody>
+          <AdminTableCaption className="typeBodySmall">
+            {features.length} tính năng
+          </AdminTableCaption>
+          <thead>
+            <tr>
+              <AdminTableHeadCell scope="col">Mã</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">Tên hiển thị</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">Trạng thái</AdminTableHeadCell>
+              <AdminTableHeadCell scope="col">
+                <span className="visuallyHidden">Hành động</span>
+              </AdminTableHeadCell>
+            </tr>
+          </thead>
+          <tbody>
+            {features.map((feature) => {
+              const next = allowedTransitions(feature.status);
+              return (
+                <AdminTableBodyRow key={feature.id}>
+                  <AdminTableCell className={styles.mono}>{feature.key}</AdminTableCell>
+                  <AdminTableCell>{feature.displayName}</AdminTableCell>
+                  <AdminTableCell>
+                    <StatusBadge status={feature.status} />
+                  </AdminTableCell>
+                  <AdminTableCell>
+                    {next.map((target) => (
+                      <button
+                        key={target}
+                        type="button"
+                        className={`typeBodySmall ${styles.buttonSecondary}`}
+                        onClick={() => changeStatus(feature, target)}
+                        disabled={pending !== null}
+                      >
+                        {pending === feature.id
+                          ? 'Đang đổi…'
+                          : target === 'active'
+                            ? 'Kích hoạt'
+                            : 'Tắt'}
+                      </button>
+                    ))}
+                  </AdminTableCell>
+                </AdminTableBodyRow>
+              );
+            })}
+          </tbody>
         </AdminTable>
       )}
 

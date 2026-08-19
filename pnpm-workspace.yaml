@@ -24,6 +24,11 @@ allowBuilds:
   protobufjs: false
   ssh2: false
 
+  # chacha-native: binding native của `chacha`, kéo vào qua @meshsdk/core -> cbor.
+  # `chacha` khai nó là optionalDependency và có sẵn đường JS thuần, nên tắt không mất
+  # tính năng nào — chỉ mất một tối ưu tốc độ mà phần kết nối ví không đụng tới.
+  chacha-native: false
+
 # pnpm mặc định tạo node_modules strict (không phantom dependency).
 # Đây là điều kiện hỗ trợ luật ranh giới module tại docs/modular.md mục 1.2:
 # một package không import được thứ nó không khai báo dependency.

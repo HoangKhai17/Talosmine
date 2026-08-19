@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@meshsdk/core": "1.9.1",
     "next": "16.2.10",
     "openid-client": "6.8.4",
     "react": "19.2.7",

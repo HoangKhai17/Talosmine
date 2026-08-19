@@ -74,6 +74,7 @@ export const vi = {
   },
 
   nav: {
+    wallet: 'Ví Cardano',
     tools: 'Công cụ',
     blog: 'Blog',
     contact: 'Liên hệ',
@@ -152,8 +153,8 @@ export const vi = {
     popularTerm: 'Từ khoá {n}',
     partnerName: 'Logo',
     partnerText: 'Mô tả ngắn về đối tác sẽ hiển thị ở đây khi có nội dung thật.',
-    statToolCount: '10.000+ công cụ',
-    statCategoryCount: '500+ danh mục',
+    statToolCount: '{count} công cụ',
+    statCategoryCount: '{count} danh mục',
     statUpdated: 'Cập nhật mỗi ngày',
     toolsTitle: 'Tìm đúng công cụ cho mọi công việc',
     toolsLead:
@@ -163,6 +164,7 @@ export const vi = {
     toolMeta: 'Danh mục · Lượt dùng',
     categoriesTitle: 'Khám phá danh mục',
     categoryName: 'Danh mục',
+    categoryCount: '{count} công cụ',
     whatsNewTitle: 'Có gì mới',
     whatsNewLead:
       'Mỗi ngày chúng tôi bổ sung công cụ và nền tảng mới để bạn không bỏ lỡ thứ đáng thử.',
@@ -184,7 +186,64 @@ export const vi = {
       'Nội dung trả lời sẽ được biên soạn khi hệ thống có đủ tính năng. Phần này hiện chỉ minh hoạ bố cục.',
   },
 
+  /** Trang kết nối ví Cardano. Chuỗi sản phẩm — không phải copy marketing. */
+  wallet: {
+    sendTitle: 'Gửi ADA thử',
+    sendLead:
+      'Dựng, ký và phát một giao dịch thật trên mạng thử nghiệm Preprod. Không có bước nào đi qua máy chủ Talosmine.',
+    sendRecipient: 'Địa chỉ nhận',
+    sendRecipientPlaceholder: 'addr_test1...',
+    sendAmount: 'Số ADA',
+    sendSubmit: 'Gửi giao dịch',
+    sendSubmitting: 'Đang chờ ví ký…',
+    sendSuccess: 'Đã phát giao dịch.',
+    sendViewOnExplorer: 'Xem trên Cardanoscan',
+    errAddressEmpty: 'Nhập địa chỉ nhận.',
+    errAddressNetwork:
+      'Địa chỉ này không thuộc mạng thử nghiệm. Địa chỉ Preprod bắt đầu bằng addr_test.',
+    errAmountInvalid: 'Số ADA không hợp lệ (tối đa 6 chữ số thập phân).',
+    errAmountMin: 'Cardano yêu cầu mỗi giao dịch gửi tối thiểu 1 ADA.',
+    errAmountBalance: 'Số dư không đủ.',
+    errDeclined: 'Bạn đã từ chối ký trong ví.',
+    errSendStale:
+      'Kết nối tới ví đã ngắt (ví bị khoá hoặc extension khởi động lại). Hãy mở khoá ví, tải lại trang rồi gửi lại.',
+    errSendFailed: 'Không gửi được giao dịch.',
+    breadcrumb: 'Kết nối ví',
+    title: 'Kết nối ví Cardano',
+    lead: 'Chọn một ví đã cài trong trình duyệt để xem địa chỉ và số dư. Bản demo này chạy trên mạng thử nghiệm Preprod — hãy chuyển ví sang Preprod trước khi kết nối.',
+    loadingModule: 'Đang tải phần kết nối ví…',
+    searching: 'Đang tìm ví đã cài…',
+    noWallet: 'Trình duyệt này chưa có ví Cardano nào.',
+    connect: 'Kết nối',
+    connecting: 'Đang chờ ví…',
+    disconnect: 'Ngắt kết nối',
+    balance: 'Số dư',
+    receiveAddress: 'Địa chỉ nhận',
+    fullAddress: 'địa chỉ ví đầy đủ',
+    copy: 'Chép',
+    copied: 'Đã chép',
+    refresh: 'Đọc lại số dư',
+    refreshing: 'Đang đọc lại…',
+    mainnetWarning: 'Ví đang ở mainnet. Bản demo này chỉ chạy trên testnet.',
+    errDeclinedConnect: 'Bạn đã từ chối yêu cầu kết nối trong cửa sổ của ví.',
+    errStale:
+      'Kết nối tới extension ví đã ngắt — thường là do ví bị khoá hoặc extension vừa khởi động lại. Hãy mở khoá ví rồi tải lại trang; bấm kết nối lại sẽ không có tác dụng.',
+    errStaleReload: 'Tải lại trang',
+    errMissing: 'Không tìm thấy ví này nữa. Hãy tải lại trang rồi thử lại.',
+    errUnknown: 'Không kết nối được ví.',
+    canDoTitle: 'Bản demo này làm được gì',
+    canDo1: 'Nhận diện ví đã cài, kết nối và ngắt kết nối.',
+    canDo2: 'Tự kết nối lại ví đã chọn khi bạn tải lại trang.',
+    canDo3: 'Đọc địa chỉ nhận, số dư và mã mạng trực tiếp từ ví.',
+    canDo4: 'Chặn thao tác nếu ví đang ở mainnet.',
+    cannotTitle: 'Chưa làm',
+    cannotBody:
+      'Ký và gửi giao dịch, đối chiếu on-chain, thanh toán. Những phần đó cần backend và một indexer, nằm ngoài phạm vi bản demo.',
+  },
+
   tools: {
+    backToAll: 'Tất cả công cụ',
+    poweredBy: 'Công cụ này được cung cấp bởi Omni Calculator.',
     breadcrumb: 'Công cụ',
     title: 'Duyệt công cụ AI theo danh mục',
     lead: 'Khám phá bộ sưu tập công cụ AI đang lớn dần, so sánh khả năng và tìm đúng giải pháp cho từng dự án, từng quy trình làm việc.',

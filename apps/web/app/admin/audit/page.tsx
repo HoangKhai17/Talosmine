@@ -84,39 +84,39 @@ export default function AdminAuditPage() {
       {events.length > 0 ? (
         <>
           <AdminTable minWidth="wide">
-              <AdminTableCaption className="typeBodySmall">
-                Đang hiển thị {events.length} sự kiện
-              </AdminTableCaption>
-              <thead>
-                <tr>
-                  <AdminTableHeadCell scope="col">Thời điểm</AdminTableHeadCell>
-                  <AdminTableHeadCell scope="col">Hành động</AdminTableHeadCell>
-                  <AdminTableHeadCell scope="col">Người thực hiện</AdminTableHeadCell>
-                  <AdminTableHeadCell scope="col">Đối tượng</AdminTableHeadCell>
-                  <AdminTableHeadCell scope="col">Lý do</AdminTableHeadCell>
-                </tr>
-              </thead>
-              <tbody>
-                {events.map((event) => (
-                  <AdminTableBodyRow key={event.id}>
-                    <AdminTableCell>{formatDateTime(event.createdAt)}</AdminTableCell>
-                    <AdminTableCell>
-                      <span className={styles.action}>{event.action}</span>
-                    </AdminTableCell>
-                    <AdminTableCell>{actorLabel(event)}</AdminTableCell>
-                    <AdminTableCell className={styles.mono}>
-                      {event.targetId ? (
-                        `${event.targetType} · ${event.targetId.slice(0, 8)}…`
-                      ) : (
-                        <span className={styles.muted}>{event.targetType}</span>
-                      )}
-                    </AdminTableCell>
-                    <AdminTableCell>
-                      {event.reason ?? <span className={styles.muted}>—</span>}
-                    </AdminTableCell>
-                  </AdminTableBodyRow>
-                ))}
-              </tbody>
+            <AdminTableCaption className="typeBodySmall">
+              Đang hiển thị {events.length} sự kiện
+            </AdminTableCaption>
+            <thead>
+              <tr>
+                <AdminTableHeadCell scope="col">Thời điểm</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Hành động</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Người thực hiện</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Đối tượng</AdminTableHeadCell>
+                <AdminTableHeadCell scope="col">Lý do</AdminTableHeadCell>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <AdminTableBodyRow key={event.id}>
+                  <AdminTableCell>{formatDateTime(event.createdAt)}</AdminTableCell>
+                  <AdminTableCell>
+                    <span className={styles.action}>{event.action}</span>
+                  </AdminTableCell>
+                  <AdminTableCell>{actorLabel(event)}</AdminTableCell>
+                  <AdminTableCell className={styles.mono}>
+                    {event.targetId ? (
+                      `${event.targetType} · ${event.targetId.slice(0, 8)}…`
+                    ) : (
+                      <span className={styles.muted}>{event.targetType}</span>
+                    )}
+                  </AdminTableCell>
+                  <AdminTableCell>
+                    {event.reason ?? <span className={styles.muted}>—</span>}
+                  </AdminTableCell>
+                </AdminTableBodyRow>
+              ))}
+            </tbody>
           </AdminTable>
 
           <div className={styles.toolbar}>

@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { type Locale, localeHref } from '../../../i18n/locale';
 import { format, type Messages } from '../../../i18n/messages';
 import { localeAlternates, type PageLocaleParams } from '../../../i18n/params';
+import { DEMO_PRODUCTS, demoCategories, pick } from '../../../lib/demo-products';
 import { resolvePageContent } from '../../../server/site-content';
 import { ChevronIcon, ImageIcon, SearchIcon } from './icons';
 import { Newsletter } from './newsletter';
@@ -46,10 +48,8 @@ export async function generateMetadata({ params }: PageLocaleParams): Promise<Me
 
 /** Chỉ còn là SỐ LƯỢNG và ID — nhãn lấy từ catalog. */
 const POPULAR_COUNT = 5;
-const TOOL_IDS = ['t1', 't2', 't3'];
 
 // Bảy ô = đúng MỘT chu kỳ nhịp xen kẽ (3+5+4 rồi 3+4+3+2), tức hai hàng đầy.
-const CATEGORY_IDS = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'];
 
 const NEWS_IDS = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6'];
 const PARTNER_IDS = ['p1', 'p2', 'p3', 'p4', 'p5'];
@@ -62,7 +62,7 @@ export default async function UserHomePage({ params }: PageLocaleParams) {
     <>
       <Hero t={t} />
       <PartnerMarquee t={t} />
-      <ToolsSection t={t} />
+      <ToolsSection locale={locale} t={t} />
       <CategoriesSection locale={locale} t={t} />
       <WhatsNewSection t={t} />
       <BlogSection locale={locale} t={t} />
@@ -156,15 +156,23 @@ function PartnerItem({ t, duplicate = false }: { t: Messages; duplicate?: boolea
   );
 }
 
-function ToolsSection({ t }: { t: Messages }) {
+function ToolsSection({ locale, t }: { locale: Locale; t: Messages }) {
   return (
     <section className="section">
       <div className="container grid">
         <div className={styles.statsRow}>
+          {/*
+            Số liệu ĐẾM TỪ DỮ LIỆU THẬT, không phải chữ cố định.
+
+            Trước đây chỗ này ghi "10.000+ công cụ · 500+ danh mục" trong khi lưới ngay bên
+            dưới hiện đúng bảy thẻ. Một con số tự mâu thuẫn với chính trang đang hiện là thứ
+            người chấm hồ sơ nhận ra ngay, và nó làm hỏng độ tin của mọi con số khác trong hồ
+            sơ. Đếm thật thì nhỏ nhưng đúng — và tự lớn lên khi danh mục lớn lên.
+          */}
           <p className={`typeBodySmall ${styles.statsChip}`}>
-            <span>{t.home.statToolCount}</span>
+            <span>{format(t.home.statToolCount, { count: DEMO_PRODUCTS.length })}</span>
             <span className={styles.statsDivider}>·</span>
-            <span>{t.home.statCategoryCount}</span>
+            <span>{format(t.home.statCategoryCount, { count: demoCategories().length })}</span>
             <span className={styles.statsDivider}>·</span>
             <span>{t.home.statUpdated}</span>
           </p>
@@ -175,22 +183,58 @@ function ToolsSection({ t }: { t: Messages }) {
           <p className="typeBody textSecondary">{t.home.toolsLead}</p>
         </div>
 
+        {/*
+          BẢY SẢN PHẨM THẬT, mỗi thẻ mở thẳng công cụ chạy được ở `/tools/<key>`.
+
+          Trước đây đây là ba thẻ giữ chỗ mang CÙNG MỘT tiêu đề. Với người xem hồ sơ, một lưới
+          thẻ giống hệt nhau và bấm không vào đâu đọc ra là "chưa có gì" — dù bên trong đã có
+          bảy công cụ chạy được. Đường từ trang chủ tới công cụ chỉ dài một cú bấm, và đó là
+          thứ cần chứng minh.
+        */}
         <ul className="gridRow">
-          {TOOL_IDS.map((id) => (
-            <li key={id} className={styles.colCard}>
+          {DEMO_PRODUCTS.map((product) => (
+            <li key={product.key} className={styles.colCard}>
               <article className={styles.card}>
-                <div className={styles.thumb}>
-                  <ImageIcon />
-                </div>
-                <div className={styles.cardBody}>
-                  <h3 className="typeCardTitle">{t.home.toolName}</h3>
-                  <p className="typeBodySmall textSecondary">{t.home.toolDescription}</p>
-                  <p className={`typeCaption ${styles.cardMeta}`}>{t.home.toolMeta}</p>
-                </div>
+                <Link
+                  className={styles.cardLink}
+                  href={localeHref(locale, `/tools/${product.key}`)}
+                >
+                  <div className={styles.thumb}>
+                    {/*
+                      `alt=""` có chủ đích: tiêu đề ngay bên dưới đã nói đúng nội dung.
+                    
+                      `unoptimized` vì ảnh là SVG. Bộ tối ưu ảnh của Next không xử lý SVG trừ khi bật
+                      `dangerouslyAllowSVG` — một công tắc mở cho MỌI nguồn ảnh, trong khi ở đây chỉ có
+                      vài file tĩnh của chính ta. SVG vốn đã nhẹ và co giãn vô cấp, nên đi qua bộ tối ưu
+                      cũng không được gì. `width`/`height` giữ đúng 640×400 để khung không nhảy.
+                    */}
+                    <Image
+                      className={styles.thumbImage}
+                      src={product.image}
+                      alt=""
+                      width={640}
+                      height={400}
+                      unoptimized
+                    />
+                  </div>
+                  <div className={styles.cardBody}>
+                    <h3 className="typeCardTitle">{pick(product.title, locale)}</h3>
+                    <p className="typeBodySmall textSecondary">
+                      {pick(product.description, locale)}
+                    </p>
+                    <p className={`typeCaption ${styles.cardMeta}`}>
+                      {pick(product.category, locale)}
+                    </p>
+                  </div>
+                </Link>
               </article>
             </li>
           ))}
         </ul>
+
+        <p className={`typeBodySmall ${styles.toolsMore}`}>
+          <Link href={localeHref(locale, '/tools')}>{t.common.viewAll}</Link>
+        </p>
       </div>
     </section>
   );
@@ -210,14 +254,25 @@ function CategoriesSection({ locale, t }: { locale: Locale; t: Messages }) {
           </Link>
         </div>
 
+        {/*
+          Danh mục cũng suy ra từ sản phẩm thật (`demoCategories()`), kèm số công cụ trong mỗi
+          mục.
+
+          CỐ Ý KHÔNG BẤM ĐƯỢC: bộ lọc theo danh mục ở `/tools` chưa nối (taxonomy chưa tồn tại
+          — xem `pending-work`). Một thẻ trông bấm được mà bấm không đi đâu còn tệ hơn một thẻ
+          rõ ràng là nhãn. Khi bộ lọc có thật thì bọc `<Link>` vào đây là xong.
+        */}
         <ul className="gridRow">
-          {CATEGORY_IDS.map((id) => (
-            <li key={id} className={styles.categoryItem}>
+          {demoCategories().map((category) => (
+            <li key={category.label.vi} className={styles.categoryItem}>
               <div className={styles.categoryCard}>
                 <div className={styles.categoryThumb}>
                   <ImageIcon />
                 </div>
-                <h3 className="typeBodySmall">{t.home.categoryName}</h3>
+                <h3 className="typeBodySmall">{pick(category.label, locale)}</h3>
+                <p className={`typeCaption ${styles.categoryCount}`}>
+                  {format(t.home.categoryCount, { count: category.count })}
+                </p>
               </div>
             </li>
           ))}

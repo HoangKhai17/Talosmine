@@ -1,0 +1,92 @@
+/*
+ * Trang kết nối ví — chỉ khai SỐ CỘT của từng khối. Lưới dùng chung ở globals.css (class
+ * `grid`); file này không khai lại `display: grid`, không dùng `max-width` bằng px.
+ *
+ * Bản đồ cột (mobile 4 / tablet 8 / desktop 12):
+ *
+ *   Breadcrumb   trọn hàng (component tự mang `grid-column: 1 / -1`)
+ *   Tiêu đề      4 / 8 / 8
+ *   Mô tả        4 / 6 / 5
+ *   Khối ví      4 / 8 / 7
+ *   Ghi chú      4 / 8 / 4   ← desktop: nằm CẠNH khối ví, 7 + 1 khoảng + 4 = 12
+ *
+ * Ở mobile và tablet hai khối cuối xếp chồng: khối ví là việc chính, ghi chú đọc sau.
+ */
+
+.section {
+  padding-block: var(--section-padding-y);
+}
+
+.title {
+  grid-column: 1 / span 4;
+  margin-top: var(--space-6);
+}
+
+.lead {
+  grid-column: 1 / span 4;
+  margin-top: var(--space-3);
+}
+
+.panelSlot {
+  grid-column: 1 / span 4;
+  margin-top: var(--space-8);
+}
+
+.aside {
+  grid-column: 1 / span 4;
+  margin-top: var(--space-8);
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-bg-secondary);
+}
+
+.asideList {
+  margin: var(--space-3) 0 0;
+  padding-inline-start: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.asideHeading {
+  margin-top: var(--space-6);
+}
+
+.asideNote {
+  margin: var(--space-3) 0 0;
+}
+
+@media (min-width: 768px) {
+  .title {
+    grid-column: 1 / span 8;
+  }
+  .lead {
+    grid-column: 1 / span 6;
+  }
+  .panelSlot {
+    grid-column: 1 / span 8;
+  }
+  .aside {
+    grid-column: 1 / span 8;
+  }
+}
+
+@media (min-width: 1280px) {
+  .title {
+    grid-column: 1 / span 8;
+  }
+  .lead {
+    grid-column: 1 / span 5;
+  }
+  .panelSlot {
+    grid-column: 1 / span 7;
+  }
+  /*
+   * Ghi chú bắt đầu ở cột 9, chừa cột 8 làm khoảng thở giữa hai khối. `margin-top` bằng
+   * khối ví để hai đỉnh thẳng hàng — chúng là hai ô lưới riêng nên không tự căn theo nhau.
+   */
+  .aside {
+    grid-column: 9 / span 4;
+  }
+}

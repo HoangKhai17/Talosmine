@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
+import Link from 'next/link';
 import type { Locale } from '../../../../i18n/locale';
+import { localeHref } from '../../../../i18n/locale';
 import { format, type Messages } from '../../../../i18n/messages';
 import { localeAlternates, type PageLocaleParams } from '../../../../i18n/params';
+import { DEMO_PRODUCTS, type DemoProduct, pick } from '../../../../lib/demo-products';
 import { resolvePageContent } from '../../../../server/site-content';
 import { Breadcrumb } from '../breadcrumb';
-import { ChevronIcon, ImageIcon, SearchIcon } from '../icons';
+import { ChevronIcon, SearchIcon } from '../icons';
 import { Newsletter } from '../newsletter';
 import styles from './page.module.css';
 
@@ -49,16 +53,13 @@ const CATEGORY_TAB_COUNT = 6;
 /** Wireframe liệt kê tên thương hiệu ở đây. Đánh số thay vì bịa — danh sách thật chờ DEC-B01. */
 const MODEL_FILTER_COUNT = 6;
 
-/** Chín thẻ = ba hàng đầy ở desktop, đủ để thấy nhịp dọc giữa các hàng. */
-const RESULT_IDS = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9'];
-
 export default async function ToolsPage({ params }: PageLocaleParams) {
   const { locale, t } = await resolvePageContent(params);
 
   return (
     <>
       <BrowseHeader locale={locale} t={t} />
-      <BrowseBody t={t} />
+      <BrowseBody t={t} locale={locale} />
       <Newsletter locale={locale} />
     </>
   );
@@ -119,19 +120,24 @@ function CategoryStrip({ t }: { t: Messages }) {
   );
 }
 
-function BrowseBody({ t }: { t: Messages }) {
-  // Giá xen kẽ theo vị trí, không phải dữ liệu — chỉ để thấy hai độ dài nhãn khác nhau.
-  const priceFor = (index: number) => (index % 2 === 0 ? t.tools.priceFree : t.tools.priceFreePaid);
-
+function BrowseBody({ t, locale }: { t: Messages; locale: Locale }) {
   return (
     <section className={styles.bodySection}>
       <div className="container grid">
         <FilterSidebar t={t} />
 
+        {/*
+          Dữ liệu THẬT từ `lib/demo-products.ts`, thay cho mảng `RESULT_IDS` giữ chỗ trước đây.
+          Bố cục, lưới và bộ lọc giữ NGUYÊN — đúng ghi chú D2 của `pending-work.md`: sang giai
+          đoạn có dữ liệu thì chỉ thay nguồn, không dựng lại layout.
+
+          Bộ lọc bên trái vẫn chưa nối (chúng lọc theo taxonomy chưa tồn tại) — đó là giới hạn
+          đã biết, không phải mới phát sinh ở đây.
+        */}
         <ul className={styles.results} aria-label={t.a11y.results}>
-          {RESULT_IDS.map((id, index) => (
-            <li key={id} className={styles.resultItem}>
-              <ToolCard price={priceFor(index)} t={t} />
+          {DEMO_PRODUCTS.map((product) => (
+            <li key={product.key} className={styles.resultItem}>
+              <ToolCard product={product} locale={locale} t={t} />
             </li>
           ))}
         </ul>
@@ -246,32 +252,42 @@ function FilterSidebar({ t }: { t: Messages }) {
   );
 }
 
-function ToolCard({ price, t }: { price: string; t: Messages }) {
-  const tags = [format(t.tools.cardTag, { n: 1 }), format(t.tools.cardTag, { n: 2 })];
-
+function ToolCard({ product, locale, t }: { product: DemoProduct; locale: Locale; t: Messages }) {
   return (
     <article className={styles.card}>
-      <div className={styles.thumb}>
-        <ImageIcon />
-      </div>
-
-      <div className={styles.cardBody}>
-        <div className={styles.cardTitleRow}>
-          <h2 className="typeCardTitle">{t.tools.cardTitle}</h2>
-          <span className={`typeCaption ${styles.priceBadge}`}>{price}</span>
+      <Link className={styles.cardLink} href={localeHref(locale, `/tools/${product.key}`)}>
+        <div className={styles.thumb}>
+          {/*
+            `alt=""` có chủ đích: tiêu đề ngay bên dưới đã nói đúng nội dung.
+          
+            `unoptimized` vì ảnh là SVG. Bộ tối ưu ảnh của Next không xử lý SVG trừ khi bật
+            `dangerouslyAllowSVG` — một công tắc mở cho MỌI nguồn ảnh, trong khi ở đây chỉ có
+            vài file tĩnh của chính ta. SVG vốn đã nhẹ và co giãn vô cấp, nên đi qua bộ tối ưu
+            cũng không được gì. `width`/`height` giữ đúng 640×400 để khung không nhảy.
+          */}
+          <Image
+            className={styles.thumbImage}
+            src={product.image}
+            alt=""
+            width={640}
+            height={400}
+            unoptimized
+          />
         </div>
 
-        <p className="typeBodySmall textSecondary">{t.tools.cardDescription}</p>
-        <p className="typeBodySmall textSecondary">{t.tools.cardDescriptionSecond}</p>
+        <div className={styles.cardBody}>
+          <div className={styles.cardTitleRow}>
+            <h2 className="typeCardTitle">{pick(product.title, locale)}</h2>
+            <span className={`typeCaption ${styles.priceBadge}`}>{t.tools.priceFree}</span>
+          </div>
 
-        <ul className={styles.tagList}>
-          {tags.map((tag) => (
-            <li key={tag} className={`typeCaption ${styles.tag}`}>
-              {tag}
-            </li>
-          ))}
-        </ul>
-      </div>
+          <p className="typeBodySmall textSecondary">{pick(product.description, locale)}</p>
+
+          <ul className={styles.tagList}>
+            <li className={`typeCaption ${styles.tag}`}>{pick(product.category, locale)}</li>
+          </ul>
+        </div>
+      </Link>
     </article>
   );
 }

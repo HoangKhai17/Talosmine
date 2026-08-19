@@ -1,0 +1,383 @@
+/*
+ * Khối kết nối ví.
+ *
+ * Component này KHÔNG nằm trên lưới trang: nó được đặt trong một ô lưới do
+ * `app/[locale]/(user)/wallet/page.module.css` cấp. Bề ngang vì thế đến từ ô đó, còn ở đây
+ * chỉ xếp dọc bằng flex — đúng phân công "lưới lo cột, flex lo nhịp dọc" ở globals.css.
+ *
+ * Mọi màu và khoảng cách lấy từ token. Không có giá trị thô nào ngoài vài con số cấu trúc
+ * (bề rộng viền, `min-width: 0`) — globals.css là file duy nhất được chứa giá trị thô.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Vùng thay đổi nội dung khi ví kết nối/ngắt. Nó là ranh giới của `aria-live`, nên giữ
+ * nguyên một phần tử duy nhất ở đây — thay cả cây con thì trình đọc màn hình chỉ thông báo
+ * phần đổi, đúng ý muốn. */
+.liveRegion {
+  display: flex;
+  flex-direction: column;
+}
+
+.status {
+  margin: 0;
+}
+
+/* ── Chưa có ví nào ───────────────────────────────────────────────────────── */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-bg-secondary);
+}
+
+.emptyHint {
+  margin: 0;
+  /* Giới hạn theo ĐƠN VỊ CHỮ — ngoại lệ duy nhất mà luật 1 ở globals.css cho phép. */
+  max-width: 60ch;
+}
+
+/* ── Danh sách ví ─────────────────────────────────────────────────────────── */
+
+.walletList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.walletButton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-4);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  background-color: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  text-align: start;
+  cursor: pointer;
+}
+
+.walletButton:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-bg-secondary);
+}
+
+.walletButton:disabled {
+  cursor: default;
+  color: var(--color-text-disabled);
+}
+
+.walletIcon {
+  flex-shrink: 0;
+  border-radius: var(--radius-button);
+  /* Extension trả về icon đủ mọi kích thước; khoá lại để hàng không so le. */
+  width: var(--space-8);
+  height: var(--space-8);
+  object-fit: contain;
+}
+
+.walletMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* Cho phép co lại — thiếu dòng này thì tên ví dài đẩy nhãn "Kết nối" tràn khỏi nút. */
+  min-width: 0;
+  flex: 1;
+}
+
+/* Ví đang chờ vẫn phải đọc được: chỉ ví KHÁC mới mờ đi. Làm mờ tất cả thì người dùng mất
+ * dấu vết mình vừa bấm cái nào, trong khi popup của ví đang che mất trang. */
+.walletButton:disabled .walletMeta {
+  opacity: 0.55;
+}
+
+.walletVersion {
+  /* `apiVersion` là dữ liệu kỹ thuật, không nên xuống dòng giữa chừng. */
+  white-space: nowrap;
+}
+
+.walletAction {
+  flex-shrink: 0;
+  color: var(--color-green-primary);
+}
+
+.walletButton:disabled .walletAction {
+  color: var(--color-text-disabled);
+}
+
+/* ── Ví đã kết nối ────────────────────────────────────────────────────────── */
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-cta);
+  background-color: var(--color-surface-primary);
+  box-shadow: var(--shadow-card-soft);
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-tag);
+  background-color: var(--color-tag-bg);
+  color: var(--color-tag-text);
+}
+
+/*
+ * Nhãn mainnet phải khác hẳn nhãn testnet ngay từ cái liếc mắt.
+ *
+ * Bảng màu chưa có token `danger` (globals.css nói vậy), nên KHÔNG bịa một mã hex mới ở đây.
+ * Dùng cặp nền tối / chữ đảo có sẵn: nó tương phản mạnh với mọi thứ khác trên trang mà vẫn
+ * nằm trong bảng token. Thay bằng token trạng thái thật khi bảng màu có.
+ */
+.badgeBlocked {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-tag);
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-inverse);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fact dd {
+  margin: 0;
+}
+
+.addressRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.address {
+  /* Không có token font mono trong globals.css — dùng thẳng stack hệ thống. Địa chỉ bech32
+   * cần chữ đều bề ngang để `0`/`O` và `1`/`l` không lẫn vào nhau khi đối chiếu với ví. */
+  font-family: ui-monospace, monospace;
+  font-size: var(--type-body-small-size);
+  line-height: var(--type-body-small-line);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-secondary);
+  /* Địa chỉ đã rút gọn nên không cần ngắt dòng; giữ nguyên khối để dễ chọn bằng chuột. */
+  white-space: nowrap;
+}
+
+.copyButton {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-surface-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  border-color: var(--color-border-hover);
+}
+
+.note {
+  margin: 0;
+  max-width: 60ch;
+}
+
+/* ── Chốt chặn mainnet ────────────────────────────────────────────────────── */
+
+.gate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-inverse);
+}
+
+.gateHint {
+  margin: 0;
+  max-width: 60ch;
+  /* `textSecondary` là màu chữ cho nền sáng — trên nền tối nó gần như biến mất. */
+  color: var(--color-text-inverse);
+  opacity: 0.85;
+}
+
+.gate p {
+  margin: 0;
+}
+
+/* ── Hành động ────────────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.secondaryButton {
+  padding: var(--space-2) var(--space-5);
+  border: var(--border-default);
+  border-radius: var(--radius-button);
+  background-color: var(--color-button-secondary);
+  color: var(--color-button-secondary-text);
+  font-size: var(--type-body-small-size);
+  line-height: var(--type-body-small-line);
+  cursor: pointer;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  border-color: var(--color-border-hover);
+  background-color: var(--color-bg-secondary);
+}
+
+.secondaryButton:disabled {
+  cursor: default;
+  color: var(--color-text-disabled);
+}
+
+/* ── Lỗi ──────────────────────────────────────────────────────────────────── */
+
+/*
+ * Thông báo lỗi dùng viền dày một bên thay vì màu đỏ — cùng lý do với `.badgeBlocked`:
+ * chưa có token `danger`. `role="alert"` mới là thứ báo cho trình đọc màn hình; màu sắc
+ * chỉ là lớp phụ, và một lỗi chỉ phân biệt được bằng màu thì người mù màu không thấy.
+ */
+/* Từ `<p>` đổi sang `<div>`: thông báo lỗi giờ có thể mang thêm chuỗi thô và một nút. */
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: var(--space-1) solid var(--color-text-primary);
+  border-radius: var(--radius-button);
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.error p {
+  margin: 0;
+}
+
+/* Chuỗi thô của ví: dài, không xuống dòng đẹp, và có thể tràn ngang trên màn hình hẹp.
+   `break-word` là bắt buộc — đúng lớp lỗi tràn ngang vừa vá ở khu `/admin`. */
+.errorDetail {
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+}
+
+.errorAction {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width-thin) solid var(--color-text-primary);
+  border-radius: var(--radius-button);
+  background-color: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.errorAction:hover {
+  background-color: var(--color-bg-primary);
+}
+
+/* ── Gửi ADA thử (testnet) ─────────────────────────────────────────────── */
+
+.sendCard {
+  margin-top: var(--space-6);
+  padding: var(--space-6);
+  border: var(--border-default);
+  border-radius: var(--radius-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.sendLead {
+  margin: 0;
+}
+
+.sendField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sendInput {
+  width: 100%;
+  border: var(--border-default);
+  border-radius: var(--radius-input);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font: inherit;
+  /* Địa chỉ Cardano rất dài — cho phép ngắt để nó không đẩy khung tràn ngang. */
+  overflow-wrap: anywhere;
+}
+
+/* Không dùng màu để báo lỗi/thành công (bảng màu chưa có token danger/success, và một mình
+   màu sắc không đủ khả dụng) — dùng viền trái, đọc được cả khi in đen trắng. */
+.sendError,
+.sendOk {
+  margin: 0;
+  padding-left: var(--space-4);
+  border-left: 3px solid currentColor;
+  overflow-wrap: anywhere;
+}
+
+.sendError {
+  color: var(--color-text-primary);
+}
+
+.sendOk {
+  color: var(--color-text-secondary);
+}
+
+.sendSubmit {
+  align-self: flex-start;
+  border: none;
+  border-radius: var(--radius-button);
+  padding: var(--space-3) var(--space-6);
+  background-color: var(--color-button-primary);
+  color: var(--color-button-text);
+  font-weight: var(--weight-heading);
+  cursor: pointer;
+}
+
+.sendSubmit:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

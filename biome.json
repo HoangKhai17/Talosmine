@@ -20,7 +20,8 @@
       "!infra/compose/volumes",
       "!**/next-env.d.ts",
       "!.opencode",
-      "!.claude"
+      "!.claude",
+      "!apps/web/public"
     ]
   },
   "formatter": {

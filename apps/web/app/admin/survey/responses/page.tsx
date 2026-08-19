@@ -252,44 +252,54 @@ function ResponseList() {
       {items.length > 0 ? (
         <>
           <AdminTable minWidth="content" presentation="plain">
-              <AdminTableCaption className="typeCaption textSecondary" unstyled>
-                Đang hiển thị {items.length} lượt
-              </AdminTableCaption>
-              <thead>
-                <tr>
-                  <AdminTableHeadCell scope="col" compact>Thời điểm</AdminTableHeadCell>
-                  <AdminTableHeadCell scope="col" compact>Tài khoản</AdminTableHeadCell>
-                  <AdminTableHeadCell scope="col" compact>Trạng thái</AdminTableHeadCell>
-                  <AdminTableHeadCell scope="col" compact>Ngôn ngữ</AdminTableHeadCell>
-                  <AdminTableHeadCell scope="col" compact>Lựa chọn</AdminTableHeadCell>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => (
-                  <AdminTableBodyRow key={row.id}>
-                    <AdminTableCell compact>{formatDateTime(row.createdAt)}</AdminTableCell>
-                    <AdminTableCell className={styles.mono} compact>
-                      {/* Rút gọn id: đủ để đối chiếu, không biến bảng thành bức tường ký tự. */}
-                      <code>{row.accountId.slice(0, 8)}…</code>
-                    </AdminTableCell>
-                    <AdminTableCell compact>
-                      {row.status === 'completed' ? 'Hoàn tất' : 'Bỏ qua'}
-                    </AdminTableCell>
-                    <AdminTableCell compact>{row.locale}</AdminTableCell>
-                    <AdminTableCell className={styles.mono} compact>
-                      {row.answers.length === 0 ? (
-                        <span className="textSecondary">—</span>
-                      ) : (
-                        row.answers.map((answer) => (
-                          <div key={answer.questionKey}>
-                            <code>{answer.questionKey}</code>: {answer.optionKeys.join(', ')}
-                          </div>
-                        ))
-                      )}
-                    </AdminTableCell>
-                  </AdminTableBodyRow>
-                ))}
-              </tbody>
+            <AdminTableCaption className="typeCaption textSecondary" unstyled>
+              Đang hiển thị {items.length} lượt
+            </AdminTableCaption>
+            <thead>
+              <tr>
+                <AdminTableHeadCell scope="col" compact>
+                  Thời điểm
+                </AdminTableHeadCell>
+                <AdminTableHeadCell scope="col" compact>
+                  Tài khoản
+                </AdminTableHeadCell>
+                <AdminTableHeadCell scope="col" compact>
+                  Trạng thái
+                </AdminTableHeadCell>
+                <AdminTableHeadCell scope="col" compact>
+                  Ngôn ngữ
+                </AdminTableHeadCell>
+                <AdminTableHeadCell scope="col" compact>
+                  Lựa chọn
+                </AdminTableHeadCell>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((row) => (
+                <AdminTableBodyRow key={row.id}>
+                  <AdminTableCell compact>{formatDateTime(row.createdAt)}</AdminTableCell>
+                  <AdminTableCell className={styles.mono} compact>
+                    {/* Rút gọn id: đủ để đối chiếu, không biến bảng thành bức tường ký tự. */}
+                    <code>{row.accountId.slice(0, 8)}…</code>
+                  </AdminTableCell>
+                  <AdminTableCell compact>
+                    {row.status === 'completed' ? 'Hoàn tất' : 'Bỏ qua'}
+                  </AdminTableCell>
+                  <AdminTableCell compact>{row.locale}</AdminTableCell>
+                  <AdminTableCell className={styles.mono} compact>
+                    {row.answers.length === 0 ? (
+                      <span className="textSecondary">—</span>
+                    ) : (
+                      row.answers.map((answer) => (
+                        <div key={answer.questionKey}>
+                          <code>{answer.questionKey}</code>: {answer.optionKeys.join(', ')}
+                        </div>
+                      ))
+                    )}
+                  </AdminTableCell>
+                </AdminTableBodyRow>
+              ))}
+            </tbody>
           </AdminTable>
 
           <div className={styles.pager}>

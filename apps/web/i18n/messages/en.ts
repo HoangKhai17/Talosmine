@@ -67,6 +67,7 @@ export const en = {
   },
 
   nav: {
+    wallet: 'Cardano wallet',
     tools: 'Tools',
     blog: 'Blog',
     contact: 'Contact',
@@ -129,8 +130,8 @@ export const en = {
     popularTerm: 'Keyword {n}',
     partnerName: 'Logo',
     partnerText: 'A short partner description will appear here once there is real content.',
-    statToolCount: '10,000+ tools',
-    statCategoryCount: '500+ categories',
+    statToolCount: '{count} tools',
+    statCategoryCount: '{count} categories',
     statUpdated: 'Updated daily',
     toolsTitle: 'Find the right tool for every job',
     toolsLead:
@@ -140,6 +141,10 @@ export const en = {
     toolMeta: 'Category · Usage',
     categoriesTitle: 'Explore categories',
     categoryName: 'Category',
+    // Đặt số ở cuối để câu đúng với MỌI số đếm. `format()` cố ý không có pluralization
+    // (DEC-T25), nên '{count} tools' sẽ in ra '1 tools' ở ba danh mục đang có đúng một
+    // công cụ. Tiếng Việt không có vấn đề này nên bản `vi` giữ nguyên '{count} công cụ'.
+    categoryCount: 'Tools: {count}',
     whatsNewTitle: "What's new",
     whatsNewLead:
       'We add new tools and platforms every day so you never miss something worth trying.',
@@ -161,7 +166,63 @@ export const en = {
       'Answers will be written once the platform has enough features. This section only illustrates the layout for now.',
   },
 
+  wallet: {
+    sendTitle: 'Send test ADA',
+    sendLead:
+      'Build, sign and submit a real transaction on the Preprod test network. No step goes through a Talosmine server.',
+    sendRecipient: 'Recipient address',
+    sendRecipientPlaceholder: 'addr_test1...',
+    sendAmount: 'Amount in ADA',
+    sendSubmit: 'Send transaction',
+    sendSubmitting: 'Waiting for the wallet to sign…',
+    sendSuccess: 'Transaction submitted.',
+    sendViewOnExplorer: 'View on Cardanoscan',
+    errAddressEmpty: 'Enter a recipient address.',
+    errAddressNetwork:
+      'That address is not on the test network. Preprod addresses start with addr_test.',
+    errAmountInvalid: 'Invalid ADA amount (at most 6 decimal places).',
+    errAmountMin: 'Cardano requires at least 1 ADA per transaction.',
+    errAmountBalance: 'Not enough balance.',
+    errDeclined: 'You declined the signature in your wallet.',
+    errSendStale:
+      'The connection to your wallet dropped (it locked, or its extension restarted). Unlock the wallet, reload this page, then send again.',
+    errSendFailed: 'Could not submit the transaction.',
+    breadcrumb: 'Connect wallet',
+    title: 'Connect a Cardano wallet',
+    lead: 'Pick a wallet installed in your browser to see its address and balance. This demo runs on the Preprod test network — switch your wallet to Preprod before connecting.',
+    loadingModule: 'Loading the wallet connector…',
+    searching: 'Looking for installed wallets…',
+    noWallet: 'No Cardano wallet found in this browser.',
+    connect: 'Connect',
+    connecting: 'Waiting for the wallet…',
+    disconnect: 'Disconnect',
+    balance: 'Balance',
+    receiveAddress: 'Receiving address',
+    fullAddress: 'full wallet address',
+    copy: 'Copy',
+    copied: 'Copied',
+    refresh: 'Refresh balance',
+    refreshing: 'Refreshing…',
+    mainnetWarning: 'This wallet is on mainnet. The demo only runs on testnet.',
+    errDeclinedConnect: 'You declined the connection request in your wallet.',
+    errStale:
+      'The connection to your wallet extension dropped — usually because the wallet locked or the extension restarted. Unlock the wallet and reload this page; pressing connect again will not help.',
+    errStaleReload: 'Reload the page',
+    errMissing: 'That wallet is no longer available. Reload the page and try again.',
+    errUnknown: 'Could not connect to the wallet.',
+    canDoTitle: 'What this demo does',
+    canDo1: 'Detects installed wallets, connects and disconnects.',
+    canDo2: 'Reconnects the chosen wallet when you reload the page.',
+    canDo3: 'Reads the receiving address, balance and network id straight from the wallet.',
+    canDo4: 'Blocks actions when the wallet is on mainnet.',
+    cannotTitle: 'Not included',
+    cannotBody:
+      'Signing and submitting transactions, on-chain reconciliation, payments. Those need a backend and an indexer, which is outside the scope of this demo.',
+  },
+
   tools: {
+    backToAll: 'All tools',
+    poweredBy: 'This tool is provided by Omni Calculator.',
     breadcrumb: 'Tools',
     title: 'Browse AI tools by category',
     lead: 'Explore a growing collection of AI tools, compare capabilities and find the right fit for each project and workflow.',
