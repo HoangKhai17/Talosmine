@@ -9,10 +9,11 @@ import {
   type DemoProduct,
   demoCategories,
   isVectorImage,
+  newestDemoProducts,
   pick,
 } from '../../../lib/demo-products';
 import { resolvePageContent } from '../../../server/site-content';
-import { ChevronIcon, ImageIcon, SearchIcon } from './icons';
+import { ChevronIcon, SearchIcon } from './icons';
 import { Newsletter } from './newsletter';
 import styles from './page.module.css';
 
@@ -56,8 +57,6 @@ export async function generateMetadata({ params }: PageLocaleParams): Promise<Me
 
 // Bảy ô = đúng MỘT chu kỳ nhịp xen kẽ (3+5+4 rồi 3+4+3+2), tức hai hàng đầy.
 
-const NEWS_IDS = ['n1', 'n2', 'n3', 'n4', 'n5', 'n6'];
-
 export default async function UserHomePage({ params }: PageLocaleParams) {
   // `t` đã merge chữ CMS (nếu có) đè lên message catalog — component bên dưới không đổi.
   const { locale, t } = await resolvePageContent(params);
@@ -68,8 +67,8 @@ export default async function UserHomePage({ params }: PageLocaleParams) {
       <ToolMarquee locale={locale} t={t} />
       <ToolsSection locale={locale} t={t} />
       <CategoriesSection locale={locale} t={t} />
-      <WhatsNewSection t={t} />
-      <BlogSection locale={locale} t={t} />
+      <WhatsNewSection locale={locale} t={t} />
+      <GetStartedSection locale={locale} t={t} />
       <FaqSection t={t} />
       <Newsletter locale={locale} />
     </>
@@ -339,7 +338,15 @@ function CategoriesSection({ locale, t }: { locale: Locale; t: Messages }) {
             <li key={category.label.vi} className={styles.categoryItem}>
               <div className={styles.categoryCard}>
                 <div className={styles.categoryThumb}>
-                  <ImageIcon />
+                  {/* Ảnh mượn từ công cụ đầu tiên của danh mục — xem `demoCategories()`. */}
+                  <Image
+                    className={styles.categoryImage}
+                    src={category.image}
+                    alt=""
+                    width={640}
+                    height={400}
+                    unoptimized={isVectorImage(category.image)}
+                  />
                 </div>
                 <h3 className="typeBodySmall">{pick(category.label, locale)}</h3>
                 <p className={`typeCaption ${styles.categoryCount}`}>
@@ -354,7 +361,16 @@ function CategoriesSection({ locale, t }: { locale: Locale; t: Messages }) {
   );
 }
 
-function WhatsNewSection({ t }: { t: Messages }) {
+/**
+ * "Có gì mới" — SÁU CÔNG CỤ ĐƯỢC THÊM GẦN NHẤT, không phải sáu thẻ bài viết giả.
+ *
+ * Trước đây đây là sáu thẻ mang CÙNG một tiêu đề ("Tiêu đề bài viết sẽ hiển thị ở đây khi
+ * có nội dung thật") và bấm không đi đâu. Hệ thống chưa có blog, nên cách duy nhất để mục
+ * này nói thật là cho nó nói về thứ hệ thống CÓ: công cụ vừa thêm.
+ */
+function WhatsNewSection({ locale, t }: { locale: Locale; t: Messages }) {
+  const newest = newestDemoProducts(6);
+
   return (
     <section className="section">
       <div className="container grid">
@@ -364,17 +380,33 @@ function WhatsNewSection({ t }: { t: Messages }) {
         </div>
 
         <ul className="gridRow">
-          {NEWS_IDS.map((id) => (
-            <li key={id} className={styles.colCard}>
+          {newest.map((product) => (
+            <li key={product.key} className={styles.colCard}>
               <article className={styles.card}>
-                <div className={styles.thumb}>
-                  <ImageIcon />
-                </div>
-                <div className={styles.cardBody}>
-                  <span className={`typeCaption ${styles.tag}`}>{t.common.tag}</span>
-                  <h3 className="typeBodySmall">{t.home.articleTitle}</h3>
-                  <p className={`typeCaption ${styles.cardMeta}`}>{t.home.articleMeta}</p>
-                </div>
+                <Link
+                  className={styles.cardLink}
+                  href={localeHref(locale, `/tools/${product.key}`)}
+                >
+                  <div className={styles.thumb}>
+                    <Image
+                      className={styles.thumbImage}
+                      src={product.image}
+                      alt=""
+                      width={640}
+                      height={400}
+                      unoptimized={isVectorImage(product.image)}
+                    />
+                  </div>
+                  <div className={styles.cardBody}>
+                    <span className={`typeCaption ${styles.tag}`}>
+                      {pick(product.category, locale)}
+                    </span>
+                    <h3 className="typeBodySmall">{pick(product.title, locale)}</h3>
+                    <p className={`typeCaption ${styles.cardMeta}`}>
+                      {pick(product.description, locale)}
+                    </p>
+                  </div>
+                </Link>
               </article>
             </li>
           ))}
@@ -384,35 +416,71 @@ function WhatsNewSection({ t }: { t: Messages }) {
   );
 }
 
-function BlogSection({ locale, t }: { locale: Locale; t: Messages }) {
+/**
+ * "Bắt đầu" — BA THẺ DẪN TỚI BA TRANG CÓ THẬT.
+ *
+ * Trước đây đây là mục Blog với ba thẻ mang cùng một tiêu đề giữ chỗ và không bấm được. Hệ
+ * thống chưa có bài viết nào, nên đổ ba bài giả vào đây sẽ là nội dung bịa dẫn tới hư không
+ * — đúng thứ người xem hồ sơ nhận ra ngay.
+ *
+ * Ba thẻ này nói về những việc người dùng LÀM ĐƯỢC NGAY BÂY GIỜ, và mỗi thẻ mở một trang
+ * chạy thật. Khi hệ thống blog có nội dung thì thêm lại mục Blog riêng, không phải sửa mục
+ * này — mục Blog vẫn còn trên menu chính.
+ *
+ * Giữ nguyên bố cục 6/6 của wireframe: một thẻ lớn bên trái, hai thẻ nhỏ xếp dọc bên phải.
+ */
+function GetStartedSection({ locale, t }: { locale: Locale; t: Messages }) {
+  const cards = [
+    {
+      key: 'tools',
+      title: t.home.startToolsTitle,
+      lead: t.home.startToolsLead,
+      href: '/tools',
+      image: '/demo-tools/hero-marketplace.svg',
+      feature: true,
+    },
+    {
+      key: 'wallet',
+      title: t.home.startWalletTitle,
+      lead: t.home.startWalletLead,
+      href: '/wallet',
+      image: '/demo-tools/tinh-tiet-kiem.svg',
+      feature: false,
+    },
+    {
+      key: 'categories',
+      title: t.home.startBrowseTitle,
+      lead: t.home.startBrowseLead,
+      href: '/tools',
+      image: '/demo-tools/tinh-thay-doi-phan-tram.svg',
+      feature: false,
+    },
+  ];
+
+  const [feature, ...side] = cards;
+
   return (
     <section className="section">
       <div className="container grid">
         <div className={styles.sectionHeaderRow}>
-          <h2 className="typeH2">{t.home.blogTitle}</h2>
-          <Link className={`typeBodySmall ${styles.viewAll}`} href={localeHref(locale, '/blog')}>
+          <h2 className="typeH2">{t.home.startTitle}</h2>
+          <Link
+            className={`typeBodySmall ${styles.viewAll}`}
+            href={localeHref(locale, '/resources')}
+          >
             {t.common.viewAll}
           </Link>
         </div>
 
-        {/* Chia 6/6 cột — hai khối là con trực tiếp của lưới. */}
-        <article className={`${styles.blogCard} ${styles.blogFeature}`}>
-          <div className={styles.blogCardBody}>
-            <p className="typeCaption textTertiary">{t.common.publishDate}</p>
-            <h3 className="typeCardTitle">{t.home.featuredArticleTitle}</h3>
-            <p className="typeBodySmall textSecondary">{t.home.articleLead}</p>
+        {feature !== undefined && (
+          <div className={styles.blogFeature}>
+            <StartCard card={feature} locale={locale} />
           </div>
-        </article>
+        )}
 
         <div className={styles.blogSide}>
-          {['b1', 'b2'].map((id) => (
-            <article key={id} className={`${styles.blogCard} ${styles.blogSideCard}`}>
-              <div className={styles.blogCardBody}>
-                <p className="typeCaption textTertiary">{t.common.publishDate}</p>
-                <h3 className="typeCardTitle">{t.home.articleTitle}</h3>
-                <p className="typeBodySmall textSecondary">{t.home.articleLeadShort}</p>
-              </div>
-            </article>
+          {side.map((card) => (
+            <StartCard key={card.key} card={card} locale={locale} className={styles.blogSideCard} />
           ))}
         </div>
       </div>
@@ -420,12 +488,50 @@ function BlogSection({ locale, t }: { locale: Locale; t: Messages }) {
   );
 }
 
+function StartCard({
+  card,
+  locale,
+  className = '',
+}: {
+  card: { title: string; lead: string; href: string; image: string };
+  locale: Locale;
+  /** `string | undefined` chứ không phải `className?:` — repo bật `exactOptionalPropertyTypes`. */
+  className?: string | undefined;
+}) {
+  return (
+    <article className={`${styles.blogCard} ${className}`}>
+      <Link className={styles.blogCardLink} href={localeHref(locale, card.href)}>
+        {/* Ảnh nền phủ kín thẻ; lớp phủ tối nằm giữa ảnh và chữ để chữ trắng luôn đọc được
+            dù ảnh nền sáng — xem `.blogCard::after`. */}
+        <Image
+          className={styles.blogImage}
+          src={card.image}
+          alt=""
+          width={640}
+          height={400}
+          unoptimized={isVectorImage(card.image)}
+        />
+        <div className={styles.blogCardBody}>
+          <h3 className="typeCardTitle">{card.title}</h3>
+          <p className="typeBodySmall">{card.lead}</p>
+        </div>
+      </Link>
+    </article>
+  );
+}
+
 function FaqSection({ t }: { t: Messages }) {
-  const questions = [
-    t.home.faqQuestion1,
-    t.home.faqQuestion2,
-    t.home.faqQuestion3,
-    t.home.faqQuestion4,
+  /**
+   * MỖI CÂU HỎI MỘT CÂU TRẢ LỜI RIÊNG.
+   *
+   * Trước đây cả bốn mục dùng chung `t.home.faqAnswer` — mở mục nào cũng ra đúng một đoạn
+   * chữ. Với người đọc thì đó là dấu hiệu rõ nhất rằng phần này chưa được viết.
+   */
+  const faq = [
+    { question: t.home.faqQuestion1, answer: t.home.faqAnswer1 },
+    { question: t.home.faqQuestion2, answer: t.home.faqAnswer2 },
+    { question: t.home.faqQuestion3, answer: t.home.faqAnswer3 },
+    { question: t.home.faqQuestion4, answer: t.home.faqAnswer4 },
   ];
 
   return (
@@ -441,14 +547,14 @@ function FaqSection({ t }: { t: Messages }) {
         </div>
 
         <div className={styles.faqList}>
-          {questions.map((question, index) => (
+          {faq.map((item, index) => (
             // Mục đầu mở sẵn (theo wireframe) để thấy ngay dạng câu trả lời.
-            <details key={question} className={styles.faqItem} open={index === 0}>
+            <details key={item.question} className={styles.faqItem} open={index === 0}>
               <summary className={`typeBody ${styles.faqQuestion}`}>
-                {question}
+                {item.question}
                 <ChevronIcon className={styles.faqMarker} />
               </summary>
-              <p className={`typeBodySmall ${styles.faqAnswer}`}>{t.home.faqAnswer}</p>
+              <p className={`typeBodySmall ${styles.faqAnswer}`}>{item.answer}</p>
             </details>
           ))}
         </div>

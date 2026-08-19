@@ -270,10 +270,6 @@
   text-decoration: none;
 }
 
-.marqueeLink:hover .marqueeName {
-  text-decoration: underline;
-}
-
 /* Tiêu đề và mô tả xếp dọc cạnh ảnh. `min-width: 0` để mô tả dài không đẩy ô phình ngang. */
 .marqueeCopy {
   display: flex;
@@ -285,6 +281,10 @@
 .marqueeName {
   color: var(--color-text-primary);
   white-space: nowrap;
+}
+
+.marqueeLink:hover .marqueeName {
+  text-decoration: underline;
 }
 
 /* Giới hạn theo ĐƠN VỊ CHỮ, không phải px — đây là ràng buộc độ dài dòng đọc được, một
@@ -503,6 +503,14 @@
   text-decoration: none;
 }
 
+/* Ảnh đại diện của danh mục lấp đầy ô. */
+.categoryImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .categoryThumb {
   /* Chiều cao đến từ token `--media-category-height` (globals.css) — nó tự đổi theo
    * breakpoint nên ở đây không cần media query. Xem ghi chú tại token đó để hiểu vì sao
@@ -513,9 +521,19 @@
   display: grid;
   place-items: center;
   color: var(--color-text-tertiary);
+  /* `overflow: hidden` để ảnh bên trong bo góc theo thẻ — thiếu nó thì ảnh vuông góc
+     đè lên bo tròn và bốn góc trông như bị vỡ. */
+  overflow: hidden;
 }
 
-.categoryCard:hover .categoryThumb {
+.categoryCard:hover /* Ảnh đại diện của danh mục lấp đầy ô. */ .categoryImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.categoryThumb {
   background-color: var(--color-border-default);
 }
 
@@ -561,17 +579,62 @@
  * lớp phủ tối dần từ đáy để chữ còn đọc được. Nền xám hiện tại là chỗ giữ chỗ cho ảnh đó.
  */
 .blogCard {
+  position: relative;
+  display: flex;
+  min-height: var(--media-blog-card-height);
+  border-radius: var(--radius-card);
+  background-color: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+/* LỚP PHỦ TỐI giữa ảnh nền và chữ.
+
+   Không phải trang trí: ảnh minh hoạ có nền sáng (#eef7e8), chữ trắng đặt thẳng lên đó sẽ
+   không đọc được. Gradient đậm dần xuống đáy vì chữ nằm ở đáy thẻ.
+
+   `pointer-events: none` để lớp phủ không nuốt cú bấm của link nằm dưới. */
+.blogCard::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to top, rgb(13 31 45 / 88%), rgb(13 31 45 / 25%));
+  pointer-events: none;
+}
+
+/* Ảnh nền phủ kín thẻ, nằm DƯỚI lớp phủ. */
+.blogImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Cả thẻ là một vùng bấm. `z-index` đưa link lên TRÊN lớp phủ — thiếu nó thì lớp phủ nằm
+   đè lên link và vùng bấm biến mất. */
+.blogCardLink {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  min-height: var(--media-blog-card-height);
+  width: 100%;
   padding: var(--space-6);
-  border-radius: var(--radius-card);
-  background-color: var(--color-bg-secondary);
+  text-decoration: none;
 }
 
-.blogCard:hover {
-  background-color: var(--color-border-default);
+/* ĐẶT MÀU LÊN TỪNG PHẦN TỬ CON, không dựa vào thừa kế từ `.blogCardLink`.
+
+   Đã đo: chữ vẫn giữ màu xanh đậm `#0d1f2d` thừa kế từ `body`, nằm trên lớp phủ tối — gần
+   như không đọc nổi. Lỗi kiểu này nhìn ảnh chụp rất dễ bỏ qua, chỉ lộ ra khi đo màu tính
+   toán của chính phần tử. */
+.blogCardLink h3,
+.blogCardLink p {
+  color: var(--color-text-inverse);
+}
+
+.blogCardLink:hover h3 {
+  text-decoration: underline;
 }
 
 .blogCardBody {

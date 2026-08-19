@@ -124,6 +124,24 @@ export const en = {
   },
 
   home: {
+    articleTitle: 'The article title will appear here once there is real content',
+    articleLead:
+      'The opening paragraph of the article. This content comes from the blog system, which is wired up in a later phase.',
+    startTitle: 'Get started',
+    startToolsTitle: 'Run a tool right in your browser',
+    startToolsLead: 'Open a tool and start calculating. No install, no account needed.',
+    startWalletTitle: 'Connect a Cardano wallet',
+    startWalletLead: 'Connect a CIP-30 wallet and try a transaction on the Preprod network.',
+    startBrowseTitle: 'Browse by category',
+    startBrowseLead: 'Filter by the job you are doing, or search by keyword, right on the page.',
+    faqAnswer1:
+      'Kolo gathers the small calculators that sellers and small business owners reach for every day: profit margin, break-even, tax, commission. Each one runs straight in your browser with nothing to install.',
+    faqAnswer2:
+      'Tool submissions are not open yet. For now the catalogue is picked and checked by the team, so every tool works on the spot instead of being one more list of links.',
+    faqAnswer3:
+      'Every tool is tried by hand before it is added: it has to work, it has to give correct results, and it has to belong in a seller’s real workflow. Tools that fail any of those do not make the list.',
+    faqAnswer4:
+      'No. Every tool is open to everyone with no sign-in. An account is only needed if you want to save tools, build collections, or use the wallet payment feature.',
     heroTitle: 'Discover the best tools to build and grow',
     heroLead:
       'A curated catalogue of the best tools and resources for creators, developers and growing teams.',
@@ -131,8 +149,6 @@ export const en = {
     searchSubmit: 'Search',
     popularLabel: 'Popular:',
     popularTerm: 'Keyword {n}',
-    partnerName: 'Logo',
-    partnerText: 'A short partner description will appear here once there is real content.',
     statToolCount: '{count} tools',
     statCategoryCount: '{count} categories',
     statUpdated: 'Updated daily',
@@ -151,13 +167,6 @@ export const en = {
     whatsNewTitle: "What's new",
     whatsNewLead:
       'We add new tools and platforms every day so you never miss something worth trying.',
-    articleTitle: 'The article title will appear here once there is real content',
-    articleMeta: 'Published · Author',
-    blogTitle: 'Blog',
-    featuredArticleTitle: 'The featured article title will appear here once there is real content',
-    articleLead:
-      'The opening paragraph of the article. This content comes from the blog system and will be connected in a later stage.',
-    articleLeadShort: 'The opening paragraph of the article will appear here.',
     faqTitle: 'Frequently asked questions',
     faqLead: 'Quick answers to common questions, gathered in one place.',
     faqAsk: 'Ask a question',
@@ -165,8 +174,6 @@ export const en = {
     faqQuestion2: 'How do I submit my own tool?',
     faqQuestion3: 'How is the catalogue reviewed?',
     faqQuestion4: 'Do I need an account to use it?',
-    faqAnswer:
-      'Answers will be written once the platform has enough features. This section only illustrates the layout for now.',
   },
 
   wallet: {

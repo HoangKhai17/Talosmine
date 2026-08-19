@@ -265,6 +265,14 @@ export const DEMO_PRODUCTS: DemoProduct[] = [
 export interface DemoCategory {
   label: Localized;
   count: number;
+  /**
+   * Ảnh ĐẠI DIỆN, lấy từ công cụ ĐẦU TIÊN của danh mục.
+   *
+   * Danh mục không có ảnh riêng, và vẽ thêm bảy ảnh nữa chỉ để làm nhãn nhóm là công sức
+   * không đáng. Mượn ảnh của công cụ đầu tiên cho ra một thẻ có hình thật, và nó tự đúng
+   * lại khi danh mục đổi nội dung.
+   */
+  image: string;
 }
 
 /**
@@ -282,7 +290,7 @@ export function demoCategories(): DemoCategory[] {
   for (const product of DEMO_PRODUCTS) {
     const existing = seen.get(product.category.vi);
     if (existing === undefined) {
-      seen.set(product.category.vi, { label: product.category, count: 1 });
+      seen.set(product.category.vi, { label: product.category, count: 1, image: product.image });
     } else {
       existing.count += 1;
     }
@@ -383,6 +391,18 @@ export const DEMO_FRAME_ORIGINS: string[] = Array.from(
  */
 export function isVectorImage(src: string): boolean {
   return src.toLowerCase().endsWith('.svg');
+}
+
+/**
+ * `count` công cụ được thêm gần nhất.
+ *
+ * THỨ TỰ TRONG `DEMO_PRODUCTS` LÀ THỨ TỰ THÊM VÀO — bảy mục đầu là đợt gốc, tám mục sau
+ * thêm ngày 2026-08-19. Vì vậy "mới nhất" là lấy từ CUỐI danh sách. Không có cột `createdAt`
+ * nào cả; khi danh mục chuyển sang database thì thay hàm này bằng một truy vấn sắp theo
+ * ngày tạo, đừng giữ mẹo đọc ngược mảng.
+ */
+export function newestDemoProducts(count: number): DemoProduct[] {
+  return DEMO_PRODUCTS.slice(-count).reverse();
 }
 
 /** Đọc một trường song ngữ theo locale đang xem. */

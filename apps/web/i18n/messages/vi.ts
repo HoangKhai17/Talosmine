@@ -147,6 +147,24 @@ export const vi = {
   },
 
   home: {
+    articleTitle: 'Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật',
+    articleLead:
+      'Đoạn mở đầu của bài viết. Nội dung này đến từ hệ thống blog, sẽ được kết nối ở giai đoạn sau.',
+    startTitle: 'Bắt đầu',
+    startToolsTitle: 'Chạy công cụ ngay trong trình duyệt',
+    startToolsLead: 'Mở một công cụ và tính ngay. Không cài đặt, không cần tạo tài khoản.',
+    startWalletTitle: 'Kết nối ví Cardano',
+    startWalletLead: 'Kết nối ví CIP-30 và thử một giao dịch trên mạng Preprod.',
+    startBrowseTitle: 'Duyệt theo danh mục',
+    startBrowseLead: 'Lọc theo nhóm công việc hoặc tìm bằng từ khoá, ngay trên trang.',
+    faqAnswer1:
+      'Kolo là nơi tập hợp những công cụ nhỏ mà người bán hàng và chủ doanh nghiệp dùng hằng ngày: tính biên lợi nhuận, điểm hoà vốn, thuế, hoa hồng. Mỗi công cụ chạy thẳng trong trình duyệt, không phải cài gì.',
+    faqAnswer2:
+      'Phần gửi công cụ chưa mở. Hiện danh mục do đội ngũ chọn và kiểm trước khi đưa lên, để mỗi công cụ đều dùng được ngay thay vì là một danh sách link.',
+    faqAnswer3:
+      'Mỗi công cụ được thử tay trước khi thêm: phải chạy được, phải cho kết quả đúng, và phải thuộc quy trình thật của người bán hàng. Công cụ không đạt thì không lên danh mục.',
+    faqAnswer4:
+      'Không. Mọi công cụ đều mở tự do, không cần đăng nhập. Tài khoản chỉ cần khi bạn muốn lưu công cụ, tạo bộ sưu tập hoặc dùng phần thanh toán bằng ví.',
     heroTitle: 'Khám phá công cụ tốt nhất để xây dựng và phát triển',
     heroLead:
       'Danh mục được tuyển chọn gồm những công cụ và tài nguyên tốt nhất dành cho người sáng tạo, lập trình viên và đội ngũ đang tăng trưởng.',
@@ -154,8 +172,6 @@ export const vi = {
     searchSubmit: 'Tìm',
     popularLabel: 'Tìm nhiều:',
     popularTerm: 'Từ khoá {n}',
-    partnerName: 'Logo',
-    partnerText: 'Mô tả ngắn về đối tác sẽ hiển thị ở đây khi có nội dung thật.',
     statToolCount: '{count} công cụ',
     statCategoryCount: '{count} danh mục',
     statUpdated: 'Cập nhật mỗi ngày',
@@ -171,13 +187,6 @@ export const vi = {
     whatsNewTitle: 'Có gì mới',
     whatsNewLead:
       'Mỗi ngày chúng tôi bổ sung công cụ và nền tảng mới để bạn không bỏ lỡ thứ đáng thử.',
-    articleTitle: 'Tiêu đề bài viết sẽ hiển thị ở đây khi có nội dung thật',
-    articleMeta: 'Ngày đăng · Tác giả',
-    blogTitle: 'Blog',
-    featuredArticleTitle: 'Tiêu đề bài viết nổi bật sẽ hiển thị ở đây khi có nội dung thật',
-    articleLead:
-      'Đoạn mở đầu của bài viết. Nội dung này đến từ hệ thống blog, sẽ được kết nối ở giai đoạn sau.',
-    articleLeadShort: 'Đoạn mở đầu của bài viết sẽ hiển thị ở đây.',
     faqTitle: 'Câu hỏi thường gặp',
     faqLead: 'Giải đáp nhanh những thắc mắc phổ biến, tập hợp ở một nơi.',
     faqAsk: 'Đặt câu hỏi',
@@ -185,8 +194,6 @@ export const vi = {
     faqQuestion2: 'Làm sao để gửi công cụ của tôi lên đây?',
     faqQuestion3: 'Danh mục được kiểm duyệt như thế nào?',
     faqQuestion4: 'Tôi có cần tài khoản để sử dụng không?',
-    faqAnswer:
-      'Nội dung trả lời sẽ được biên soạn khi hệ thống có đủ tính năng. Phần này hiện chỉ minh hoạ bố cục.',
   },
 
   /** Trang kết nối ví Cardano. Chuỗi sản phẩm — không phải copy marketing. */
